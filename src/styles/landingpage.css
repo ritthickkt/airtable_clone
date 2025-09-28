@@ -1,0 +1,98 @@
+@font-face {
+  font-family: 'Logo';
+  src: url('./GT-Eesti/GT-Eesti-Display-Thin-Trial.otf') format('woff2');
+  font-weight: bold;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Logo-Bold';
+  src: url('./GT-Eesti/GT-Eesti-Display-Medium-Trial.otf') format('woff2');
+  font-weight: bold;
+  font-style: normal;
+}
+
+
+.landing-page-header {
+  background-color: #F8F9F2;
+  color: black;
+  font-family: 'Arial';
+  font-size: 18px;
+  padding: 20px;
+  padding-left: 25px;
+  gap: 20px;
+  align-items: center;
+  display: flex;
+  padding-top: 20px;
+  transition: background-color 0.5s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+
+.landing-page-header:hover {
+  background-color: white;
+}
+
+.logo-name {
+  display: flex;
+  font-family: 'Logo-Bold';
+  gap: 5px;
+  font-size: 30px;
+  margin-right: 20px;
+}
+
+.button {
+  
+}
+
+.button:hover {
+  cursor: pointer;
+}
+
+.bookademo-button {
+  border: 1px solid black;
+  border-radius: 15px;
+  padding: 15px;
+}
+
+.bookademo-button:hover {
+  cursor: pointer;
+  border: 1px solid grey;
+  color: grey;
+}
+
+.lefthandside-buttons {
+  display: flex;
+  margin-left: auto;
+  gap: 10px;
+}
+
+.bookademo-button:hover {
+  cursor: pointer;
+}
+
+.signup-button {
+  background-color: black;
+  color: white;
+  padding: 15px;
+  border-radius: 15px;
+  transition: background-color 0.5s;
+}
+
+.signup-button:hover {
+  cursor: pointer;
+  background-color: grey;
+}
+
+.login-button {
+  display: flex;
+  align-items: center;
+}
+
+.login-button:hover {
+  color: grey;
+  cursor: pointer;
+}

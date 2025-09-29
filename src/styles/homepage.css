@@ -1,0 +1,101 @@
+@font-face {
+  font-family: 'Logo';
+  src: url('./GT-Eesti/GT-Eesti-Display-Regular-Trial.otf') format('woff2');
+  font-weight: bold;
+  font-style: normal;
+}
+
+
+.users-name {
+  margin-left: auto;
+  font-family: BlinkMacSystemFont;
+}
+
+.landing-page-header-home {
+  background-color: white;
+  border: 1px solid rgba(128, 128, 128, 0.5);
+  color: black;
+  font-family: 'Arial';
+  font-size: 18px;
+  padding: 20px;
+  padding-left: 25px;
+  gap: 20px;
+  align-items: center;
+  display: flex;
+  padding-top: 20px;
+  transition: background-color 0.5s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.home-layout {
+  display: flex;
+  height: calc(100vh - 80px); /* Adjust based on header height */
+}
+
+.home-left-bar {
+  border: 1px solid rgba(128, 128, 128, 0.5);
+  border-top: none;
+  width: 20%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: baseline;
+  font-size: 20px;
+  padding: 10px;
+  /* gap: 4px; */ /* Remove this line */
+  box-sizing: border-box; /* Include padding in height calculation */
+}
+
+.sidebar-button {
+  font-family: BlinkMacSystemFont;
+  width: 100%;
+  text-align: left;
+  padding: 10px;
+  border-radius: 5px;
+  margin-bottom: 4px; /* Add margin instead of gap */
+}
+
+
+.sidebar-button:hover {
+  cursor: pointer;
+  background-color: #F2F4F8;
+}
+
+.nameoftab {
+  font-family: BlinkMacSystemFont;
+  font-size: 30px;
+  font-weight: 700;
+}
+
+.main-content {
+  display: flex;
+  padding: 20px;
+  padding-left: 40px;
+  background-color: #F9FAFB;
+  width: 100%;
+  height: 100%; /* Changed from min-height: 100vh */
+  overflow: hidden; /* Changed from overflow-y: auto */
+  box-sizing: border-box; /* Include padding in height calculation */
+}
+
+.bottom-left-sidebar {
+  display: flex;
+  margin-top: auto; /* This pushes it to the bottom */
+  width: 100%;
+  box-sizing: border-box; /* Include border in width calculation */
+}
+
+.create-button {
+  background-color: #2B6EE1;
+  padding: 10px 0;
+  border-radius: 15px;
+  width: 100%;
+  font-family: BlinkMacSystemFont;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

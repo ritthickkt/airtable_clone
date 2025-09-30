@@ -96,3 +96,60 @@
   color: grey;
   cursor: pointer;
 }
+
+.body-content {
+  background-color: #F8F9F2;
+  height: 100vh;
+  padding: 50px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+}
+
+.body-title {
+  font-family: BlinkMacSystemFont;
+  margin-bottom: 50px;
+  text-align: center;
+  color: #333333;
+  width: 800px;
+  font-size: 50px;
+}
+
+.chatbox {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  border-radius: 30px;
+  width: 800px;
+  height: 300px;
+  font-size: 20px;
+  padding: 30px;
+  background-color: white;
+  display: flex; /* Add this */
+  flex-direction: column; /* Add this */
+  justify-content: flex-start; /* Add this */
+}
+
+.chatbox input {
+  border: none;
+  outline: none;
+  font-size: inherit;
+  font-family: inherit;
+  background: transparent;
+  align-self: flex-start;
+}
+
+.builditnow-button {
+  background-color: black;
+  color: white;
+  padding: 20px;
+  border-radius: 40px;
+  transition: background-color 0.5s;
+  border: none; /* Add this */
+  align-self: flex-end; /* Add this to align to the right */
+  margin-top: auto; /* Add this to push to bottom */
+  cursor: pointer; /* Add this */
+}
+
+.builditnow-button:hover {
+  background-color: grey;
+}

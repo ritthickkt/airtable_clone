@@ -1,7 +1,8 @@
 import Link from "next/link";
 import Image from "next/image";
 
-import { LatestPost } from "ritthickclone/app/_components/post";
+
+import type { StaticImageData } from "next/image";
 import { auth } from "ritthickclone/server/auth";
 import { api, HydrateClient } from "ritthickclone/trpc/server";
 import logo from "./assets/airtable.svg"
@@ -19,7 +20,7 @@ export default async function Home() {
     <HydrateClient>
       <div className="landing-page-header">
           <div className="logo-name">
-            <Image src={logo} alt="Airtable Logo" width={40} height={40} />
+            <Image src={logo as StaticImageData} alt="Airtable Logo" width={40} height={40} />
             Airtable
           </div>
           <button className="button">
@@ -44,10 +45,25 @@ export default async function Home() {
             <button className="signup-button">
               Sign Up For Free
             </button>
-            <Link className="login-button" href="/api/auth/signin">
+            <Link className="login-button" href="/login">
               Log in
             </Link>
           </div>
+      </div>
+      <div className="body-content">
+        <div className="body-title">
+          <div>From idea to app in an instant</div>
+          <div>Build with AI that means business</div>
+        </div>
+        <div className="chatbox">
+          <input 
+            type="text"
+            placeholder="Type something here."
+          />
+          <button className="builditnow-button">
+            Build it Now
+          </button>
+        </div>
       </div>
     </HydrateClient>
   );

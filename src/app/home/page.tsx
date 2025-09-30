@@ -12,7 +12,7 @@ export default async function HomePage() {
 
   return (
     <HydrateClient>
-      <HomePageClient session={session} />
+      <HomePageClient session={session}/>
     </HydrateClient>
   );
 }

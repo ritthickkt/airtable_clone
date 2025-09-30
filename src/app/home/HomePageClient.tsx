@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Session } from "next-auth";
+import type { Session } from "next-auth";
 import Image from "next/image";
 import colorlogo from "../assets/airtable-color.png";
 import '../../styles/homepage.css';
@@ -99,7 +99,7 @@ export default function HomePageClient({ session }: { session: Session | null })
           <button className="help-button">?</button>
           {/* <button className="notifications-button">🔔</button> */}
           <div className="user-avatar">
-            {session?.user?.name?.charAt(0).toUpperCase() || 'U'}
+            {session?.user?.name?.charAt(0).toUpperCase() ?? 'U'}
           </div>
         </div>
       </div>

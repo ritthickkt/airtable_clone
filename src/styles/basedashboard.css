@@ -1,0 +1,394 @@
+.base-dashboard {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  font-family: BlinkMacSystemFont, -apple-system, sans-serif;
+}
+
+/* Header Styles */
+.base-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  border-bottom: 1px solid #e9ecef;
+  background: white;
+  height: 60px;
+}
+
+.base-header-left {
+  display: flex;
+  align-items: center;
+}
+
+.base-icon-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.base-icon-header:hover {
+  background-color: #f8f9fa;
+}
+
+.base-name {
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.dropdown-arrow {
+  color: #6c757d;
+  font-size: 12px;
+}
+
+.base-header-center {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
+.nav-tabs {
+  display: flex;
+  gap: 0;
+}
+
+.nav-tab {
+  padding: 12px 24px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 14px;
+  border-bottom: 3px solid transparent;
+  color: #6c757d;
+}
+
+.nav-tab.active {
+  color: #2563eb;
+  border-bottom-color: #2563eb;
+}
+
+.nav-tab:hover {
+  background-color: #f8f9fa;
+}
+
+.base-header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.trial-info {
+  font-size: 14px;
+  color: #6c757d;
+}
+
+.launch-button, .share-button {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  border: none;
+}
+
+.launch-button {
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+}
+
+.share-button {
+  background-color: #2563eb;
+  color: white;
+}
+
+/* Main Content */
+.base-content {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* Sidebar */
+.base-sidebar {
+  width: 280px;
+  background-color: #f8f9fa;
+  border-right: 1px solid #e9ecef;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.sidebar-section {
+  margin-bottom: 24px;
+}
+
+.table-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.table-icon {
+  font-size: 16px;
+}
+
+.add-import-btn {
+  width: 100%;
+  padding: 8px 16px;
+  border: 1px solid #e9ecef;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  margin-top: 8px;
+}
+
+.add-import-btn:hover {
+  background-color: #f8f9fa;
+}
+
+.views-section {
+  margin-bottom: 24px;
+}
+
+.views-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.grid-icon {
+  font-size: 16px;
+}
+
+.view-options {
+  margin-top: 12px;
+}
+
+.create-view-btn {
+  width: 100%;
+  padding: 6px 12px;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  font-size: 14px;
+  border-radius: 4px;
+  color: #6c757d;
+}
+
+.create-view-btn:hover {
+  background-color: #e9ecef;
+}
+
+.find-view {
+  display: flex;
+  align-items: center;
+  margin: 8px 0;
+  position: relative;
+}
+
+.find-view-input {
+  width: 100%;
+  padding: 6px 30px 6px 12px;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.settings-icon {
+  position: absolute;
+  right: 8px;
+  font-size: 12px;
+  color: #6c757d;
+}
+
+.view-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.view-item.active {
+  background-color: #e7f3ff;
+  color: #2563eb;
+}
+
+.view-icon {
+  font-size: 14px;
+}
+
+.tools-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #6c757d;
+  cursor: pointer;
+}
+
+/* Table Container */
+.table-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.table-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e9ecef;
+  background: white;
+}
+
+.table-controls-left, .table-controls-right {
+  display: flex;
+  gap: 8px;
+}
+
+.control-btn {
+  padding: 6px 12px;
+  border: 1px solid #e9ecef;
+  background: white;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.control-btn:hover {
+  background-color: #f8f9fa;
+}
+
+/* Data Table */
+.data-table {
+  flex: 1;
+  overflow: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+}
+
+.row-number-header {
+  width: 40px;
+  background-color: #f8f9fa;
+  border-right: 1px solid #e9ecef;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.column-header {
+  background-color: #f8f9fa;
+  border-right: 1px solid #e9ecef;
+  border-bottom: 1px solid #e9ecef;
+  padding: 8px 12px;
+  text-align: left;
+  font-weight: 500;
+  font-size: 14px;
+  min-width: 150px;
+}
+
+.column-icon {
+  margin-right: 6px;
+  font-size: 12px;
+}
+
+.row-number {
+  width: 40px;
+  background-color: #f8f9fa;
+  border-right: 1px solid #e9ecef;
+  border-bottom: 1px solid #e9ecef;
+  text-align: center;
+  padding: 8px 4px;
+  font-size: 12px;
+  color: #6c757d;
+}
+
+.table-cell {
+  border-right: 1px solid #e9ecef;
+  border-bottom: 1px solid #e9ecef;
+  padding: 0;
+  min-width: 150px;
+}
+
+.cell-input {
+  width: 100%;
+  border: none;
+  padding: 8px 12px;
+  outline: none;
+  background: transparent;
+  font-size: 14px;
+}
+
+.cell-input:focus {
+  background-color: #f8f9fa;
+}
+
+.cell-content {
+  padding: 8px 12px;
+  display: block;
+  font-size: 14px;
+  color: #6c757d;
+}
+
+.add-row {
+  background-color: #f8f9fa;
+}
+
+.add-row-btn {
+  background-color: #f8f9fa;
+  border-right: 1px solid #e9ecef;
+  border-bottom: 1px solid #e9ecef;
+  text-align: center;
+  padding: 8px 4px;
+  cursor: pointer;
+  color: #6c757d;
+  font-size: 16px;
+}
+
+.add-row-btn:hover {
+  background-color: #e9ecef;
+}
+
+/* Footer */
+.table-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-top: 1px solid #e9ecef;
+  background-color: #f8f9fa;
+}
+
+.add-field-btn {
+  padding: 6px 12px;
+  border: 1px solid #e9ecef;
+  background: white;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.add-field-btn:hover {
+  background-color: #f8f9fa;
+}
+
+.record-count {
+  font-size: 12px;
+  color: #6c757d;
+}

@@ -2,12 +2,93 @@
 
 import { useState } from 'react';
 import type { Session } from "next-auth";
+import { api } from "ritthickclone/trpc/react";
 import Image from "next/image";
 import colorlogo from "../assets/airtable-color.png";
 import '../../styles/homepage.css';
+import Base from '../_components/base';
+
+interface CreateBaseResponse {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+  createdById: string;
+}
+
+interface BaseType {
+  id: string;
+  name: string;
+  createdAt: Date;
+  updatedAt: Date;
+  createdById: string;
+}
 
 export default function HomePageClient({ session }: { session: Session | null }) {
   const [activeTab, setActiveTab] = useState('Home');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newBaseName, setNewBaseName] = useState('Untitled');
+  const [isCreating, setIsCreating] = useState(false);
+
+  const {
+    data: bases,
+    isLoading,
+    refetch: refetchBases
+  } = api.base.getAll.useQuery(
+    undefined,
+    { enabled: !!session?.user }
+  )
+
+  const formatTimeAgo = (date: Date) => {
+    const now = new Date();
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+    
+    if (diffInSeconds < 60) {
+      return diffInSeconds <= 5 ? 'Now' : `${diffInSeconds} seconds ago`;
+    } else if (diffInSeconds < 3600) {
+      const minutes = Math.floor(diffInSeconds / 60);
+      return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+    } else if (diffInSeconds < 86400) {
+      const hours = Math.floor(diffInSeconds / 3600);
+      return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+    } else {
+      const days = Math.floor(diffInSeconds / 86400);
+      return `${days} day${days > 1 ? 's' : ''} ago`;
+    }
+  };
+
+  const handleCreateDatabase = async () => {
+    if (!newBaseName.trim()) return;
+    
+    setIsCreating(true);
+    try {
+      const response = await fetch('/api/bases/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: newBaseName,
+          userId: session?.user?.id,
+        }),
+    });
+
+    if (response.ok) {
+      const newBase = await response.json() as CreateBaseResponse;
+      console.log('Database created: ', newBase);
+      setNewBaseName('Untitled');
+      setShowCreateModal(false);
+
+      await refetchBases();
+      
+      window.location.href = `/${newBase.id}`;
+    }
+    } catch (error) {
+      console.error("Error creating database:", error);
+    } finally {
+      setIsCreating(false)
+    }
+  };
 
   const renderContent = () => {
     switch(activeTab) {
@@ -20,22 +101,18 @@ export default function HomePageClient({ session }: { session: Session | null })
             {/* Action Cards */}
             <div className="action-cards">
               <div className="action-card">
-                {/* <div className="card-icon omni-icon">🔮</div> */}
                 <h3>Start with Omni</h3>
                 <p>Use AI to build a custom app tailored to your workflow</p>
               </div>
               <div className="action-card">
-                {/* <div className="card-icon templates-icon">📋</div> */}
                 <h3>Start with templates</h3>
                 <p>Select a template to get started and customize as you go.</p>
               </div>
               <div className="action-card">
-                {/* <div className="card-icon upload-icon">⬆️</div> */}
                 <h3>Quickly upload</h3>
                 <p>Easily migrate your existing projects in just a few minutes.</p>
               </div>
               <div className="action-card">
-                {/* <div className="card-icon build-icon">🔧</div> */}
                 <h3>Build an app on your own</h3>
                 <p>Start with a blank app and build your ideal workflow.</p>
               </div>
@@ -43,7 +120,7 @@ export default function HomePageClient({ session }: { session: Session | null })
 
             {/* Recent Bases */}
             <div className="recent-section">
-              <div className="section-header">
+              <div className="section-header">  
                 <span>Opened anytime</span>
                 <div className="view-options">
                   <button className="view-button">☰</button>
@@ -51,13 +128,22 @@ export default function HomePageClient({ session }: { session: Session | null })
                 </div>
               </div>
               <div className="recent-bases">
-                <div className="base-card">
-                  <div className="base-icon">Un</div>
-                  <div className="base-info">
-                    <h4>Untitled Base</h4>
-                    <span>Opened yesterday</span>
+                {isLoading ? (
+                  <div className="loading-message">Loading bases...</div>
+                ) : bases && bases.length > 0 ? (
+                  bases.map((base: BaseType) => (
+                    <div key={base.id} onClick={() => window.location.href = `/${base.id}`}>
+                      <Base 
+                        name={base.name} 
+                        description={formatTimeAgo(new Date(base.updatedAt))}
+                      />
+                    </div>
+                  ))
+                ) : (
+                  <div className="no-bases-message">
+                    <p>No bases yet. Create your first base to get started!</p>
                   </div>
-                </div>
+                )}
               </div>
             </div>
           </div>
@@ -136,7 +222,7 @@ export default function HomePageClient({ session }: { session: Session | null })
             <button className="bottom-item">Templates and apps</button>
             <button className="bottom-item">Marketplace</button>
             <button className="bottom-item">Import</button>
-            <button className="create-button">+ Create</button>
+            <button className="create-button" onClick={() => setShowCreateModal(true)}>+ Create</button>
           </div>
         </div>
 
@@ -144,6 +230,37 @@ export default function HomePageClient({ session }: { session: Session | null })
           {renderContent()}
         </div>
       </div>
+
+      {showCreateModal && (
+        <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
+          <div className='modal-content' onClick={(e) => e.stopPropagation()}>
+            <div className='modal-header'>
+              <h2>How do you want to start?</h2>
+              <button className="cancel-button" onClick={() => setShowCreateModal(false)}>
+                  X
+              </button>
+            </div>
+            {/* <input
+              type="text"
+              placeholder="Enter base name..."
+              value={newBaseName}
+              onChange={(e) => setNewBaseName(e.target.value)}
+              className="base-name-input"
+              autoFocus
+            /> */}
+            <div className="modal-buttons">
+              <button className="create-confirm-button">
+                <h3>Build an app with Omni</h3>
+                <p>Use AI to build a custom app tailored to your workflow</p>
+              </button>
+              <button className="create-confirm-button" onClick={handleCreateDatabase} disabled={!newBaseName.trim() || isCreating}>
+                <h3>Build an app on your own</h3>
+                <p>Start with a blank app and build ideal workflow</p>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

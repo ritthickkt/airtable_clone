@@ -1,4 +1,5 @@
 import { postRouter } from "ritthickclone/server/api/routers/post";
+import { baseRouter } from "ritthickclone/server/api/routers/base";
 import {
   createCallerFactory,
   createTRPCRouter,
@@ -11,6 +12,7 @@ import {
  */
 export const appRouter = createTRPCRouter({
   post: postRouter,
+  base: baseRouter,
 });
 
 // export type definition of API

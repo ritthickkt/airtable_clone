@@ -8,6 +8,17 @@ export const baseRouter = createTRPCRouter({
       where: {
         createdById: ctx.session.user.id,
       },
+      include: {
+        tables: {
+          include: {
+            columns: {
+              orderBy: {
+                position: 'asc',
+              },
+            },
+          },
+        },
+      },
       orderBy: {
         updatedAt: "desc",
       },
@@ -22,6 +33,18 @@ export const baseRouter = createTRPCRouter({
         where: {
           id: input.id,
           createdById: ctx.session.user.id, // Ensure user owns the base
+        },
+        include: {
+          tables: {
+            include: {
+              columns: {
+                orderBy: {
+                  position: 'asc',
+                },
+              },
+              records: true,
+            },
+          },
         },
       });
     }),

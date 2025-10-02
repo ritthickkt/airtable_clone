@@ -1,9 +1,10 @@
 .base-dashboard {
   height: 100vh;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   font-family: BlinkMacSystemFont, -apple-system, sans-serif;
 }
+
 
 /* Header Styles */
 .base-header {
@@ -16,6 +17,53 @@
   height: 60px;
 }
 
+.base-dashboard-main-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.left-most-bar {
+  width: 4%;
+  padding: 10px;
+  display: flex;
+  justify-content: center;
+  border-right: 1px solid #E5E5E5;
+}
+
+.dropdown-icon {
+  width: 12px;
+  height: 12px;
+  position: relative;
+  display: inline-block;
+  cursor: pointer;
+}
+
+.dropdown-icon::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 6px;
+  height: 6px;
+  border-right: 1px solid #6c757d;
+  border-bottom: 1px solid #6c757d;
+  transform: rotate(45deg);
+  transition: all 0.2s ease;
+}
+
+.dropdown-icon:hover::after {
+  border-color: #495057;
+}
+
+.airtable-logo-bases-dashboard {
+  margin-top: 10px;
+}
+
+.airtable-logo-bases-dashboard:hover {
+  cursor: pointer;
+  scale: 0;
+}
+
 .base-header-left {
   display: flex;
   align-items: center;
@@ -25,7 +73,6 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
   border-radius: 6px;
   cursor: pointer;
 }
@@ -34,9 +81,21 @@
   background-color: #f8f9fa;
 }
 
+.base-icon {
+  border: 2px solid black;
+  padding: 5px;
+  border-radius: 5px;
+  background-color: rgb(164, 164, 252);
+  border: 1px solid #E5E5E5;
+}
+
 .base-name {
   font-weight: 600;
   font-size: 16px;
+}
+
+.base-name-display {
+  font-weight: 700;
 }
 
 .dropdown-arrow {
@@ -391,4 +450,182 @@ table {
 .record-count {
   font-size: 12px;
   color: #6c757d;
+}
+
+/* TanStack Table Styles */
+.tanstack-table-container {
+  flex: 1;
+  overflow: auto;
+  background: white;
+  border: 1px solid #e1e5e9;
+}
+
+.tanstack-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+}
+
+.row-number-header {
+  width: 40px;
+  background-color: #f7f9fc;
+  border-right: 1px solid #e1e5e9;
+  border-bottom: 1px solid #e1e5e9;
+  padding: 8px 12px;
+  text-align: center;
+  font-weight: 500;
+  font-size: 12px;
+  color: #6c757d;
+}
+
+.column-header {
+  background-color: #f7f9fc;
+  border-right: 1px solid #e1e5e9;
+  border-bottom: 1px solid #e1e5e9;
+  padding: 8px 12px;
+  font-weight: 500;
+  font-size: 14px;
+  min-width: 150px;
+}
+
+.column-header-content {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.column-icon {
+  font-size: 12px;
+}
+
+.row-number {
+  width: 40px;
+  background-color: #f7f9fc;
+  border-right: 1px solid #e1e5e9;
+  border-bottom: 1px solid #e1e5e9;
+  text-align: center;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #6c757d;
+}
+
+.table-cell {
+  border-right: 1px solid #e1e5e9;
+  border-bottom: 1px solid #e1e5e9;
+  padding: 0;
+  min-width: 150px;
+}
+
+.cell-input {
+  width: 100%;
+  border: none;
+  padding: 8px 12px;
+  outline: none;
+  background: transparent;
+  font-size: 14px;
+  min-height: 32px;
+}
+
+.cell-input:focus {
+  background-color: #f8f9fa;
+  border: 2px solid #2563eb;
+  border-radius: 4px;
+}
+
+.cell-select {
+  width: 100%;
+  border: none;
+  padding: 8px 12px;
+  outline: none;
+  background: transparent;
+  font-size: 14px;
+  cursor: pointer;
+  min-height: 32px;
+}
+
+.cell-select:focus {
+  background-color: #f8f9fa;
+  border: 2px solid #2563eb;
+  border-radius: 4px;
+}
+
+.attachment-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+}
+
+.attachment-button {
+  padding: 4px 8px;
+  border: 1px solid #e9ecef;
+  background: white;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.attachment-button:hover {
+  background-color: #f8f9fa;
+}
+
+.attachment-count {
+  font-size: 12px;
+  color: #6c757d;
+}
+
+.actions-header {
+  width: 80px;
+  background-color: #f7f9fc;
+  border-right: 1px solid #e1e5e9;
+  border-bottom: 1px solid #e1e5e9;
+  padding: 8px 12px;
+  text-align: center;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.actions-cell {
+  width: 80px;
+  border-right: 1px solid #e1e5e9;
+  border-bottom: 1px solid #e1e5e9;
+  text-align: center;
+  padding: 8px 12px;
+}
+
+.delete-row-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.delete-row-btn:hover {
+  background-color: #fee;
+}
+
+.add-row {
+  background-color: #f8f9fa;
+}
+
+.add-row-btn {
+  width: 40px;
+  background-color: #f7f9fc;
+  border-right: 1px solid #e1e5e9;
+  border-bottom: 1px solid #e1e5e9;
+  text-align: center;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 16px;
+  color: #6c757d;
+}
+
+.add-row-btn:hover {
+  background-color: #e9ecef;
+}
+
+.table-row:hover {
+  background-color: #f8f9fa;
 }

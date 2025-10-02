@@ -78,10 +78,8 @@ export default function HomePageClient({ session }: { session: Session | null })
       console.log('Database created: ', newBase);
       setNewBaseName('Untitled');
       setShowCreateModal(false);
-
-      await refetchBases();
-      
       window.location.href = `/${newBase.id}`;
+      await refetchBases();
     }
     } catch (error) {
       console.error("Error creating database:", error);

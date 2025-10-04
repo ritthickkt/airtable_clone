@@ -77,6 +77,7 @@ model VerificationToken {
 model Base {
   id          String @id @default(cuid())
   name        String
+  color       String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   createdBy   User     @relation(fields: [createdById], references: [id])

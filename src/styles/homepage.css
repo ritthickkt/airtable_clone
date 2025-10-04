@@ -111,6 +111,12 @@
   font-size: 14px;
 }
 
+.loading-bases {
+  display: grid;
+  width: 100%;
+  gap: 24px;
+}
+
 /* Layout */
 .home-layout {
   display: flex;
@@ -330,6 +336,7 @@
 /* Recent Section */
 .recent-section {
   margin-bottom: 32px;
+  width: 100%;
 }
 
 .section-header {
@@ -368,11 +375,17 @@
 
 .recent-bases {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  width: 100%;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
 }
 
 .base-card {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  width: 250px;
+  gap: 20px;
   border: 1px solid #e9ecef;
   border-radius: 8px;
   padding: 16px;
@@ -385,9 +398,9 @@
 }
 
 .base-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
+  width: 60px;
+  height: 60px;
+  border-radius: 12px;
   background-color: #dc3545;
   color: white;
   display: flex;
@@ -395,6 +408,13 @@
   justify-content: center;
   font-weight: 600;
   margin-bottom: 12px;
+}
+
+.base-info {
+  width: 70%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .base-info h4 {
@@ -539,4 +559,63 @@
   color: #6c757d;
   line-height: 1.4;
   margin: 0;
+}
+
+.database-icon {
+  width: 24px;
+  height: 24px;
+  position: relative;
+  display: inline-block;
+}
+
+.database-icon::before,
+.database-icon::after {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 8px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.database-icon::before {
+  top: 0;
+}
+
+.database-icon::after {
+  bottom: 0;
+}
+
+.database-icon {
+  border-left: 2px solid currentColor;
+  border-right: 2px solid currentColor;
+  border-radius: 0;
+  margin: 4px 0;
+}
+
+/* Alternative approach with more control */
+.db-icon {
+  width: 24px;
+  height: 24px;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.db-icon svg {
+  width: 100%;
+  height: 100%;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.base-description-style {
+  display: flex;
+  align-items: center;
+  gap: 5;
+  flex-direction: row;
 }

@@ -1,0 +1,20 @@
+.status-icon {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #374151;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+}
+
+.checkmark {
+  width: 6px;
+  height: 3px;
+  border-left: 2px solid #374151;
+  border-bottom: 2px solid #374151;
+  transform: rotate(-45deg);
+  margin-top: -1px;
+}

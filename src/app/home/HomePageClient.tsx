@@ -7,27 +7,17 @@ import Image from "next/image";
 import colorlogo from "../assets/airtable-color.png";
 import '../../styles/homepage.css';
 import Base from '../_components/base';
+import WhiteBase from '../_components/white-base';
 
-interface CreateBaseResponse {
-  id: string;
-  name: string;
-  createdAt: string;
-  updatedAt: string;
-  createdById: string;
-}
-
-interface BaseType {
-  id: string;
-  name: string;
-  createdAt: Date;
-  updatedAt: Date;
-  createdById: string;
-}
+import type {
+  BaseType,
+  CreateBaseResponse
+} from '../../types/index'
 
 export default function HomePageClient({ session }: { session: Session | null }) {
   const [activeTab, setActiveTab] = useState('Home');
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [newBaseName, setNewBaseName] = useState('Untitled');
+  const [newBaseName, setNewBaseName] = useState('Untitled Base');
   const [isCreating, setIsCreating] = useState(false);
 
   const {
@@ -76,7 +66,7 @@ export default function HomePageClient({ session }: { session: Session | null })
     if (response.ok) {
       const newBase = await response.json() as CreateBaseResponse;
       console.log('Database created: ', newBase);
-      setNewBaseName('Untitled');
+      setNewBaseName('Untitled Base');
       setShowCreateModal(false);
       window.location.href = `/${newBase.id}`;
       await refetchBases();
@@ -125,15 +115,37 @@ export default function HomePageClient({ session }: { session: Session | null })
                   <button className="view-button active">⊞</button>
                 </div>
               </div>
-              <div className="recent-bases">
+              {/* <div className='recent-bases'>
+                <div className="loading-bases">
+                    <WhiteBase/>
+                    <WhiteBase/>
+                    <WhiteBase/>
+                    <WhiteBase/>
+                    <WhiteBase/>
+                    <WhiteBase/>
+                    <WhiteBase/>
+                    <WhiteBase/>
+                </div>
+              </div> */}
+             <div className="recent-bases">
                 {isLoading ? (
-                  <div className="loading-message">Loading bases...</div>
+                  <div className="loading-bases">
+                    <WhiteBase/>
+                    <WhiteBase/>
+                    <WhiteBase/>
+                    <WhiteBase/>
+                    <WhiteBase/>
+                    <WhiteBase/>
+                    <WhiteBase/>
+                    <WhiteBase/>
+                  </div>
                 ) : bases && bases.length > 0 ? (
-                  bases.map((base: BaseType) => (
+                  bases.map((base) => (
                     <div key={base.id} onClick={() => window.location.href = `/${base.id}`}>
                       <Base 
                         name={base.name} 
                         description={formatTimeAgo(new Date(base.updatedAt))}
+                        color={base.color ?? 'black'} 
                       />
                     </div>
                   ))
@@ -238,14 +250,6 @@ export default function HomePageClient({ session }: { session: Session | null })
                   X
               </button>
             </div>
-            {/* <input
-              type="text"
-              placeholder="Enter base name..."
-              value={newBaseName}
-              onChange={(e) => setNewBaseName(e.target.value)}
-              className="base-name-input"
-              autoFocus
-            /> */}
             <div className="modal-buttons">
               <button className="create-confirm-button">
                 <h3>Build an app with Omni</h3>

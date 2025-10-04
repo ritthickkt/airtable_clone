@@ -19,6 +19,7 @@
 
 .base-dashboard-main-content {
   display: flex;
+  width: 100%;
   flex-direction: column;
 }
 
@@ -26,15 +27,39 @@
   width: 4%;
   padding: 10px;
   display: flex;
-  justify-content: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
   border-right: 1px solid #E5E5E5;
+}
+
+.left-most-bar-bottom {
+  align-self: bottom;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
 }
 
 .dropdown-icon {
   width: 12px;
   height: 12px;
+  margin-left: 8px;
   position: relative;
   display: inline-block;
+}
+
+.dropdown-icon-rotated-right {
+  transform: rotate(-45deg);
+}
+
+.base-name-and-dropdown-clicker {
+  cursor: pointer;
+}
+
+.base-name-and-dropdown-clicker:hover {
   cursor: pointer;
 }
 
@@ -56,12 +81,17 @@
 }
 
 .airtable-logo-bases-dashboard {
+  transition: transform 0.3s ease;
   margin-top: 10px;
+  transform: scale(1); /* Set initial state */
 }
 
-.airtable-logo-bases-dashboard:hover {
-  cursor: pointer;
-  scale: 0;
+.airtable-logo-bases-dashboard.shrinking {
+  transform: scale(0);
+}
+
+.airtable-logo-bases-dashboard.normal {
+  transform: scale(1);
 }
 
 .base-header-left {
@@ -74,20 +104,42 @@
   align-items: center;
   gap: 8px;
   border-radius: 6px;
+}
+
+.logo-container {
+  position: relative;
+  display: inline-block;
+}
+
+.back-button {
+  position: absolute;
+  top: 18px; /* Match the logo's margin-top */
+  left: 8;
+  width: 13px;
+  height: 13px;
+  cursor: pointer;
+  opacity: 0;
+  transform: scale(0);
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.back-button.show {
+  opacity: 1;
+  transform: scale(1);
   cursor: pointer;
 }
 
-.base-icon-header:hover {
-  background-color: #f8f9fa;
+.base-icon {
+  padding: 5px;
 }
 
-.base-icon {
-  border: 2px solid black;
-  padding: 5px;
+.base-icon-wrapper {
   border-radius: 5px;
-  background-color: rgb(164, 164, 252);
-  border: 1px solid #E5E5E5;
 }
+
 
 .base-name {
   font-weight: 600;
@@ -107,6 +159,7 @@
   flex: 1;
   display: flex;
   justify-content: center;
+  height: 62px;
 }
 
 .nav-tabs {
@@ -121,11 +174,10 @@
   cursor: pointer;
   font-size: 14px;
   border-bottom: 3px solid transparent;
-  color: #6c757d;
+  color: black;
 }
 
 .nav-tab.active {
-  color: #2563eb;
   border-bottom-color: #2563eb;
 }
 
@@ -166,7 +218,32 @@
 .base-content {
   flex: 1;
   display: flex;
+  flex-direction: column;
   overflow: hidden;
+}
+
+.table-main-content {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start; /* Add this to align items to the top */
+}
+
+.record {
+  border-right: 1px solid #e5e5e5;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: #6366f1;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 14px;
 }
 
 /* Sidebar */
@@ -628,4 +705,503 @@ table {
 
 .table-row:hover {
   background-color: #f8f9fa;
+}
+
+/* Tab Container */
+.tabs-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.tabs-header {
+  position: relative;
+  border-bottom: 1px solid #e1e5e9;
+  background: white;
+}
+
+/* Tab Background - the line that tabs sit on */
+.tab-background {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  border-bottom: 1px #e5e5e5;
+  background: #e5e5e5;
+  z-index: 1;
+}
+
+/* Tabs List */
+.tabs-list {
+  display: flex;
+  align-items: flex-end;
+  position: relative;
+  z-index: 2;
+  gap: 2px;
+}
+
+/* Individual Tab */
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  background: #f8f9fa;
+  border-radius: 0 5px 0 0;
+  border: 1px solid #e1e5e9;
+  border-left: none;
+  border-bottom: none;
+  cursor: pointer;
+  font-size: 13px;
+  color: #6c757d;
+  position: relative;
+  min-width: 100px;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.tab:hover {
+  background: #f0f0f0;
+  color: #495057;
+}
+
+/* Active Tab */
+.tab.active {
+  background: white;
+  color: #2563eb;
+  border-color: #e1e5e9;
+  z-index: 3;
+}
+
+.tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: white;
+  z-index: 4;
+}
+
+/* Tab Icon */
+.tab-icon {
+  font-size: 14px;
+}
+
+/* Add Tab Button */
+.add-tab-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #6c757d;
+  margin-top: auto;
+  margin-bottom: auto;
+  margin-left: 15px;
+}
+
+.add-tab-btn:hover {
+  color: black;
+}
+
+/* Tab Content */
+.tab-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.baseConfigurationChangePopUp {
+  z-index: 1000;
+  top: 70;
+  border: 2px solid #E5E5E5;
+  background-color: white;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+  width: 500px;
+  height: 500px;
+  bottom: 0;
+  left: 70;
+  border-radius: 5;
+  right: 0;
+  position: fixed;
+  padding: 15px;
+  font-family: BlinkMacSystemFont;
+}
+
+.baseNameEdit {
+  font-size: 20px;
+  padding: 15px;
+  border-top: 1px solid #E5E5E5;
+  width: 250px;
+  border-bottom: 1px solid #E5E5E5;
+  box-shadow: inset 0 0 0 5px white;
+}
+
+.baseNameEdit:hover {
+  box-shadow: inset 0 0 0 5px white;
+  background-color: #F3F4F8;
+}
+
+.baseEditBlock {
+  padding: 15px;
+  border-bottom: 1px solid #E5E5E5;
+}
+
+/* Remove your old table-tab styles and replace with above */
+/* Delete these:
+.table-tab {
+  border: 1px solid #E5E5E5;
+  padding: 5px;
+  font-size: 13px;
+  border-radius: 5px;
+  border-bottom: none;
+  border-left: none;
+  border-top: none;
+  z-index: 2;
+  width: 70px;
+  text-align: center;
+}
+
+.table-tab-background {
+  border: 2px solid black;
+  position: relative;
+  z-index: 1;
+  height: 40px;
+}
+*/
+
+.help-icon {
+  width: 30px;
+  height: 30px;
+  border: 2px solid #6c757d;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+  color: #6c757d;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.help-icon:hover {
+  border-color: #495057;
+  color: #495057;
+  background-color: #f8f9fa;
+}
+
+.help-icon::before {
+  content: '?';
+}
+
+.bell-icon {
+  width: 30px;
+  height: 30px;
+  border: 2px solid #6c757d;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+  color: #6c757d;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.bell-icon:hover {
+  border-color: #495057;
+  color: #495057;
+  background-color: #f8f9fa;
+}
+
+.bell-icon::before {
+  content: '🔔';
+  font-size: 10px;
+}
+
+
+/* Table Container */
+.table-container {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+/* Table Styles */
+table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+  background: white;
+}
+
+/* Header Styles */
+.column-names {
+  background: #f7f9fc;
+  border-bottom: 1px solid #e1e5e9;
+  border-right: 1px solid #e1e5e9;
+  padding: 8px 12px;
+  text-align: left;
+  font-weight: 500;
+  color: #374151;
+  position: relative;
+  min-width: 120px;
+  height: 32px;
+  vertical-align: middle;
+}
+
+.column-names:last-child {
+  border-right: none;
+}
+
+.record {
+  border: 1px solid #E5E5E5;
+}
+
+.column-header-content {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.column-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Row Styles */
+tbody tr {
+  border-bottom: 1px solid #e1e5e9;
+}
+
+tbody tr:hover {
+  background-color: #f8fafc;
+}
+
+/* Cell Styles */
+td {
+  padding: 0;
+  border-right: 1px solid #e1e5e9;
+  height: 32px;
+  vertical-align: middle;
+  position: relative;
+}
+
+td:last-child {
+  border-right: none;
+}
+
+/* Row Number */
+.row-number {
+  background: #f7f9fc;
+  border-right: 1px solid #e1e5e9;
+  padding: 8px 12px;
+  text-align: center;
+  font-size: 12px;
+  color: #6b7280;
+  min-width: 40px;
+  font-weight: 500;
+}
+
+/* Input Styles */
+.cell-input {
+  width: 100%;
+  height: 32px;
+  padding: 8px 12px;
+  font-size: 13px;
+  background: transparent;
+  outline: none;
+  font-family: inherit;
+}
+
+.cell-input:focus {
+  background: white;
+  box-shadow: inset 0 0 0 2px #3b82f6;
+  border-radius: 4px;
+  margin: 2px;
+  height: 28px;
+}
+
+.cell-input::placeholder {
+  color: #9ca3af;
+}
+
+/* Select Styles */
+.cell-select {
+  width: 100%;
+  height: 32px;
+  border: none;
+  padding: 4px 12px;
+  font-size: 13px;
+  background: transparent;
+  outline: none;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.cell-select:focus {
+  background: white;
+  box-shadow: inset 0 0 0 2px #3b82f6;
+  border-radius: 4px;
+  margin: 2px;
+  height: 28px;
+}
+
+/* Attachment Styles */
+.attachment-cell {
+  display: flex;
+  align-items: center;
+  padding: 4px 12px;
+  height: 32px;
+}
+
+.attachment-button {
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  color: #374151;
+}
+
+.attachment-button:hover {
+  background: #e5e7eb;
+}
+
+.attachment-count {
+  margin-left: 8px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* Add row button */
+.add-row-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  color: #6b7280;
+  font-size: 13px;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+}
+
+.add-row-btn:hover {
+  background: #f8fafc;
+  color: #374151;
+}
+
+/* Table footer */
+.table-footer {
+  padding: 8px 12px;
+  background: #f7f9fc;
+  border-top: 1px solid #e1e5e9;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.add-field-btn {
+  background: none;
+  border: none;
+  color: #6b7280;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.add-field-btn:hover {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.cell-input:focus {
+  outline: none;
+  border: none;
+  box-shadow: none;
+  background: transparent;
+}
+
+.cell-select:focus {
+  outline: none;
+  border: none;
+  box-shadow: none;
+  background: transparent;
+}
+
+/* Table cell selection styling */
+.record {
+  position: relative;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.record:hover {
+  background-color: #f8fafc;
+}
+
+.record.selected {
+  background-color: #eff6ff;
+  border: 2px solid #3b82f6;
+  box-shadow: 0 0 0 1px #3b82f6;
+}
+
+/* Alternative: Use base color for selection */
+.record.selected {
+  background-color: rgba(59, 130, 246, 0.1);
+  border: 2px solid var(--base-color, #3b82f6);
+  box-shadow: 0 0 0 1px var(--base-color, #3b82f6);
+}
+
+/* Remove default table cell borders when selected */
+.record.selected .cell-input,
+.record.selected .cell-select {
+  border: none;
+  background: transparent;
+}
+
+.left-side-bar {
+  width: 300px;
+  padding: 10px;
+  display: flex;
+  gap: 10px;
+  background-color: white;
+  flex-direction: column;
+  border-right: 2px solid #E5E5E5;
+  height: 100vh;
+}
+
+.sidebar-buttons {
+  height: 35px;
+  border-radius: 5px;
+  text-align: left;
+  padding-left: 15px;
+  font-size: 15px;
+}
+
+.table-main-content {
+  background-color: #F7F8FC;
+}
+
+.sidebar-buttons:hover {
+  background-color: #F8F8F8;
 }

@@ -94,6 +94,7 @@ export const baseRouter = createTRPCRouter({
       });
     }),
 
+  // Create a New Row
   createRecord: protectedProcedure
     .input(z.object({
       tableId: z.string(),
@@ -118,6 +119,45 @@ export const baseRouter = createTRPCRouter({
         data: {
           tableId: input.tableId,
           data: input.data,
+        },
+      });
+    }),
+  
+  // Create a New Col
+  createColumn: protectedProcedure
+    .input(z.object({
+      tableId: z.string(),
+      name: z.string().min(1),
+      type: z.enum(['text', 'select', 'status', 'attachment']).default('text'),
+      position: z.number().optional(),
+      options: z.any().optional(),
+    }))
+    .mutation(async ({ ctx, input}) => {
+      const table = await ctx.db.table.findFirst({
+        where: {
+          id: input.tableId,
+          base: {
+            createdById: ctx.session.user.id,
+          },
+        },
+        include: {
+          columns: true,
+        },
+      });
+
+      if (!table) {
+        throw new Error("Table not found or access denied!");
+      }
+
+      const position = input.position ?? (table.columns.length);
+
+      return ctx.db.column.create({
+        data: {
+          name: input.name,
+          type: input.type,
+          position: position,
+          tableId: input.tableId,
+          options: input.options || {},
         },
       });
     }),

@@ -17,6 +17,15 @@
   height: 60px;
 }
 
+.main-of-the-main-content {
+  width: 100%;
+}
+
+.wrapper-for-side-bar-main {
+  display: flex;
+  flex-direction: row;
+}
+
 .base-dashboard-main-content {
   display: flex;
   width: 100%;

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
+import { findConfigFile } from "typescript";
 
 export const baseRouter = createTRPCRouter({
   // Get all bases for a user
@@ -63,6 +64,60 @@ export const baseRouter = createTRPCRouter({
         },
         data: {
           name: input.name,
+        },
+      });
+    }),
+
+  // Update a particular cell
+  updateCell: protectedProcedure
+    .input(z.object({
+      recordId: z.string(),
+      fieldKey: z.string(),
+      value: z.any()
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // ✅ Use Prisma's JSON path update (more efficient)
+      return ctx.db.record.update({
+        where: {
+          id: input.recordId,
+        },
+        data: {
+          data: {
+            // This merges the new value with existing JSON data
+            ...(await ctx.db.record.findUnique({
+              where: { id: input.recordId },
+              select: { data: true }
+            }))?.data as object || {},
+            [input.fieldKey]: input.value
+          }
+        }
+      });
+    }),
+
+  createRecord: protectedProcedure
+    .input(z.object({
+      tableId: z.string(),
+      data: z.record(z.any()).optional().default({}),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // Verify the user owns the table/base
+      const table = await ctx.db.table.findFirst({
+        where: {
+          id: input.tableId,
+          base: {
+            createdById: ctx.session.user.id,
+          },
+        },
+      });
+
+      if (!table) {
+        throw new Error("Table not found or access denied");
+      }
+
+      return ctx.db.record.create({
+        data: {
+          tableId: input.tableId,
+          data: input.data,
         },
       });
     }),

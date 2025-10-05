@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
         },
         {
           name: 'Status',
-          type: 'selct',
+          type: 'select',
           position: 3,
           tableId: defaultTable.id,
           options: {
@@ -107,13 +107,60 @@ export async function POST(request: NextRequest) {
         )
       );
 
+      const defaultRecords = [
+        {
+          tableId: defaultTable.id,
+          data: {
+            name: 'First Task',
+            notes: 'This is your first task',
+            assignee: 'Mega Knight',
+            status: 'Todo',
+            attachments: '',
+            attachmentsummary: '',
+          }
+        },
+        {
+          tableId: defaultTable.id,
+          data: {
+            name: 'Second Task',
+            notes: 'Another sample task',
+            assignee: 'The Log',
+            status: 'In Progress',
+            attachments: '',
+            attachmentsummary: '',
+          }
+        },
+        {
+          tableId: defaultTable.id,
+          data: {
+            name: 'Third Task',
+            notes: 'One more example',
+            assignee: 'Mega Knight',
+            status: 'Done',
+            attachments: '',
+            attachmentsummary: '',
+          }
+        }
+      ];
+
+      const createdRecords = await Promise.all(
+        defaultRecords.map(record => 
+          tx.record.create({
+            data: record,
+          })
+        )
+      );
+
       return {
         ...newBase,
         tables: [{
           ...defaultTable,
           columns: createdColumns,
+          records: createdRecords,
         }],
       };
+    }, {
+      timeout: 10000,
     });
 
     // const newBase = await db.base.create({

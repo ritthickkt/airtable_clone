@@ -1,10 +1,11 @@
 import type { Session } from "next-auth";
+import type { JsonValue } from "next-auth/adapters";
 
 // Base interfaces
 export interface Base {
   id: string;
   name: string;
-  color?: string;
+  color?: string | null;
   createdAt: Date;
   updatedAt: Date;
   createdById: string;
@@ -23,14 +24,30 @@ export interface Column {
   name: string;
   type: string;
   position: number;
-  options?: {
-    choices?: { name: string; color: string }[];
-  };
+  createdAt: Date;      // Add missing fields from database
+  updatedAt: Date;      // Add missing fields from database
+  tableId: string;      // Add missing fields from database
+  options: JsonValue;   // Change this to match database return type
 }
 
 export interface Record {
   id: string;
-  data: any;
+  createdAt: Date;      // Add missing fields from database
+  updatedAt: Date;      // Add missing fields from database
+  tableId: string;      // Add missing fields from database
+  data: JsonValue;      // Change from 'any' to match database
+}
+
+export interface ColumnOptions {
+  choices?: { name: string; color: string }[];
+}
+
+// Add this helper function
+export function getColumnOptions(options: JsonValue): ColumnOptions | undefined {
+  if (options && typeof options === 'object' && !Array.isArray(options)) {
+    return options as ColumnOptions;
+  }
+  return undefined;
 }
 
 export interface TableRow {

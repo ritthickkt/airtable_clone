@@ -11,6 +11,7 @@ import TextIcon from '../_components/columnIcons/text';
 import StatusIcon from '../_components/columnIcons/status';
 import AttachmentIcon from '../_components/columnIcons/attachment';
 import SideBar from '../_components/sidebar';
+import { getColumnOptions } from '../../types/index';
 
 import {
   createColumnHelper,
@@ -198,12 +199,13 @@ export default function BaseDashboardClient({ session, base}: BaseDashboardClien
     }
   }, [updateCell]);
 
-  const logoBackgroundColor = base.color;
+  const logoBackgroundColor = base.color ?? '#3b82f6';
 
   const renderCell = useCallback((info: CellContext<TableRow, unknown>, column: Column) => {
       const value = info.getValue() as string || '';
       const rowId = info.row.original.id;
       const fieldKey = column.name.toLowerCase().replace(/\s+/g, '');
+      const columnOptions = getColumnOptions(column.options); // Parse options safely
 
       switch (column.type) {
         case 'select':
@@ -216,7 +218,7 @@ export default function BaseDashboardClient({ session, base}: BaseDashboardClien
               className="cell-select"
             >
               <option value="">Select {column.name.toLowerCase()}</option>
-              {column.options?.choices?.map((choice) => (
+              {columnOptions?.choices?.map((choice) => ( // Use parsed options
                 <option key={choice.name} value={choice.name}>
                   {choice.name}
                 </option>
@@ -342,7 +344,7 @@ export default function BaseDashboardClient({ session, base}: BaseDashboardClien
                 className={`nav-tab ${activeTab === 'Data' ? 'active' : ''}`}
                 onClick={() => setActiveTab('Data')}
                 style={activeTab === 'Data' ? {
-                  borderBottomColor: base.color
+                  borderBottomColor: base.color ?? '#3b82f6'
                 } : {}}
               >
                 Data
@@ -351,7 +353,7 @@ export default function BaseDashboardClient({ session, base}: BaseDashboardClien
                 className={`nav-tab ${activeTab === 'Automations' ? 'active' : ''}`}
                 onClick={() => setActiveTab('Automations')}
                 style={activeTab === 'Automations' ? {
-                  borderBottomColor: base.color
+                  borderBottomColor: base.color ?? '#3b82f6'
                 } : {}}
               >
                 Automations
@@ -360,7 +362,7 @@ export default function BaseDashboardClient({ session, base}: BaseDashboardClien
                 className={`nav-tab ${activeTab === 'Interfaces' ? 'active' : ''}`}
                 onClick={() => setActiveTab('Interfaces')}
                 style={activeTab === 'Interfaces' ? {
-                  borderBottomColor: base.color
+                  borderBottomColor: base.color ?? '#3b82f6'
                 } : {}}
               >
                 Interfaces
@@ -369,7 +371,7 @@ export default function BaseDashboardClient({ session, base}: BaseDashboardClien
                 className={`nav-tab ${activeTab === 'Forms' ? 'active' : ''}`}
                 onClick={() => setActiveTab('Forms')}
                 style={activeTab === 'Forms' ? {
-                  borderBottomColor: base.color
+                  borderBottomColor: base.color ?? '#3b82f6'
                 } : {}}
               >
                 Forms

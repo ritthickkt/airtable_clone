@@ -128,7 +128,7 @@ export const baseRouter = createTRPCRouter({
     .input(z.object({
       tableId: z.string(),
       name: z.string().min(1),
-      type: z.enum(['text', 'select', 'status', 'attachment']).default('text'),
+      type: z.enum(['text', 'select', 'status', 'attachment', 'number']).default('text'),
       position: z.number().optional(),
       options: z.any().optional(),
     }))
@@ -157,7 +157,7 @@ export const baseRouter = createTRPCRouter({
           type: input.type,
           position: position,
           tableId: input.tableId,
-          options: input.options || {},
+          options: input.options ?? {},
         },
       });
     }),

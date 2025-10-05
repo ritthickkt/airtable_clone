@@ -103,7 +103,7 @@ model Table {
 model Column {
   id          String   @id @default(cuid())
   name        String
-  type        String   // "text", "select", "multiselect", "attachment", etc.
+  type        String   // "text", "select", "multiselect", "attachment" "number"
   options     Json?    // For select fields, store options as JSON
   position    Int      // Column order
   createdAt   DateTime @default(now())

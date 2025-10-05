@@ -49,7 +49,10 @@
   border-bottom: 1px solid #E5E5E5;
   color: #8F9F40;
   height: 36px;
-  width: 800px;
+  min-width: 100px; /* Change from width to min-width */
+  width: 100%; /* Make it take full available width */
+  border-left: 1px solid #E5E5E5;
+  border-top: 1px solid #E5E5E5;
 }
 
 .add-col-button:hover {
@@ -516,7 +519,6 @@ table {
   display: flex;
   flex-direction: row;
   overflow: auto; /* Only this scrolls */
-  background: white;
 }
 
 .cell-input {
@@ -1270,7 +1272,9 @@ td:last-child {
 
 .table-wrapper {
   flex: 1;
-  overflow: auto; /* This makes only the table scrollable */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* Change from auto to hidden */
   height: 100%;
 }
 

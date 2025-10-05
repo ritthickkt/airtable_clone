@@ -22,12 +22,12 @@ export interface Table {
 export interface Column {
   id: string;
   name: string;
-  type: string;
+  type: 'text' | 'number' | 'select' | 'status' | 'attachment'; // ✅ Add 'number'
   position: number;
-  createdAt: Date;      // Add missing fields from database
-  updatedAt: Date;      // Add missing fields from database
-  tableId: string;      // Add missing fields from database
-  options: JsonValue;   // Change this to match database return type
+  tableId: string;
+  options?: any;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface Record {

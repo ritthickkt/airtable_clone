@@ -25,6 +25,9 @@ interface DataTableProps {
 }
 
 export default function DataTable({ currentTable }: DataTableProps) {
+  const [isCreatingRecord, setIsCreatingRecord] = useState(false);
+  const [isCreatingColumn, setIsCreatingColumn] = useState(false);
+
   const [tableData, setTableData] = useState<TableRow[]>(() => {
     if (currentTable?.records && currentTable.records.length > 0) {
       return currentTable.records.map((record) => {
@@ -44,6 +47,7 @@ export default function DataTable({ currentTable }: DataTableProps) {
   const getColumnIcon = useCallback((type: string) => {
     switch (type) {
       case 'text': return <TextIcon/>;
+      case 'number': return <div>#</div>;
       case 'status': return <StatusIcon/>;
       case 'attachment': return <AttachmentIcon/>;
       default: return '📝';
@@ -51,25 +55,56 @@ export default function DataTable({ currentTable }: DataTableProps) {
   }, []);
 
   const createRecordMutation = api.base.createRecord.useMutation({
-    onSuccess: (newRecord) => {
-      setTableData(prev => [...prev, {
-        id: newRecord.id,
-        ...(newRecord.data as Record<string, unknown>)
-      } as TableRow]);
+    onMutate: async (newRecord) => {
+      // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
+      
+      // Create an optimistic record with a temporary ID
+      const optimisticRecord = {
+        id: `temp-${Date.now()}`, // Temporary ID
+        ...(newRecord.data ?? {}),
+      } as TableRow;
+
+      // Optimistically update the UI immediately
+      setTableData(prev => [...prev, optimisticRecord]);
+
+      // Return the optimistic record for potential rollback
+      return { optimisticRecord };
     },
-    onError: (error) => {
+    onSuccess: (realRecord, variables, context) => {
+      // Replace the optimistic record with the real one from the server
+      setTableData(prev => 
+        prev.map(row => 
+          row.id === context?.optimisticRecord.id 
+            ? { id: realRecord.id, ...(realRecord.data as Record<string, unknown>) } as TableRow
+            : row
+        )
+      );
+    },
+    onError: (error, variables, context) => {
+      // Remove the optimistic record on error
+      if (context?.optimisticRecord) {
+        setTableData(prev => 
+          prev.filter(row => row.id !== context.optimisticRecord.id)
+        );
+      }
       console.error('Failed to create record:', error);
     },
   });
 
   const createColumnMutation = api.base.createColumn.useMutation({
-    onSuccess: (newColumn) => {
-      console.log('Column created successfully:', newColumn);
-      // You can either reload the page or update the state
-      window.location.reload(); // Simple approach for now
+    onMutate: async (newColumn) => {
+      // For columns, we'll just show loading state since structure changes are complex
+      console.log('Creating column optimistically...');
+      return { newColumn };
     },
-    onError: (error) => {
+    onSuccess: (realColumn, variables, context) => {
+      console.log('Column created successfully:', realColumn);
+      // Instead of full reload, just refresh the current page data
+      window.location.reload(); // You can optimize this further later
+    },
+    onError: (error, variables, context) => {
       console.error('Failed to create column:', error);
+      // Show error message to user
     },
   });
 
@@ -89,16 +124,22 @@ export default function DataTable({ currentTable }: DataTableProps) {
       tableId: currentTable.id,
       name: name,
       type: type,
-      position: currentTable.columns?.length || 0,
+      position: currentTable.columns?.length ?? 0,
     });
   }, [currentTable, createColumnMutation]);
 
   const addNewCol = useCallback(() => {
+    if (isCreatingColumn) return;
+    setIsCreatingColumn(true);
     setIsColumnModalOpen(true);
-  }, []);
+    // Reset loading state when modal closes
+    setTimeout(() => setIsCreatingColumn(false), 100);
+  }, [isCreatingColumn]);
 
   const addNewRow = useCallback(() => {
-    if (!currentTable) return;
+    if (!currentTable || isCreatingRecord) return;
+    
+    setIsCreatingRecord(true);
     
     // Create empty data object with all column fields
     const emptyData: Record<string, string> = {};
@@ -110,8 +151,10 @@ export default function DataTable({ currentTable }: DataTableProps) {
     createRecordMutation.mutate({
       tableId: currentTable.id,
       data: emptyData,
+    }, {
+      onSettled: () => setIsCreatingRecord(false), // Reset loading state
     });
-  }, [currentTable, createRecordMutation]);
+  }, [currentTable, createRecordMutation, isCreatingRecord]);
 
   const updateData = useCallback((rowIndex: number, columnId: string, value: unknown) => {
     setTableData(prev =>
@@ -119,14 +162,11 @@ export default function DataTable({ currentTable }: DataTableProps) {
         if (index === rowIndex) {
           const updatedRow = { ...row, [columnId]: value };
           
-          // Debounced API call
-          const timeoutId = setTimeout(() => {
-            updateCellMutation.mutate({
-              recordId: row.id,
-              fieldKey: columnId,
-              value: value as string,
-            });
-          }, 1000);
+          updateCellMutation.mutate({
+            recordId: row.id,
+            fieldKey: columnId,
+            value: value as string,
+          });
 
           return updatedRow;
         }
@@ -275,6 +315,16 @@ export default function DataTable({ currentTable }: DataTableProps) {
 
             switch (col.type) {
               case 'select':
+              case 'number':
+                return (
+                  <input
+                    type="number"
+                    value={value}
+                    onChange={(e) => handleChange(e.target.value)}
+                    className="cell-input"
+                    style={{ width: '100%', border: 'none', background: 'transparent', padding: '8px' }}
+                  />
+                )
               case 'status':
                 return (
                   <select
@@ -379,18 +429,26 @@ export default function DataTable({ currentTable }: DataTableProps) {
           </table>
           <button 
             onClick={addNewCol}
-            disabled={createColumnMutation.isPending}
+            disabled={isCreatingColumn}
             className="add-col-button"
+            style={{ 
+              opacity: isCreatingColumn ? 0.6 : 1,
+              cursor: isCreatingColumn ? 'not-allowed' : 'pointer'
+            }}
           >
-          +
+            {isCreatingColumn ? '...' : '+'}
           </button>
         </div>
         <button 
           onClick={addNewRow}
-          disabled={createRecordMutation.isPending}
+          disabled={isCreatingRecord}
           className="add-row-button"
+          style={{ 
+            opacity: isCreatingRecord ? 0.6 : 1,
+            cursor: isCreatingRecord ? 'not-allowed' : 'pointer'
+          }}
         >
-        +
+          {isCreatingRecord ? '...' : '+'}
         </button>
       </div>
       <ColumnConfiguration

@@ -19,15 +19,23 @@ export default function BaseDashboardClient({ session, base }: BaseDashboardClie
 
   const currentTable = base.tables?.[currentTableIndex] ?? base.tables?.[0] ?? null;
 
-  const updateBaseName = api.base.updateName.useMutation({
-    onSuccess: () => {
-      setIsEditing(false);
+  const createTableMutation = api.base.createTable.useMutation({
+    onSuccess: (newTable) => {
+      console.log('Table created:', newTable);
+      window.location.reload();
     },
-    onError: (error: unknown) => {
-      console.error('Failed to update base name:', error);
-      setBaseName(base.name ?? 'Untitled Base');
+    onError: (error) => {
+      console.error('Failed to create table:', error);
     },
   });
+
+  const handleCreateTable = () => {
+    createTableMutation.mutate({
+      baseId: base.id,
+    });
+  };
+
+  const updateBaseName = api.base.updateName.useMutation();
 
   const handleNameSave = () => {
     if (baseName.trim() && baseName !== (base.name ?? '')) {
@@ -61,6 +69,8 @@ export default function BaseDashboardClient({ session, base }: BaseDashboardClie
               base={base}
               currentTableIndex={currentTableIndex}
               setCurrentTableIndex={setCurrentTableIndex}
+              handleCreateTable={handleCreateTable}
+              createTableMutation={createTableMutation}
             />
             
             <div className="table-container">

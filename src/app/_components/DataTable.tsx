@@ -6,15 +6,13 @@ import {
   flexRender,
   getCoreRowModel,
   useReactTable,
-  type CellContext,
 } from '@tanstack/react-table';
 import SideBar from './sidebar';
 import { api } from "../../trpc/react"; // Add this import
 import TextIcon from './columnIcons/text';
-import StatusIcon from './columnIcons/status';
-import AttachmentIcon from './columnIcons/attachment';
-import { getColumnOptions } from '../../types';
-import type { TableRow, Column, Table } from '../../types';
+// import StatusIcon from './columnIcons/status';
+// import AttachmentIcon from './columnIcons/attachment';
+import type { TableRow, Table } from '../../types';
 import ColumnConfiguration from '../_components/ColumnConfiguration';
 import React from 'react';
 
@@ -27,138 +25,59 @@ interface DataTableProps {
 export default function DataTable({ currentTable }: DataTableProps) {
   const [isCreatingRecord, setIsCreatingRecord] = useState(false);
   const [isCreatingColumn, setIsCreatingColumn] = useState(false);
+  const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
+  const [tablesData, setTablesData] = useState<Record<string, TableRow[]>>({});
 
-  const [tableData, setTableData] = useState<TableRow[]>(() => {
-    if (currentTable?.records && currentTable.records.length > 0) {
-      return currentTable.records.map((record) => {
+
+
+  const tableData = useMemo(() => {
+    if (!currentTable?.id) return [];
+    return tablesData[currentTable.id] ?? [];
+  }, [tablesData, currentTable?.id]);
+
+  React.useEffect(() => {
+    if (currentTable?.id && !tablesData[currentTable.id]) {
+      const initialData = currentTable.records?.map((record) => {
         const data = record.data as Record<string, unknown> || {};
         return {
           id: record.id,
           ...data,
         } as TableRow;
-      });
+      }) ?? [];
+
+      setTablesData(prev => ({
+        ...prev,
+        [currentTable.id]: initialData
+      }));
     }
-    
-    return [];
-  });
-  
-  const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
+  }, [currentTable?.id, currentTable?.records, tablesData]);
 
   const getColumnIcon = useCallback((type: string) => {
     switch (type) {
       case 'text': return <TextIcon/>;
       case 'number': return <div>#</div>;
-      case 'status': return <StatusIcon/>;
-      case 'attachment': return <AttachmentIcon/>;
+      // case 'status': return <StatusIcon/>;
+      // case 'attachment': return <AttachmentIcon/>;
       default: return '📝';
     }
   }, []);
 
-  const createRecordMutation = api.base.createRecord.useMutation({
-    onMutate: async (newRecord) => {
-      // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
-      
-      // Create an optimistic record with a temporary ID
-      const optimisticRecord = {
-        id: `temp-${Date.now()}`, // Temporary ID
-        ...(newRecord.data ?? {}),
-      } as TableRow;
+  const createRecordMutation = api.base.createRecord.useMutation();
+  const createColumnMutation = api.base.createColumn.useMutation();
+  const updateCellMutation = api.base.updateCell.useMutation();
 
-      // Optimistically update the UI immediately
-      setTableData(prev => [...prev, optimisticRecord]);
-
-      // Return the optimistic record for potential rollback
-      return { optimisticRecord };
-    },
-    onSuccess: (realRecord, variables, context) => {
-      // Replace the optimistic record with the real one from the server
-      setTableData(prev => 
-        prev.map(row => 
-          row.id === context?.optimisticRecord.id 
-            ? { id: realRecord.id, ...(realRecord.data as Record<string, unknown>) } as TableRow
-            : row
-        )
-      );
-    },
-    onError: (error, variables, context) => {
-      // Remove the optimistic record on error
-      if (context?.optimisticRecord) {
-        setTableData(prev => 
-          prev.filter(row => row.id !== context.optimisticRecord.id)
-        );
-      }
-      console.error('Failed to create record:', error);
-    },
-  });
-
-  const createColumnMutation = api.base.createColumn.useMutation({
-    onMutate: async (newColumn) => {
-      // For columns, we'll just show loading state since structure changes are complex
-      console.log('Creating column optimistically...');
-      return { newColumn };
-    },
-    onSuccess: (realColumn, variables, context) => {
-      console.log('Column created successfully:', realColumn);
-      // Instead of full reload, just refresh the current page data
-      window.location.reload(); // You can optimize this further later
-    },
-    onError: (error, variables, context) => {
-      console.error('Failed to create column:', error);
-      // Show error message to user
-    },
-  });
-
-  const updateCellMutation = api.base.updateCell.useMutation({
-    onSuccess: () => {
-      console.log('Cell updated successfully');
-    },
-    onError: (error) => {
-      console.error('Failed to update cell:', error);
-    },
-  });
-
-  const handleCreateColumn = useCallback((name: string, type: 'text' | 'number') => {
-    if (!currentTable) return;
-    
-    createColumnMutation.mutate({
-      tableId: currentTable.id,
-      name: name,
-      type: type,
-      position: currentTable.columns?.length ?? 0,
-    });
-  }, [currentTable, createColumnMutation]);
-
-  const addNewCol = useCallback(() => {
-    if (isCreatingColumn) return;
-    setIsCreatingColumn(true);
-    setIsColumnModalOpen(true);
-    // Reset loading state when modal closes
-    setTimeout(() => setIsCreatingColumn(false), 100);
-  }, [isCreatingColumn]);
-
-  const addNewRow = useCallback(() => {
-    if (!currentTable || isCreatingRecord) return;
-    
-    setIsCreatingRecord(true);
-    
-    // Create empty data object with all column fields
-    const emptyData: Record<string, string> = {};
-    currentTable.columns?.forEach(col => {
-      const fieldKey = col.name.toLowerCase().replace(/\s+/g, '');
-      emptyData[fieldKey] = '';
-    });
-    
-    createRecordMutation.mutate({
-      tableId: currentTable.id,
-      data: emptyData,
-    }, {
-      onSettled: () => setIsCreatingRecord(false), // Reset loading state
-    });
-  }, [currentTable, createRecordMutation, isCreatingRecord]);
-
+  /*
+  Function used to update a cell. Takes a Row Index, a Column Id to know which column
+  the row is in and the value to what its changed to. This is called when a user
+  finishes typing, (onBlur) event so when the focus is removed is calls this function. 
+  The setTableData updates the tableData state using the previous state as a starting point. 
+  */
   const updateData = useCallback((rowIndex: number, columnId: string, value: unknown) => {
-    setTableData(prev =>
-      prev.map((row, index) => {
+    if (!currentTable?.id) return;
+
+    setTablesData(prev => {
+      const currentData = prev[currentTable.id] ?? [];
+      const updatedData = currentData.map((row, index) => {
         if (index === rowIndex) {
           const updatedRow = { ...row, [columnId]: value };
           
@@ -171,45 +90,48 @@ export default function DataTable({ currentTable }: DataTableProps) {
           return updatedRow;
         }
         return row;
-      })
-    );
-  }, [updateCellMutation]);
+      });
 
-  const handleFileUpload = useCallback((rowIndex: number, columnId: string, event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (files && files.length > 0) {
-      updateData(rowIndex, columnId, `${files.length} file(s)`);
-    }
-  }, [updateData]);
+      return {
+        ...prev,
+        [currentTable.id]: updatedData
+      };
+    });
+  }, [updateCellMutation, currentTable?.id]);
 
+  /*
+  Behavior for what happens when a user starts typing into a cell
+  */
   const defaultColumn = useMemo(
     () => ({
       cell: ({ getValue, row: { index }, column: { id }, table }: any) => {
         const initialValue = getValue();
         const [value, setValue] = React.useState(initialValue);
 
-        // When the input is blurred, update the data
         const onBlur = () => {
           table.options.meta?.updateData(index, id, value);
         };
 
-        // Update local state when the input changes
         const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
           setValue(e.target.value);
         };
 
-        // Sync with external data changes
         React.useEffect(() => {
           setValue(initialValue);
         }, [initialValue]);
 
         return (
           <input
-            value={value as string}
+            value={value as string || ''}
             onChange={onChange}
             onBlur={onBlur}
             className="cell-input"
-            style={{ width: '100%', border: 'none', background: 'transparent', padding: '8px' }}
+            style={{ 
+              width: '100%', 
+              border: 'none', 
+              background: 'transparent', 
+              padding: '8px' 
+            }}
           />
         );
       },
@@ -217,69 +139,71 @@ export default function DataTable({ currentTable }: DataTableProps) {
     []
   );
 
-  // const renderCell = useCallback((info: CellContext<TableRow, unknown>, column: Column) => {
-  //   const value = info.getValue() as string || '';
-  //   const rowId = info.row.original.id;
-  //   const fieldKey = column.name.toLowerCase().replace(/\s+/g, '');
-  //   const columnOptions = getColumnOptions(column.options);
+  const handleCreateColumn = useCallback((name: string, type: 'text' | 'number') => {
+    if (!currentTable) return;
+    
+    createColumnMutation.mutate({
+      tableId: currentTable.id,
+      name: name,
+      type: type,
+      position: currentTable.columns?.length ?? 0,
+    }, {
+      onSuccess: () => {
+        setIsColumnModalOpen(false);
+        window.location.reload();
+      }
+    });
+  }, [currentTable, createColumnMutation]);
 
-  //   switch (column.type) {
-  //     case 'select':
-  //     case 'status':
-  //       return (
-  //         <select
-  //           name={`${fieldKey}-${rowId}`}
-  //           value={value}
-  //           onChange={(e) => updateCell(rowId, fieldKey, e.target.value)}
-  //           className="cell-select"
-  //         >
-  //           <option value="">Select {column.name.toLowerCase()}</option>
-  //           {columnOptions?.choices?.map((choice) => (
-  //             <option key={choice.name} value={choice.name}>
-  //               {choice.name}
-  //             </option>
-  //           ))}
-  //         </select>
-  //       );
-        
-  //     case 'attachment':
-  //       return (
-  //         <div className="attachment-cell">
-  //           <input
-  //             type="file"
-  //             id={`file-${rowId}-${fieldKey}`}
-  //             name={`${fieldKey}-${rowId}`}
-  //             style={{ display: 'none' }}
-  //             multiple
-  //             onChange={(e) => handleFileUpload(rowId, fieldKey, e)}
-  //           />
-  //           <button
-  //             type="button"
-  //             onClick={() => document.getElementById(`file-${rowId}-${fieldKey}`)?.click()}
-  //             className="attachment-button"
-  //           >
-  //             Add file
-  //           </button>
-  //           {value && (
-  //             <span className="attachment-count">{value}</span>
-  //           )}
-  //         </div>
-  //       );
-        
-  //     default:
-  //       return (
-  //         <input
-  //           type="text"
-  //           name={`${fieldKey}-${rowId}`}
-  //           value={value}
-  //           onChange={(e) => updateCell(rowId, fieldKey, e.target.value)}
-  //           className="cell-input"
-  //           onFocus={(e) => e.target.select()} // Select all text when focused
-  //           onClick={(e) => e.stopPropagation()}
-  //         />
-  //       );
-  //   }
-  // }, [updateCell, handleFileUpload]);
+  const addNewCol = useCallback(() => {
+    setIsColumnModalOpen(true);
+  }, []);
+
+  const addNewRow = useCallback(() => {
+    if (!currentTable || isCreatingRecord) return;
+    
+    setIsCreatingRecord(true);
+    
+    const emptyData: Record<string, string> = {};
+    currentTable.columns?.forEach(col => {
+      const fieldKey = col.name.toLowerCase().replace(/\s+/g, '');
+      emptyData[fieldKey] = '';
+    });
+    
+    const optimisticRecord = {
+      id: `temp-${Date.now()}`,
+      ...emptyData,
+    } as TableRow;
+    
+    // ✅ Add to current table's data
+    setTablesData(prev => ({
+      ...prev,
+      [currentTable.id]: [...(prev[currentTable.id] ?? []), optimisticRecord]
+    }));
+    
+    createRecordMutation.mutate({
+      tableId: currentTable.id,
+      data: emptyData,
+    }, {
+      onSuccess: (realRecord) => {
+        setTablesData(prev => ({
+          ...prev,
+          [currentTable.id]: (prev[currentTable.id] ?? []).map(row => 
+            row.id === optimisticRecord.id 
+              ? { id: realRecord.id, ...(realRecord.data as Record<string, unknown>) } as TableRow
+              : row
+          )
+        }));
+      },
+      onError: () => {
+        setTablesData(prev => ({
+          ...prev,
+          [currentTable.id]: (prev[currentTable.id] ?? []).filter(row => row.id !== optimisticRecord.id)
+        }));
+      },
+      onSettled: () => setIsCreatingRecord(false),
+    });
+  }, [currentTable, createRecordMutation, isCreatingRecord]);
 
   const columns = useMemo(() => {
     if (!currentTable?.columns) return [];
@@ -288,7 +212,6 @@ export default function DataTable({ currentTable }: DataTableProps) {
       .sort((a, b) => a.position - b.position)
       .map((col) => {
         const fieldKey = col.name.toLowerCase().replace(/\s+/g, '');
-        const columnOptions = getColumnOptions(col.options);
 
         return columnHelper.accessor(fieldKey, {
           header: () => (
@@ -297,91 +220,37 @@ export default function DataTable({ currentTable }: DataTableProps) {
               {col.name}
             </div>
           ),
-          cell: ({ getValue, row: { index }, column: { id }, table }) => {
-            const initialValue = getValue();
-            const [value, setValue] = React.useState(initialValue);
+          // ✅ Only override cell for special column types, otherwise use defaultColumn
+          ...(col.type !== 'text' && {
+            cell: ({ getValue, row: { index }, column: { id }, table }) => {
+              const value = getValue() as string || '';
 
-            const onBlur = () => {
-              (table.options.meta as any)?.updateData(index, id, value);
-            };
+              switch (col.type) {
+                case 'number':
+                  const [numValue, setNumValue] = React.useState(value);
+                  
+                  React.useEffect(() => {
+                    setNumValue(value);
+                  }, [value]);
 
-            const onChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-              setValue(e.target.value);
-            };
-
-            React.useEffect(() => {
-              setValue(initialValue);
-            }, [initialValue]);
-
-            switch (col.type) {
-              case 'select':
-              case 'number':
-                return (
-                  <input
-                    type="number"
-                    value={value}
-                    onChange={(e) => handleChange(e.target.value)}
-                    className="cell-input"
-                    style={{ width: '100%', border: 'none', background: 'transparent', padding: '8px' }}
-                  />
-                )
-              case 'status':
-                return (
-                  <select
-                    value={value as string}
-                    onChange={onChange}
-                    onBlur={onBlur}
-                    className="cell-select"
-                    style={{ width: '100%', border: 'none', background: 'transparent', padding: '8px' }}
-                  >
-                    <option value="">Select {col.name.toLowerCase()}</option>
-                    {columnOptions?.choices?.map((choice) => (
-                      <option key={choice.name} value={choice.name}>
-                        {choice.name}
-                      </option>
-                    ))}
-                  </select>
-                );
-                
-              case 'attachment':
-                return (
-                  <div className="attachment-cell">
+                  return (
                     <input
-                      type="file"
-                      id={`file-${index}-${id}`}
-                      style={{ display: 'none' }}
-                      multiple
-                      onChange={(e) => handleFileUpload(index, id, e)}
+                      type="number"
+                      value={numValue}
+                      onChange={(e) => setNumValue(e.target.value)}
+                      onBlur={() => (table.options.meta as any)?.updateData(index, id, numValue)}
+                      style={{ width: '100%', border: 'none', background: 'transparent', padding: '8px' }}
                     />
-                    <button
-                      type="button"
-                      onClick={() => document.getElementById(`file-${index}-${id}`)?.click()}
-                      className="attachment-button"
-                    >
-                      Add file
-                    </button>
-                    {value && (
-                      <span className="attachment-count">{value}</span>
-                    )}
-                  </div>
-                );
-                
-              default:
-                return (
-                  <input
-                    type="text"
-                    value={value as string}
-                    onChange={onChange}
-                    onBlur={onBlur}
-                    className="cell-input"
-                    style={{ width: '100%', border: 'none', background: 'transparent', padding: '8px' }}
-                  />
-                );
+                  );
+                  
+                default:
+                  return null; // Will use defaultColumn
+              }
             }
-          },
+          })
         });
       });
-  }, [currentTable?.columns, getColumnIcon, handleFileUpload]);
+  }, [currentTable?.columns, getColumnIcon]);
 
   const table = useReactTable({
     data: tableData,

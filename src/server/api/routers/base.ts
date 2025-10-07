@@ -161,4 +161,104 @@ export const baseRouter = createTRPCRouter({
         },
       });
     }),
+
+  //Create a New Table
+  createTable: protectedProcedure
+    .input(z.object({
+      baseId: z.string(),
+    }))
+    .mutation(async ({ ctx, input}) => {
+      // Verify that the user owns the base
+      const base = await ctx.db.base.findFirst({
+        where: {
+          id: input.baseId,
+          createdById: ctx.session.user.id,
+        },
+        include: {
+          tables: true
+        },
+      });
+
+      if (!base) {
+        throw new Error("Base not found or access denied");
+      }
+
+      const tableNumber = base.tables.length + 1;
+      const tableName = `Table ${tableNumber}`;
+
+      const newTable = await ctx.db.table.create({
+        data: {
+          name: tableName, 
+          baseId: input.baseId,
+        },
+      });
+
+      await ctx.db.column.createMany({
+        data: [
+          {
+            name: 'Name',
+            type: 'text',
+            position: 0,
+            tableId: newTable.id,
+          },
+          {
+            name: 'Notes',
+            type: 'text',
+            position: 1,
+            tableId: newTable.id,
+          },
+          {
+            name: 'Assignee',
+            type: 'text',
+            position: 2,
+            tableId: newTable.id,
+            options: {
+              choices: [
+                { name: 'Mega Knight', color: 'blue'},
+                { name: 'The Log', color: 'blue'},
+              ]
+            },
+          },
+          {
+            name: 'Status',
+            type: 'text',
+            position: 3,
+            tableId: newTable.id,
+            options: {
+              choices: [
+                { name: 'Todo', color: 'gray' },
+                { name: 'In Progress', color: 'yellow'},
+                { name: 'Done', color: 'green'},
+                { name: 'Blocked', color: 'red'},
+              ]
+            },
+          },
+          {
+            name: 'Attachments',
+            type: 'text',
+            position: 4,
+            tableId: newTable.id,
+          },
+          {
+            name: 'Attachment Summary',
+            type: 'text', 
+            position: 5,
+            tableId: newTable.id,
+          },
+        ],
+      });
+
+
+      return ctx.db.table.findUnique({
+        where: { id: newTable.id },
+        include: {
+          columns: {
+            orderBy: {
+              position: 'asc',
+            },
+          },
+          records: true,
+        },
+      });
+    })
 });

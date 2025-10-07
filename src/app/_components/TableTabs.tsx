@@ -7,9 +7,17 @@ interface TableTabsProps {
   base: Base;
   currentTableIndex: number;
   setCurrentTableIndex: (index: number) => void;
+  handleCreateTable: () => void;
+  createTableMutation?: any;
 }
 
-export default function TableTabs({ base, currentTableIndex, setCurrentTableIndex }: TableTabsProps) {
+export default function TableTabs({ 
+  base, 
+  currentTableIndex, 
+  setCurrentTableIndex, 
+  handleCreateTable, 
+  createTableMutation = { isPending: false }
+}: TableTabsProps) {
   const [addTable, setAddTable] = useState(false);
   const popupRef = useRef<HTMLDivElement>(null);
 
@@ -42,7 +50,7 @@ export default function TableTabs({ base, currentTableIndex, setCurrentTableInde
             {table.name}
           </span>
         ))}
-        <button className="add-tab-btn" onClick={() => setAddTable(true)}>
+        <button className="add-tab-btn" onClick={handleCreateTable} disabled={createTableMutation.isPending}>
           + Add or Import
         </button>
         {addTable && (

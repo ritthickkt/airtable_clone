@@ -10,7 +10,6 @@ import Base from '../_components/base';
 import WhiteBase from '../_components/white-base';
 
 import type {
-  BaseType,
   CreateBaseResponse
 } from '../../types/index'
 

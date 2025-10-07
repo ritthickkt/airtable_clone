@@ -61,29 +61,15 @@ export async function POST(request: NextRequest) {
         },
         {
           name: 'Assignee',
-          type: 'select',
+          type: 'text',
           position: 2,
           tableId: defaultTable.id,
-          options: {
-            choices: [
-              { name: 'Mega Knight', color: 'blue'},
-              { name: 'The Log', color: 'blue'},
-            ]
-          },
         },
         {
           name: 'Status',
-          type: 'select',
+          type: 'text',
           position: 3,
           tableId: defaultTable.id,
-          options: {
-            choices: [
-              { name: 'Todo', color: 'gray' },
-              { name: 'In Progress', color: 'yellow'},
-              { name: 'Done', color: 'green'},
-              { name: 'Blocked', color: 'red'},
-            ]
-          },
         },
         {
           name: 'Attachments',
@@ -111,10 +97,10 @@ export async function POST(request: NextRequest) {
         {
           tableId: defaultTable.id,
           data: {
-            name: 'First Task',
-            notes: 'This is your first task',
-            assignee: 'Mega Knight',
-            status: 'Todo',
+            name: '',
+            notes: '',
+            assignee: '',
+            status: '',
             attachments: '',
             attachmentsummary: '',
           }
@@ -122,10 +108,10 @@ export async function POST(request: NextRequest) {
         {
           tableId: defaultTable.id,
           data: {
-            name: 'Second Task',
-            notes: 'Another sample task',
-            assignee: 'The Log',
-            status: 'In Progress',
+            name: '',
+            notes: '',
+            assignee: '',
+            status: '',
             attachments: '',
             attachmentsummary: '',
           }
@@ -133,10 +119,10 @@ export async function POST(request: NextRequest) {
         {
           tableId: defaultTable.id,
           data: {
-            name: 'Third Task',
-            notes: 'One more example',
-            assignee: 'Mega Knight',
-            status: 'Done',
+            name: '',
+            notes: '',
+            assignee: '',
+            status: '',
             attachments: '',
             attachmentsummary: '',
           }

@@ -22,7 +22,7 @@ export interface Table {
 export interface Column {
   id: string;
   name: string;
-  type: 'text' | 'number' | 'select' | 'status' | 'attachment'; // ✅ Add 'number'
+  type: string; 
   position: number;
   tableId: string;
   options?: any;

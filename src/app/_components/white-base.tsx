@@ -2,10 +2,8 @@
 
 export default function WhiteBase() {
   return (
-    <div className="base-card">
-      <div className="base-icon" style={{ backgroundColor: 'white'}}>
-      
-      </div>
+    <div className="loading-base-card">
+      {/* Empty white card */}
     </div>
   );
 }

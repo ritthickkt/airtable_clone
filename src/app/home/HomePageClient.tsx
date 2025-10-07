@@ -114,21 +114,9 @@ export default function HomePageClient({ session }: { session: Session | null })
                   <button className="view-button active">⊞</button>
                 </div>
               </div>
-              {/* <div className='recent-bases'>
-                <div className="loading-bases">
-                    <WhiteBase/>
-                    <WhiteBase/>
-                    <WhiteBase/>
-                    <WhiteBase/>
-                    <WhiteBase/>
-                    <WhiteBase/>
-                    <WhiteBase/>
-                    <WhiteBase/>
-                </div>
-              </div> */}
              <div className="recent-bases">
                 {isLoading ? (
-                  <div className="loading-bases">
+                  <>
                     <WhiteBase/>
                     <WhiteBase/>
                     <WhiteBase/>
@@ -137,7 +125,7 @@ export default function HomePageClient({ session }: { session: Session | null })
                     <WhiteBase/>
                     <WhiteBase/>
                     <WhiteBase/>
-                  </div>
+                  </>
                 ) : bases && bases.length > 0 ? (
                   bases.map((base) => (
                     <div key={base.id} onClick={() => window.location.href = `/${base.id}`}>

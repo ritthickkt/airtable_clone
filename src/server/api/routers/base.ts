@@ -260,5 +260,40 @@ export const baseRouter = createTRPCRouter({
           records: true,
         },
       });
-    })
+    }),
+  
+  //Delete a record
+  deleteRecord: protectedProcedure
+  .input(z.object({
+    recordId: z.string(),
+  }))
+  .mutation(async ({ ctx, input }) => {
+    // Verify the user owns this record through the table/base relationship
+    const record = await ctx.db.record.findFirst({
+      where: {
+        id: input.recordId,
+      },
+      include: {
+        table: {
+          include: {
+            base: true,
+          },
+        },
+      },
+    });
+
+    if (!record || record.table.base.createdById !== ctx.session.user.id) {
+      throw new Error("Record not found or access denied");
+    }
+
+    // Delete the record
+    await ctx.db.record.delete({
+      where: {
+        id: input.recordId,
+      },
+    });
+
+    return { success: true };
+  }),
+    
 });

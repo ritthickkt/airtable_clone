@@ -8,10 +8,9 @@ import {
   useReactTable,
 } from '@tanstack/react-table';
 import SideBar from './sidebar';
-import { api } from "../../trpc/react"; // Add this import
+import { api } from "../../trpc/react";
 import TextIcon from './columnIcons/text';
-// import StatusIcon from './columnIcons/status';
-// import AttachmentIcon from './columnIcons/attachment';
+import ContextMenuRecord from './ContextMenuRecord';
 import type { TableRow, Table } from '../../types';
 import ColumnConfiguration from '../_components/ColumnConfiguration';
 import React from 'react';
@@ -20,15 +19,22 @@ const columnHelper = createColumnHelper<TableRow>();
 
 interface DataTableProps {
   currentTable: Table | null;
+  onColumnUpdate: (tableId: string, newColumn: any) => void;
 }
 
-export default function DataTable({ currentTable }: DataTableProps) {
+export default function DataTable({ currentTable, onColumnUpdate }: DataTableProps) {
   const [isCreatingRecord, setIsCreatingRecord] = useState(false);
   const [isCreatingColumn, setIsCreatingColumn] = useState(false);
   const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
   const [tablesData, setTablesData] = useState<Record<string, TableRow[]>>({});
+  const [currentCell, setCurrentCell] = useState<{rowIndex: number; columnIndex: number} | null>(null);
 
-
+  const [contextMenu, setContextMenu] = useState<{
+    visible: boolean;
+    rowIndex: number;
+    x: number;
+    y: number;
+  } | null>(null);
 
   const tableData = useMemo(() => {
     if (!currentTable?.id) return [];
@@ -56,8 +62,6 @@ export default function DataTable({ currentTable }: DataTableProps) {
     switch (type) {
       case 'text': return <TextIcon/>;
       case 'number': return <div>#</div>;
-      // case 'status': return <StatusIcon/>;
-      // case 'attachment': return <AttachmentIcon/>;
       default: return '📝';
     }
   }, []);
@@ -65,6 +69,71 @@ export default function DataTable({ currentTable }: DataTableProps) {
   const createRecordMutation = api.base.createRecord.useMutation();
   const createColumnMutation = api.base.createColumn.useMutation();
   const updateCellMutation = api.base.updateCell.useMutation();
+  const deleteRecordMutation = api.base.deleteRecord.useMutation();
+  // const deleteTableMutation = api.base.deleteTable.uesMutation();
+  // const deleteColumnMutation = api.base.deleteColumn.useMutation();
+
+  React.useEffect(() => {
+    const handleClick = () => setContextMenu(null);
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, [])
+
+  const handleCellRightClick = useCallback((e: React.MouseEvent, rowIndex: number) => {
+    e.preventDefault();
+
+    const menuHeight = 400;
+    const menuWidth = 220;
+
+    let x = e.clientX;
+    let y = e.clientY;
+
+    if (y + menuHeight > window.innerHeight) {
+      y = e.clientY - menuHeight;
+    }
+
+    if (x + menuWidth > window.innerWidth) {
+      x = e.clientX - menuWidth;
+    }
+
+    setContextMenu({
+      visible: true,
+      rowIndex,
+      x,
+      y,
+    });
+  }, []);
+
+
+  const handleDeleteRow = useCallback(() => {
+    if (!contextMenu || !currentTable?.id) return;
+
+    const rowToDelete = tableData[contextMenu.rowIndex];
+    if (!rowToDelete) return;
+
+    setTablesData(prev => ({
+      ...prev,
+    [currentTable.id]: prev[currentTable.id]?.filter((_, index) => index !== contextMenu.rowIndex) ?? []
+    }));
+
+    deleteRecordMutation.mutate({
+      recordId: rowToDelete.id, 
+    }, {
+      onError: () => {
+        setTablesData(prev => {
+          const currentData = prev[currentTable.id] ?? [];
+          const newData = [...currentData];
+          newData.splice(contextMenu.rowIndex, 0, rowToDelete);
+          return {
+            ...prev,
+            [currentTable.id]: newData
+          };
+        });
+      }
+    });
+
+    setContextMenu(null);
+  }, [contextMenu, tableData, currentTable?.id, deleteRecordMutation]);
 
   /*
   Function used to update a cell. Takes a Row Index, a Column Id to know which column
@@ -99,6 +168,67 @@ export default function DataTable({ currentTable }: DataTableProps) {
     });
   }, [updateCellMutation, currentTable?.id]);
 
+  const handleKeyDown = useCallback((event: React.KeyboardEvent, rowIndex: number, columnIndex: number) => {
+    const maxRows = tableData.length;
+    const maxCols = currentTable?.columns?.length ?? 0;
+
+    let newRowIndex = rowIndex;
+    let newColumnIndex = columnIndex;
+
+    switch (event.key) {
+      case 'ArrowUp':
+        event.preventDefault();
+        newRowIndex = Math.max(0, rowIndex - 1);
+        break;
+      case 'ArrowDown':
+        event.preventDefault();
+        newRowIndex = Math.min(maxRows - 1, rowIndex + 1);
+        break;
+      case 'ArrowLeft':
+        event.preventDefault();
+        newColumnIndex = Math.max(0, columnIndex - 1);
+        break;
+      case 'ArrowRight':
+        event.preventDefault();
+        newColumnIndex = Math.min(maxCols - 1, columnIndex + 1);
+        break;
+      case 'Tab':
+        event.preventDefault();
+        if (event.shiftKey) {
+          newColumnIndex = columnIndex - 1;
+          if (newColumnIndex < 0) {
+            newColumnIndex = maxCols - 1;
+            newRowIndex = Math.max(0, rowIndex - 1);
+          }
+        } else {
+          newColumnIndex = columnIndex + 1;
+          if (newColumnIndex >= maxCols) {
+            newColumnIndex = 0;
+            newRowIndex = Math.min(maxRows - 1, rowIndex + 1);
+          }
+        }
+        break;
+      case 'Enter':
+        event.preventDefault();
+        newRowIndex = Math.min(maxRows - 1, rowIndex + 1);
+        break;
+      default:
+        return;
+    }
+
+    setCurrentCell({ rowIndex: newRowIndex, columnIndex: newColumnIndex });
+    
+    setTimeout(() => {
+      const cell = document.querySelector(
+        `[data-row-index="${newRowIndex}"][data-column-index="${newColumnIndex}"] input`
+      );
+      if (cell instanceof HTMLInputElement) {
+        cell.focus();
+        cell.select();
+      }
+    }, 0);
+  }, [tableData.length, currentTable?.columns?.length]);
+
   /*
   Behavior for what happens when a user starts typing into a cell
   */
@@ -107,6 +237,11 @@ export default function DataTable({ currentTable }: DataTableProps) {
       cell: ({ getValue, row: { index }, column: { id }, table }: any) => {
         const initialValue = getValue();
         const [value, setValue] = React.useState(initialValue);
+
+        // Get column index from visible columns
+        const columnIndex = table.getAllColumns()
+          .filter((col: any) => col.getIsVisible())
+          .findIndex((col: any) => col.id === id);
 
         const onBlur = () => {
           table.options.meta?.updateData(index, id, value);
@@ -121,26 +256,43 @@ export default function DataTable({ currentTable }: DataTableProps) {
         }, [initialValue]);
 
         return (
-          <input
-            value={value as string || ''}
-            onChange={onChange}
-            onBlur={onBlur}
-            className="cell-input"
-            style={{ 
-              width: '100%', 
-              border: 'none', 
-              background: 'transparent', 
-              padding: '8px' 
-            }}
-          />
+          <div 
+            data-row-index={index} 
+            data-column-index={columnIndex}
+          >
+            <input
+              value={value as string || ''}
+              onChange={onChange}
+              onBlur={onBlur}
+              onKeyDown={e => handleKeyDown(e, index, columnIndex)}
+              onContextMenu={(e) => handleCellRightClick(e, index)}
+              style={{ 
+                width: '100%', 
+                border: 'none', 
+                background: 'transparent', 
+                padding: '8px',
+                fontSize: '14px',
+              }}
+            />
+          </div>
         );
       },
-    }),
-    []
+    }), [handleCellRightClick, handleKeyDown, currentCell]
   );
 
   const handleCreateColumn = useCallback((name: string, type: 'text' | 'number') => {
     if (!currentTable) return;
+    
+    const optimisticColumn = {
+      id: `temp-col-${Date.now()}`,
+      name: name,
+      type: type,
+      position: currentTable.columns?.length ?? 0,
+      tableId: currentTable.id,
+      options: {},
+    };
+ 
+    onColumnUpdate(currentTable.id, optimisticColumn);
     
     createColumnMutation.mutate({
       tableId: currentTable.id,
@@ -148,12 +300,19 @@ export default function DataTable({ currentTable }: DataTableProps) {
       type: type,
       position: currentTable.columns?.length ?? 0,
     }, {
-      onSuccess: () => {
+      onSuccess: (realColumn) => {
+        setIsColumnModalOpen(false);
+        console.log('Column created:', realColumn);
+      },
+      onError: () => {
+        console.error('Failed to create column');
         setIsColumnModalOpen(false);
         window.location.reload();
       }
     });
-  }, [currentTable, createColumnMutation]);
+    
+    setIsColumnModalOpen(false);
+  }, [currentTable, createColumnMutation, onColumnUpdate]);
 
   const addNewCol = useCallback(() => {
     setIsColumnModalOpen(true);
@@ -175,7 +334,6 @@ export default function DataTable({ currentTable }: DataTableProps) {
       ...emptyData,
     } as TableRow;
     
-    // ✅ Add to current table's data
     setTablesData(prev => ({
       ...prev,
       [currentTable.id]: [...(prev[currentTable.id] ?? []), optimisticRecord]
@@ -210,7 +368,7 @@ export default function DataTable({ currentTable }: DataTableProps) {
 
     return currentTable.columns
       .sort((a, b) => a.position - b.position)
-      .map((col) => {
+      .map((col, columnIndex) => {
         const fieldKey = col.name.toLowerCase().replace(/\s+/g, '');
 
         return columnHelper.accessor(fieldKey, {
@@ -220,7 +378,6 @@ export default function DataTable({ currentTable }: DataTableProps) {
               {col.name}
             </div>
           ),
-          // ✅ Only override cell for special column types, otherwise use defaultColumn
           ...(col.type !== 'text' && {
             cell: ({ getValue, row: { index }, column: { id }, table }) => {
               const value = getValue() as string || '';
@@ -233,14 +390,33 @@ export default function DataTable({ currentTable }: DataTableProps) {
                     setNumValue(value);
                   }, [value]);
 
+                  const onFocus = () => {
+                    setCurrentCell({ rowIndex: index, columnIndex });
+                  };
+
+                  const isCurrentCell = currentCell?.rowIndex === index && currentCell?.columnIndex === columnIndex;
+
                   return (
-                    <input
-                      type="number"
-                      value={numValue}
-                      onChange={(e) => setNumValue(e.target.value)}
-                      onBlur={() => (table.options.meta as any)?.updateData(index, id, numValue)}
-                      style={{ width: '100%', border: 'none', background: 'transparent', padding: '8px' }}
-                    />
+                    <div 
+                      data-row-index={index} 
+                      data-column-index={columnIndex}
+                    >
+                      <input
+                        type="number"
+                        value={numValue}
+                        onChange={(e) => setNumValue(e.target.value)}
+                        onBlur={() => (table.options.meta as any)?.updateData(index, id, numValue)}
+                        onFocus={onFocus}
+                        onContextMenu={(e) => handleCellRightClick(e, index)}
+                        style={{ 
+                          width: '100%', 
+                          border: 'none', 
+                          background: 'transparent', 
+                          padding: '8px',
+                          outline: isCurrentCell ? '2px solid #007bff' : 'none',
+                        }}
+                      />
+                    </div>
                   );
                   
                 default:
@@ -250,15 +426,15 @@ export default function DataTable({ currentTable }: DataTableProps) {
           })
         });
       });
-  }, [currentTable?.columns, getColumnIcon]);
+  }, [currentTable?.columns, getColumnIcon, handleCellRightClick]);
 
-  const table = useReactTable({
+    const table = useReactTable({
     data: tableData,
     columns,
     defaultColumn,
     getCoreRowModel: getCoreRowModel(),
     meta: {
-      updateData, // Pass the update function to table meta
+      updateData,
     },
   });
 
@@ -319,6 +495,14 @@ export default function DataTable({ currentTable }: DataTableProps) {
         >
           {isCreatingRecord ? '...' : '+'}
         </button>
+        <ContextMenuRecord
+          visible={contextMenu?.visible ?? false}
+          x={contextMenu?.x ?? 0}
+          y={contextMenu?.y ?? 0}
+          rowIndex={contextMenu?.rowIndex ?? 0}
+          onDelete={handleDeleteRow}
+          onCancel={() => setContextMenu(null)}
+        />
       </div>
       <ColumnConfiguration
         isOpen={isColumnModalOpen}

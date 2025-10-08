@@ -149,12 +149,6 @@ export async function POST(request: NextRequest) {
       timeout: 10000,
     });
 
-    // const newBase = await db.base.create({
-    //   data: {
-    //     name: name.trim(),
-    //     createdById: session.user.id,
-    //   },
-    // });
     return NextResponse.json(result);
   } catch (error) {
     console.error('Error creating base:', error);

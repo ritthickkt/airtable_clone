@@ -13,6 +13,7 @@ import TextIcon from './columnIcons/text';
 import ContextMenuRecord from './ContextMenuRecord';
 import type { TableRow, Table } from '../../types';
 import ColumnConfiguration from '../_components/ColumnConfiguration';
+import { useClickAway } from '../hooks/ClickAway';
 import React from 'react';
 
 const columnHelper = createColumnHelper<TableRow>();
@@ -28,6 +29,12 @@ export default function DataTable({ currentTable, onColumnUpdate }: DataTablePro
   const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
   const [tablesData, setTablesData] = useState<Record<string, TableRow[]>>({});
   const [currentCell, setCurrentCell] = useState<{rowIndex: number; columnIndex: number} | null>(null);
+  const [colConfigPosition, setColConfigPosition] = useState<{ top: number; left: number } | null>(null);
+
+  const colConfigRef = React.useRef<HTMLDivElement>(null);
+  const addColBtnRef = React.useRef<HTMLButtonElement>(null);
+
+  // useClickAway([colConfigRef, addColBtnRef], () => setIsColumnModalOpen(false), setIsColumnModalOpen(false));
 
   const [contextMenu, setContextMenu] = useState<{
     visible: boolean;
@@ -79,6 +86,24 @@ export default function DataTable({ currentTable, onColumnUpdate }: DataTablePro
     return () => document.removeEventListener('click', handleClick);
   }, [])
 
+  React.useEffect(() => {
+    if (!isColumnModalOpen) return;
+
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        colConfigRef.current &&
+        !colConfigRef.current.contains(event.target as Node) &&
+        addColBtnRef.current &&
+        !addColBtnRef.current.contains(event.target as Node)
+      ) {
+        setIsColumnModalOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isColumnModalOpen]);
+
   const handleCellRightClick = useCallback((e: React.MouseEvent, rowIndex: number) => {
     e.preventDefault();
 
@@ -103,7 +128,6 @@ export default function DataTable({ currentTable, onColumnUpdate }: DataTablePro
       y,
     });
   }, []);
-
 
   const handleDeleteRow = useCallback(() => {
     if (!contextMenu || !currentTable?.id) return;
@@ -315,8 +339,29 @@ export default function DataTable({ currentTable, onColumnUpdate }: DataTablePro
   }, [currentTable, createColumnMutation, onColumnUpdate]);
 
   const addNewCol = useCallback(() => {
-    setIsColumnModalOpen(true);
-  }, []);
+  if (addColBtnRef.current) {
+    const rect = addColBtnRef.current.getBoundingClientRect();
+    // Estimate your popup's width and height (adjust as needed)
+    const popupWidth = 300;
+    const popupHeight = 200;
+
+    let top = rect.bottom + window.scrollY;
+    let left = rect.left + window.scrollX;
+
+    // Adjust if popup would overflow right edge
+    if (left + popupWidth > window.innerWidth) {
+      left = window.innerWidth - popupWidth - 16; // 16px margin from edge
+    }
+    // Adjust if popup would overflow bottom edge
+    if (top + popupHeight > window.innerHeight + window.scrollY) {
+      top = rect.top + window.scrollY - popupHeight;
+      if (top < 0) top = 16; // 16px margin from top
+    }
+
+    setColConfigPosition({ top, left });
+  }
+  setIsColumnModalOpen(true);
+}, []);
 
   const addNewRow = useCallback(() => {
     if (!currentTable || isCreatingRecord) return;
@@ -473,6 +518,7 @@ export default function DataTable({ currentTable, onColumnUpdate }: DataTablePro
             </tbody>
           </table>
           <button 
+            ref={addColBtnRef}
             onClick={addNewCol}
             disabled={isCreatingColumn}
             className="add-col-button"
@@ -504,11 +550,25 @@ export default function DataTable({ currentTable, onColumnUpdate }: DataTablePro
           onCancel={() => setContextMenu(null)}
         />
       </div>
-      <ColumnConfiguration
-        isOpen={isColumnModalOpen}
-        onClose={() => setIsColumnModalOpen(false)}
-        onCreateColumn={handleCreateColumn}
-      />
+      {isColumnModalOpen && colConfigPosition && (
+        <div
+          ref={colConfigRef}
+          style={{
+            position: 'absolute',
+            top: colConfigPosition.top,
+            left: colConfigPosition.left,
+            zIndex: 1000,
+          }}
+        >
+          <ColumnConfiguration
+            isOpen={isColumnModalOpen}
+            onClose={() => setIsColumnModalOpen(false)}
+            onCreateColumn={handleCreateColumn}
+            isColumnModalOpen={isColumnModalOpen}
+            colConfigPosition={colConfigPosition}
+          />
+        </div>
+      )}
     </div>
   );
 }

@@ -9,13 +9,6 @@ import logo from "./assets/airtable.svg"
 import '../styles/landingpage.css'
 
 export default async function Home() {
-  const hello = await api.post.hello({ text: "from tRPC" });
-  const session = await auth();
-
-  if (session?.user) {
-    void api.post.getLatest.prefetch();
-  }
-
   return (
     <HydrateClient>
       <div className="landing-page-header">

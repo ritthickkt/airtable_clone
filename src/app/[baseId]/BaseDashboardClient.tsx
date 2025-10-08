@@ -25,39 +25,39 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
     onSuccess: (newTable) => {
       console.log('Table created:', newTable);
 
-      // ✅ Replace the optimistic table with the real one instead of adding
       setBase(prevBase => ({
         ...prevBase,
-        tables: prevBase.tables?.map(table => 
-          table.id.startsWith('temp-table-') 
+        tables: prevBase.tables?.map(table =>
+          table.id.startsWith('temp-table-')
             ? {
-                ...newTable,
-                columns: newTable.columns || [],
-                records: newTable.records || []
+                id: ( newTable as any).id ?? '', // fallback to empty string if undefined
+                name: ( newTable as any).name ?? '',
+                baseId: ( newTable as any).baseId ?? prevBase.id,
+                columns: Array.isArray(( newTable as any).columns) ? ( newTable as any).columns : [],
+                records: Array.isArray(( newTable as any).records) ? ( newTable as any).records : [],
+                createdAt: ( newTable as any).createdAt ?? new Date(),
+                updatedAt: ( newTable as any).updatedAt ?? new Date(),
+                // add any other required fields from your Table type here
               }
             : table
-        ) || []
+        ) ?? []
       }));
 
-      // ✅ Keep the same table index (no need to change)
-      // setCurrentTableIndex stays the same since we're replacing, not adding
     },
     onError: (error) => {
       console.error('Failed to create table:', error);
 
-       // ✅ Remove optimistic table on error
       setBase(prevBase => ({
         ...prevBase,
-        tables: prevBase.tables?.slice(0, -1) || []
+        tables: prevBase.tables?.slice(0, -1) ?? []
       }));
       
-      // ✅ Reset to previous table
-      setCurrentTableIndex(Math.max(0, (base.tables?.length || 1) - 2));
+      setCurrentTableIndex(Math.max(0, (base.tables?.length ?? 1) - 2));
     },
   });
 
   const handleCreateTable = () => {
-    // ✅ Create optimistic table immediately
+    const now = new Date();
     const optimisticTable = {
       id: `temp-table-${Date.now()}`,
       name: 'Untitled Table',
@@ -70,6 +70,8 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
           position: 0,
           tableId: `temp-table-${Date.now()}`,
           options: {},
+          createdAt: now,
+          updatedAt: now,
         },
         {
           id: `temp-col-${Date.now()}-2`,
@@ -78,21 +80,23 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
           position: 1,
           tableId: `temp-table-${Date.now()}`,
           options: {},
+          createdAt: now,
+          updatedAt: now,
         },
       ],
       records: [],
+      createdAt: now,
+      updatedAt: now,
+      // add any other required fields from your Table type here
     };
 
-    // ✅ Add optimistic table to state immediately
     setBase(prevBase => ({
       ...prevBase,
       tables: [...(prevBase.tables ?? []), optimisticTable]
     }));
 
-    // ✅ Switch to the optimistic table immediately
     setCurrentTableIndex(base.tables?.length ?? 0);
 
-    // ✅ Create real table
     createTableMutation.mutate({
       baseId: base.id,
     });
@@ -107,10 +111,10 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
               ...table, 
               columns: table.columns?.some(col => col.id === newColumn.id)
                 ? table.columns.map(col => col.id === newColumn.id ? newColumn : col) // Replace existing
-                : [...(table.columns || []), newColumn] // Add new
+                : [...(table.columns ?? []), newColumn] // Add new
             }
           : table
-      ) || []
+      ) ?? []
     }));
   }, []);
 
@@ -165,7 +169,6 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
               handleCreateTable={handleCreateTable}
               createTableMutation={createTableMutation}
             />
-            
             <div className="table-container">
               <TableControls />
               <DataTable currentTable={currentTable} onColumnUpdate={updateTableColumns}/>

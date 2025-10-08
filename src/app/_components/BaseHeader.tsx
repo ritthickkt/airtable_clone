@@ -22,7 +22,7 @@ export default function BaseHeader({
   activeTab, 
   setActiveTab, 
   baseName, 
-  setIsEditing, 
+  setIsEditing,
 }: BaseHeaderProps) {
   const logoBackgroundColor = base.color ?? '#3b82f6';
 
@@ -52,7 +52,8 @@ export default function BaseHeader({
                 className={`nav-tab ${activeTab === tab ? 'active' : ''}`}
                 onClick={() => setActiveTab(tab)}
                 style={activeTab === tab ? {
-                  borderBottomColor: base.color ?? '#3b82f6'
+                  borderBottomColor: base.color ?? '#3b82f6',
+                  color: 'black'
                 } : {}}
               >
                 {tab}
@@ -62,8 +63,8 @@ export default function BaseHeader({
         </div>
 
         <div className="base-header-right">
-          <button className="launch-button">🚀 Launch</button>
-          <button className="share-button">Share</button>
+          <button className="launch-button">Launch</button>
+          <button className="share-button" style={ {backgroundColor: base.color ?? 'blue'}}>Share</button>
         </div>
       </div>
     </>

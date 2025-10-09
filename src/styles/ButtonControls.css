@@ -1,0 +1,119 @@
+/* Table Control Buttons */
+.table-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  border-bottom: 1px solid #e9ecef;
+  background: white;
+  flex-shrink: 0;
+}
+
+.table-controls-left, 
+.table-controls-right {
+  display: flex;
+  gap: 8px;
+}
+
+.control-btn {
+  padding: 6px 12px;
+  background: white;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  color: grey;
+}
+
+.control-btn:hover {
+  background-color: #f8f9fa;
+}
+
+/* Add Row/Column Buttons */
+.add-row-button {
+  border-right: 1px solid #E5E5E5;
+  border-bottom: 1px solid #E5E5E5;
+  color: #6c757d;
+  width: 40px;
+  height: 30px;
+  cursor: pointer;
+}
+
+.add-col-button {
+  border-right: 1px solid #E5E5E5;
+  border-bottom: 1px solid #E5E5E5;
+  border-left: 1px solid #E5E5E5;
+  color: #6c757d;
+  height: 35px;
+  width: 100%;
+  cursor: pointer;
+}
+
+.add-row-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: transparent;
+  color: #6b7280;
+  font-size: 13px;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+}
+
+.add-row-btn:hover {
+  background: #f8fafc;
+  color: #374151;
+}
+
+.add-field-btn {
+  background: none;
+  border: none;
+  color: #6b7280;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.add-field-btn:hover {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+/* Delete Button */
+.delete-row-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.delete-row-btn:hover {
+  background-color: #fee;
+}
+
+/* Action Cells */
+.actions-header {
+  width: 80px;
+  background-color: #f7f9fc;
+  border-right: 1px solid #e1e5e9;
+  border-bottom: 1px solid #e1e5e9;
+  padding: 8px 12px;
+  text-align: center;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.actions-cell {
+  width: 80px;
+  border-right: 1px solid #e1e5e9;
+  border-bottom: 1px solid #e1e5e9;
+  text-align: center;
+  padding: 8px 12px;
+}

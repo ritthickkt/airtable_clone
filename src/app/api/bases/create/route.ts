@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
         },
         {
           name: 'Attachments',
-          type: 'attachment',
+          type: 'text',
           position: 4,
           tableId: defaultTable.id,
         },

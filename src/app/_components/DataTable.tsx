@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useCallback } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   createColumnHelper,
   flexRender,
@@ -13,7 +14,6 @@ import TextIcon from './columnIcons/text';
 import ContextMenuRecord from './ContextMenuRecord';
 import type { TableRow, Table } from '../../types';
 import ColumnConfiguration from '../_components/ColumnConfiguration';
-import { useClickAway } from '../hooks/ClickAway';
 import React from 'react';
 
 const columnHelper = createColumnHelper<TableRow>();
@@ -21,20 +21,35 @@ const columnHelper = createColumnHelper<TableRow>();
 interface DataTableProps {
   currentTable: Table | null;
   onColumnUpdate: (tableId: string, newColumn: any) => void;
+  add100kRowsPressed: boolean;
+  set100kRowsPressed: (editing: boolean) => void;
 }
 
-export default function DataTable({ currentTable, onColumnUpdate }: DataTableProps) {
+export default function DataTable({ 
+    currentTable, 
+    onColumnUpdate,
+    add100kRowsPressed, 
+    set100kRowsPressed
+  }: DataTableProps) {
   const [isCreatingRecord, setIsCreatingRecord] = useState(false);
   const [isCreatingColumn, setIsCreatingColumn] = useState(false);
   const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
   const [tablesData, setTablesData] = useState<Record<string, TableRow[]>>({});
   const [currentCell, setCurrentCell] = useState<{rowIndex: number; columnIndex: number} | null>(null);
   const [colConfigPosition, setColConfigPosition] = useState<{ top: number; left: number } | null>(null);
-
   const colConfigRef = React.useRef<HTMLDivElement>(null);
   const addColBtnRef = React.useRef<HTMLButtonElement>(null);
+  const [pendingBulkRecords, setPendingBulkRecords] = useState<Record<string, TableRow[]>>({});
 
-  // useClickAway([colConfigRef, addColBtnRef], () => setIsColumnModalOpen(false), setIsColumnModalOpen(false));
+  const createRecordMutation = api.base.createRecord.useMutation();
+  const createColumnMutation = api.base.createColumn.useMutation();
+  const updateCellMutation = api.base.updateCell.useMutation();
+  const deleteRecordMutation = api.base.deleteRecord.useMutation();
+  // const deleteTableMutation = api.base.deleteTable.uesMutation();
+  // const deleteColumnMutation = api.base.deleteColumn.useMutation();
+  const createBulkRecordsMutation = api.base.createBulkRecords.useMutation();
+  
+  const parentRef = React.useRef<HTMLDivElement>(null);
 
   const [contextMenu, setContextMenu] = useState<{
     visible: boolean;
@@ -65,6 +80,141 @@ export default function DataTable({ currentTable, onColumnUpdate }: DataTablePro
     }
   }, [currentTable?.id, currentTable?.records, tablesData]);
 
+  const rowVirtualizer = useVirtualizer({
+    count: tableData.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 40,
+    overscan: 5,
+  });
+
+  const [bulkProgress, setBulkProgress] = useState<{
+    isAdding: boolean;
+    added: number;
+    total: number;
+  } | null>(null);
+  
+  const add100kRows = useCallback(async () => {
+    if (!currentTable || isCreatingRecord) return;
+    
+    setIsCreatingRecord(true);
+    setBulkProgress({ isAdding: true, added: 0, total: 100000 });
+    
+    try {
+      const emptyData: Record<string, string> = {};
+      currentTable.columns?.forEach(col => {
+        const fieldKey = col.name.toLowerCase().replace(/\s+/g, '');
+        emptyData[fieldKey] = '';
+      });
+
+      const uiChunkSize = 100; // Add 100 rows to UI at a time
+      const dbBatchSize = 500; // Send 500 rows to DB at a time
+      const totalRecords = 100000;
+      
+      // **PHASE 1: Gradual UI Updates (smooth, no lag)**
+      const addUIChunks = async () => {
+        const totalUIChunks = Math.ceil(totalRecords / uiChunkSize);
+        const baseTimestamp = Date.now();
+        
+        for (let chunkIndex = 0; chunkIndex < totalUIChunks; chunkIndex++) {
+          const startIndex = chunkIndex * uiChunkSize;
+          const endIndex = Math.min(startIndex + uiChunkSize, totalRecords);
+          const currentChunkSize = endIndex - startIndex;
+          
+          // Create chunk of records for UI
+          const chunkRecords: TableRow[] = [];
+          
+          for (let i = 0; i < currentChunkSize; i++) {
+            chunkRecords.push({
+              id: `temp-bulk-${baseTimestamp}-${startIndex + i}`,
+              ...emptyData,
+            } as TableRow);
+          }
+
+          // Add chunk to UI state
+          setTablesData(prev => ({
+            ...prev,
+            [currentTable.id]: [...(prev[currentTable.id] ?? []), ...chunkRecords]
+          }));
+
+          // Update progress for UI
+          setBulkProgress(prev => prev ? {
+            ...prev,
+            added: endIndex
+          } : null);
+
+          // Small delay to keep UI responsive
+          await new Promise(resolve => setTimeout(resolve, 10));
+        }
+      };
+
+      // **PHASE 2: Background Database Sync (simplified)**
+      const syncToDatabase = async () => {
+        const totalDBBatches = Math.ceil(totalRecords / dbBatchSize);
+        let dbRecordsCreated = 0;
+        
+        for (let batchIndex = 0; batchIndex < totalDBBatches; batchIndex++) {
+          try {
+            const batchData = Array(dbBatchSize).fill(emptyData);
+            
+            // Send batch to database - this returns BatchPayload with count
+            const batchResult = await createBulkRecordsMutation.mutateAsync({
+              tableId: currentTable.id,
+              records: batchData,
+            });
+
+            dbRecordsCreated += batchResult.count;
+
+            console.log(`📊 Database batch ${batchIndex + 1}/${totalDBBatches} completed (${dbRecordsCreated}/${totalRecords})`);
+            
+          } catch (error) {
+            console.error(`❌ Database batch ${batchIndex} failed:`, error);
+            // Continue with next batch even if one fails
+          }
+          
+          // Small delay between database batches
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+        
+        console.log('✅ Database sync completed!');
+      };
+
+      // **RUN BOTH PHASES IN PARALLEL**
+      await Promise.all([
+        addUIChunks(), // Gradual UI updates
+        new Promise(resolve => {
+          // Start database sync after UI has started (1 second delay)
+          setTimeout(() => {
+            syncToDatabase().then(resolve);
+          }, 1000);
+        })
+      ]);
+
+      console.log('✅ All operations completed successfully');
+        
+    } catch (error) {
+      console.error('Failed to add 100k rows:', error);
+      // Rollback on error
+      setTablesData(prev => ({
+        ...prev,
+        [currentTable.id]: prev[currentTable.id]?.slice(0, -(bulkProgress?.added ?? 0)) ?? []
+      }));
+    } finally {
+      setIsCreatingRecord(false);
+      set100kRowsPressed(false);
+      
+      // Clear progress after completion
+      setTimeout(() => {
+        setBulkProgress(null);
+      }, 2000);
+    }
+  }, [currentTable, isCreatingRecord, set100kRowsPressed, createBulkRecordsMutation]);
+
+  React.useEffect(() => {
+    if (add100kRowsPressed) {
+      add100kRows();
+    }
+  }, [add100kRowsPressed, add100kRows]);
+
   const getColumnIcon = useCallback((type: string) => {
     switch (type) {
       case 'text': return <TextIcon/>;
@@ -72,13 +222,6 @@ export default function DataTable({ currentTable, onColumnUpdate }: DataTablePro
       default: return '📝';
     }
   }, []);
-
-  const createRecordMutation = api.base.createRecord.useMutation();
-  const createColumnMutation = api.base.createColumn.useMutation();
-  const updateCellMutation = api.base.updateCell.useMutation();
-  const deleteRecordMutation = api.base.deleteRecord.useMutation();
-  // const deleteTableMutation = api.base.deleteTable.uesMutation();
-  // const deleteColumnMutation = api.base.deleteColumn.useMutation();
 
   React.useEffect(() => {
     const handleClick = () => setContextMenu(null);
@@ -174,11 +317,15 @@ export default function DataTable({ currentTable, onColumnUpdate }: DataTablePro
         if (index === rowIndex) {
           const updatedRow = { ...row, [columnId]: value };
           
-          updateCellMutation.mutate({
-            recordId: row.id,
-            fieldKey: columnId,
-            value: value as string,
-          });
+          // **ONLY sync to database if it's NOT a temporary record**
+          if (!row.id.startsWith('temp-bulk-') && !row.id.startsWith('temp-')) {
+            updateCellMutation.mutate({
+              recordId: row.id,
+              fieldKey: columnId,
+              value: value as string,
+            });
+          }
+          // For temp records, just update locally - they'll be synced when background process completes
 
           return updatedRow;
         }
@@ -206,7 +353,7 @@ export default function DataTable({ currentTable, onColumnUpdate }: DataTablePro
         break;
       case 'ArrowDown':
         event.preventDefault();
-        newRowIndex = Math.min(maxRows - 1, rowIndex + 1);
+        newRowIndex = Math.min(rowIndex + 1);
         break;
       case 'ArrowLeft':
         event.preventDefault();
@@ -374,8 +521,9 @@ export default function DataTable({ currentTable, onColumnUpdate }: DataTablePro
       emptyData[fieldKey] = '';
     });
     
+    // **FIX: Use a more stable ID generation**
     const optimisticRecord = {
-      id: `temp-${Date.now()}`,
+      id: `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       ...emptyData,
     } as TableRow;
     
@@ -419,8 +567,8 @@ export default function DataTable({ currentTable, onColumnUpdate }: DataTablePro
         return columnHelper.accessor(fieldKey, {
           header: () => (
             <div className="column-header-content">
-              {getColumnIcon(col.type)}
-              {col.name}
+              <span className="column-icon">{getColumnIcon(col.type)}</span>
+              <span className="column-name" title={col.name}>{col.name}</span>
             </div>
           ),
           ...(col.type !== 'text' && {
@@ -492,55 +640,81 @@ export default function DataTable({ currentTable, onColumnUpdate }: DataTablePro
             <thead>
               {table.getHeaderGroups().map(headerGroup => (
                 <tr key={headerGroup.id}>
-                  <th className="row-number">#</th>
+                  <th className="row-number-header">#</th>
                   {headerGroup.headers.map(header => (
                     <th key={header.id} className='column-names'>
                       {flexRender(header.column.columnDef.header, header.getContext())}
                     </th>
                   ))}
+                  <button 
+                    ref={addColBtnRef}
+                    onClick={addNewCol}
+                    disabled={isCreatingColumn}
+                    className="add-col-button"
+                    style={{ 
+                      opacity: isCreatingColumn ? 0.6 : 1,
+                      cursor: isCreatingColumn ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    {isCreatingColumn ? '...' : '+'}
+                  </button>
                 </tr>
               ))}
             </thead>
             <tbody>
-              {table.getRowModel().rows.map((row, index) => (
-                <tr key={row.id}>
-                  <td className="row-number">{index + 1}</td>
-                  {row.getVisibleCells().map(cell => (
-                    <td 
-                      key={cell.id} 
-                      className='record'
-                    >
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </td>
-                  ))}
-                </tr>
-              ))}
+              <tr style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
+                <td>
+                  <div ref={parentRef} style={{ height: '100%', position: 'relative' }}>
+                    {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                      const row = table.getRowModel().rows[virtualRow.index];
+                      if (!row) return null;
+
+                      return (
+                        <div
+                          key={row.id}
+                          className="virtual-row"
+                          style={{
+                            position: 'absolute',
+                            top: `${virtualRow.start}px`,
+                            left: 0,
+                            width: '100%',
+                            height: `${virtualRow.size}px`,
+                            display: 'table-row',
+                          }}
+                        >
+                          <div 
+                            className="row-number" 
+                          >
+                            {virtualRow.index + 1}
+                          </div>
+                          {row.getVisibleCells().map(cell => (
+                            <div 
+                              key={cell.id} 
+                              className="record"
+                            >
+                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </td>
+              </tr>
             </tbody>
           </table>
           <button 
-            ref={addColBtnRef}
-            onClick={addNewCol}
-            disabled={isCreatingColumn}
-            className="add-col-button"
-            style={{ 
-              opacity: isCreatingColumn ? 0.6 : 1,
-              cursor: isCreatingColumn ? 'not-allowed' : 'pointer'
-            }}
-          >
-            {isCreatingColumn ? '...' : '+'}
-          </button>
+                onClick={addNewRow}
+                disabled={isCreatingRecord}
+                className="add-row-button"
+                style={{ 
+                  opacity: isCreatingRecord ? 0.6 : 1,
+                  cursor: isCreatingRecord ? 'not-allowed' : 'pointer'
+                }}
+              >
+                {isCreatingRecord ? '...' : '+'}
+            </button>
         </div>
-        <button 
-          onClick={addNewRow}
-          disabled={isCreatingRecord}
-          className="add-row-button"
-          style={{ 
-            opacity: isCreatingRecord ? 0.6 : 1,
-            cursor: isCreatingRecord ? 'not-allowed' : 'pointer'
-          }}
-        >
-          {isCreatingRecord ? '...' : '+'}
-        </button>
         <ContextMenuRecord
           visible={contextMenu?.visible ?? false}
           x={contextMenu?.x ?? 0}
@@ -569,6 +743,51 @@ export default function DataTable({ currentTable, onColumnUpdate }: DataTablePro
           />
         </div>
       )}
+      {/* Progress indicator */}
+      {bulkProgress && (
+        <div style={{
+          position: 'fixed',
+          bottom: '20px',
+          right: '20px',
+          background: 'white',
+          padding: '12px 20px',
+          borderRadius: '8px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          zIndex: 1000,
+        }}>
+          <div>Adding rows: {bulkProgress.added.toLocaleString()} / {bulkProgress.total.toLocaleString()}</div>
+          <div style={{ 
+            width: '200px', 
+            height: '4px', 
+            background: '#f0f0f0', 
+            borderRadius: '2px',
+            marginTop: '8px'
+          }}>
+            <div style={{
+              width: `${(bulkProgress.added / bulkProgress.total) * 100}%`,
+              height: '100%',
+              background: '#3b82f6',
+              borderRadius: '2px',
+              transition: 'width 0.1s ease-out'
+            }} />
+          </div>
+        </div>
+      )}
+
+      {/* Row count indicator */}
+      <div style={{
+        position: 'fixed',
+        bottom: '20px',
+        left: '20px',
+        background: 'white',
+        padding: '8px 16px',
+        borderRadius: '6px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+        fontSize: '14px',
+        color: '#666',
+      }}>
+        {tableData.length.toLocaleString()} rows
+      </div>
     </div>
   );
 }

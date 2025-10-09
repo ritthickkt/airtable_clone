@@ -295,5 +295,22 @@ export const baseRouter = createTRPCRouter({
 
     return { success: true };
   }),
-    
+  
+  //Add 100k Records
+  createBulkRecords: protectedProcedure
+    .input(z.object({
+      tableId: z.string(),
+      records: z.array(z.record(z.string(), z.any())),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // Use batch insert for better performance
+      const recordsToInsert = input.records.map(data => ({
+        tableId: input.tableId,
+        data: data,
+      }));
+      
+    return await ctx.db.record.createMany({
+      data: recordsToInsert,
+    });
+  }),
 });

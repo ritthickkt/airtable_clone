@@ -1,0 +1,107 @@
+/* Header Styles */
+.base-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  border-bottom: 1px solid #e9ecef;
+  background: white;
+  height: 60px;
+  flex-shrink: 0;
+}
+
+.base-header-left {
+  display: flex;
+  align-items: center;
+}
+
+.base-header-center {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  margin: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 62px;
+  width: fit-content;
+  flex-shrink: 0;
+}
+
+.base-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Base Icon and Name */
+.base-icon-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 6px;
+}
+
+.base-icon {
+  padding: 5px;
+}
+
+.base-icon-wrapper {
+  border-radius: 5px;
+}
+
+.base-name {
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.base-name-display {
+  font-weight: 700;
+}
+
+/* Navigation Tabs */
+.nav-tabs {
+  display: flex;
+  gap: 0;
+}
+
+.nav-tab {
+  padding: 12px 10px;
+  background: none;
+  cursor: pointer;
+  font-size: 14px;
+  border-bottom: 3px solid transparent;
+  color: #6a6a6a;
+}
+
+.nav-tab:hover {
+  background-color: #f8f9fa;
+}
+
+/* Header Buttons */
+.trial-info {
+  font-size: 14px;
+  color: #6c757d;
+}
+
+.launch-button, 
+.share-button {
+  padding: 4px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.04), 0 1.5px 4px rgba(0,0,0,0.03);
+}
+
+.launch-button {
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+}
+
+.share-button {
+  color: white;
+}

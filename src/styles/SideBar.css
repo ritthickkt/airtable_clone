@@ -1,0 +1,170 @@
+/* Left Navigation Bar */
+.left-most-bar {
+  width: 3%;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  border-right: 1px solid #E5E5E5;
+}
+
+.left-most-bar-bottom {
+  align-self: bottom;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Main Sidebar */
+.left-side-bar {
+  width: 300px;
+  padding: 10px;
+  display: flex;
+  gap: 10px;
+  background-color: white;
+  flex-direction: column;
+  border-right: 2px solid #E5E5E5;
+  height: 100%;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.base-sidebar {
+  width: 280px;
+  background-color: #f8f9fa;
+  border-right: 1px solid #e9ecef;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+/* Sidebar Sections */
+.sidebar-section {
+  margin-bottom: 24px;
+}
+
+.table-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.views-section {
+  margin-bottom: 24px;
+}
+
+.views-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+/* Sidebar Buttons */
+.sidebar-buttons {
+  height: 35px;
+  border-radius: 5px;
+  text-align: left;
+  padding-left: 15px;
+  font-size: 13px;
+  color: rgba(29, 31, 37, 1);
+}
+
+.sidebar-buttons-search {
+  display: flex;
+  flex-direction: row;
+  height: 35px;
+  border-radius: 5px;
+  align-items: center;
+  gap: 5px;
+  text-align: left;
+  padding-left: 15px;
+  font-size: 13px;
+  color: rgba(29, 31, 37, 1);
+}
+
+.sidebar-buttons:hover,
+.sidebar-buttons-search:hover {
+  background-color: #F8F8F8;
+}
+
+/* Add/Import Buttons */
+.add-import-btn {
+  width: 100%;
+  padding: 8px 16px;
+  border: 1px solid #e9ecef;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  margin-top: 8px;
+}
+
+.add-import-btn:hover {
+  background-color: #f8f9fa;
+}
+
+/* View Items */
+.view-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.view-item.active {
+  background-color: #e7f3ff;
+  color: #2563eb;
+}
+
+.create-view-btn {
+  width: 100%;
+  padding: 6px 12px;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  font-size: 14px;
+  border-radius: 4px;
+  color: #6c757d;
+}
+
+.create-view-btn:hover {
+  background-color: #e9ecef;
+}
+
+/* Search Input */
+.find-view {
+  display: flex;
+  align-items: center;
+  margin: 8px 0;
+  position: relative;
+}
+
+.find-view-input {
+  width: 100%;
+  padding: 6px 30px 6px 12px;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+/* Tools Section */
+.tools-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #6c757d;
+  cursor: pointer;
+}

@@ -28,17 +28,12 @@
   overflow: hidden;
 }
 
-.table-add-row-button {
-  display: flex;
-  width: 100%;
-  flex-direction: column;
-}
-
 .add-row-button {
   border-right: 1px solid #E5E5E5;
   border-bottom: 1px solid #E5E5E5;
-  color: #8F9F40;
+  color: #6c757d;
   width: 40px;
+  height: 30px;
 }
 
 .add-row-button:hover {
@@ -48,12 +43,10 @@
 .add-col-button {
   border-right: 1px solid #E5E5E5;
   border-bottom: 1px solid #E5E5E5;
-  color: #8F9F40;
-  height: 36px;
-  min-width: 100px; /* Change from width to min-width */
-  width: 100%; /* Make it take full available width */
+  color: #6c757d;
+  height: 40px;
+  width: 150px; /* Make it take full available width */
   border-left: 1px solid #E5E5E5;
-  border-top: 1px solid #E5E5E5;
 }
 
 .add-col-button:hover {
@@ -482,50 +475,25 @@
 
 .row-number-header {
   width: 40px;
+  height: 40px;
   background-color: #f8f9fa;
-  /* border-right: 1px solid #e9ecef;
-  border-bottom: 1px solid #e9ecef; */
+  border-right: 1px solid #e1e5e9;
+  border-bottom: 1px solid #e1e5e9;
+  color: #6c757d;
+  padding: 0;
+  box-sizing: border-box;
 }
 
-.column-header {
-  background-color: #f8f9fa;
-  /* border-right: 1px solid #e9ecef;
-  border-bottom: 1px solid #e9ecef; */
-  padding: 8px 12px;
-  text-align: left;
-  font-weight: 500;
-  font-size: 14px;
-  min-width: 150px;
-}
 
 .column-icon {
   margin-right: 6px;
   font-size: 12px;
 }
 
-.row-number {
-  width: 40px;
-  background-color: #f8f9fa;
-  /* border-right: 1px solid #e9ecef;
-  border-bottom: 1px solid #e9ecef; */
-  text-align: center;
-  padding: 8px 4px;
-  font-size: 12px;
-  color: #6c757d;
-}
-
-/* .table-cell {
-  border-right: 1px solid #e9ecef;
-  border-bottom: 1px solid #e9ecef;
-  padding: 0;
-  min-width: 150px;
-} */
-
 .table-scroll-container {
   width: 100%;
-  display: flex;
-  flex-direction: row;
-  overflow: auto; /* Only this scrolls */
+  overflow: auto;
+  height: calc(100vh); /* Adjust based on your layout */
 }
 
 .cell-input {
@@ -548,24 +516,9 @@
   color: #6c757d;
 }
 
-.add-row {
-  background-color: #f8f9fa;
-}
-
-/* .add-row-btn {
-  background-color: #f8f9fa;
-  border-right: 1px solid #e9ecef;
-  border-bottom: 1px solid #e9ecef;
-  text-align: center;
-  padding: 8px 4px;
-  cursor: pointer;
-  color: #6c757d;
-  font-size: 16px;
-}
-
 .add-row-btn:hover {
   background-color: #e9ecef;
-} */
+}
 
 /* Footer */
 .table-footer {
@@ -608,18 +561,6 @@
   background: white;
 }
 
-.row-number-header {
-  width: 40px;
-  background-color: #f7f9fc;
-  /* border-right: 1px solid #e1e5e9;
-  border-bottom: 1px solid #e1e5e9; */
-  padding: 8px 12px;
-  text-align: center;
-  font-weight: 500;
-  font-size: 12px;
-  color: #6c757d;
-}
-
 .column-header {
   background-color: #f7f9fc;
   /* border-right: 1px solid #e1e5e9;
@@ -638,17 +579,6 @@
 
 .column-icon {
   font-size: 12px;
-}
-
-.row-number {
-  width: 40px;
-  background-color: #f7f9fc;
-  /* border-right: 1px solid #e1e5e9;
-  border-bottom: 1px solid #e1e5e9; */
-  text-align: center;
-  padding: 8px 12px;
-  font-size: 12px;
-  color: #6c757d;
 }
 
 .table-cell {
@@ -742,15 +672,12 @@
   background-color: #fee;
 }
 
-.add-row {
-  background-color: #f8f9fa;
-}
-
 .add-row-btn {
   width: 40px;
   background-color: #f7f9fc;
   border-right: 1px solid #e1e5e9;
   border-bottom: 1px solid #e1e5e9;
+  border-top: 1px solid #e1e5e9;
   text-align: center;
   padding: 8px 12px;
   cursor: pointer;
@@ -1002,34 +929,59 @@
 /* Table Styles */
 /* Update table styles */
 table {
-  width: 100%;
+  width: 80%;
   border-collapse: separate;
   border-spacing: 0;
   font-size: 13px;
   background: white;
-  min-width: max-content; /* Ensures table can scroll horizontally if needed */
+  table-layout: fixed; /* This is crucial for consistent column widths */
 }
 
 /* Header Styles */
 .column-names {
   background: #f7f9fc;
+  position: sticky;
+  top: 0;
+  z-index: 10;
   border-bottom: 1px solid #e1e5e9;
   border-right: 1px solid #e1e5e9;
   padding: 8px 12px;
   text-align: left;
   font-weight: 500;
   color: #374151;
-  position: relative;
-  min-width: 120px;
-  height: 32px;
+  width: 200px;
+  height: 40px;
   vertical-align: middle;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-sizing: border-box;
+}
+
+.column-header-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Ensure icon doesn't shrink */
+.column-header-content > *:first-child {
+  flex-shrink: 0;
+}
+
+/* Make the text part overflow with ellipsis */
+.column-header-content > *:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .column-names:last-child {
   border-right: none;
-}
-
-.record {
 }
 
 .column-header-content {
@@ -1050,10 +1002,6 @@ tbody tr {
   border-bottom: 1px solid #e1e5e9;
 }
 
-tbody tr:hover {
-  background-color: #f8fafc;
-}
-
 /* Cell Styles */
 td {
   padding: 0;
@@ -1068,16 +1016,23 @@ td:last-child {
   border-right: none;
 }
 
-/* Row Number */
+/*Row Number */
 .row-number {
-  background: #f7f9fc;
-  border-right: 1px solid #e1e5e9;
-  padding: 8px 12px;
-  text-align: center;
-  font-size: 12px;
-  color: #6b7280;
+  width: 40px;
   min-width: 40px;
-  font-weight: 500;
+  max-width: 40px;
+  height: 40px;
+  background-color: #f7f9fc;
+  border-right: 1px solid #e1e5e9;
+  border-bottom: 1px solid #e1e5e9;
+  color: #6c757d;
+  vertical-align: middle;
+  padding: 0;
+  box-sizing: border-box;
+  text-align: center;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 /* Input Styles */
@@ -1090,14 +1045,6 @@ td:last-child {
   outline: none;
   font-family: inherit;
 }
-
-/* .cell-input:focus {
-  background: white;
-  box-shadow: inset 0 0 0 2px #3b82f6;
-  border-radius: 4px;
-  margin: 2px;
-  height: 28px;
-} */
 
 .cell-input::placeholder {
   color: #9ca3af;
@@ -1159,7 +1106,6 @@ td:last-child {
   gap: 6px;
   padding: 8px 12px;
   background: transparent;
-  border: none;
   color: #6b7280;
   font-size: 13px;
   cursor: pointer;
@@ -1199,28 +1145,10 @@ td:last-child {
   color: #374151;
 }
 
-/* Table cell selection styling */
-.record {
-  position: relative;
-  cursor: pointer;
-  transition: background-color 0.15s ease;
-}
-
-.record:hover {
-  background-color: #f8fafc;
-}
-
 .record.selected {
   background-color: #eff6ff;
   border: 2px solid #3b82f6;
   box-shadow: 0 0 0 1px #3b82f6;
-}
-
-/* Alternative: Use base color for selection */
-.record.selected {
-  background-color: rgba(59, 130, 246, 0.1);
-  border: 2px solid var(--base-color, #3b82f6);
-  box-shadow: 0 0 0 1px var(--base-color, #3b82f6);
 }
 
 /* Remove default table cell borders when selected */
@@ -1287,4 +1215,72 @@ td:last-child {
 
 .sidebar-buttons-search:hover {
   background-color: #F8F8F8;
+}
+
+
+.virtual-row {
+  display: table-cell;
+  width: 40px;
+  min-width: 40px;
+  max-width: 40px;
+  height: 40px;
+  vertical-align: middle;
+  border-right: 1px solid #e1e5e9;
+  border-bottom: 1px solid #e1e5e9;
+  text-align: center;
+  background-color: #f7f9fc;
+  color: #6c757d;
+  box-sizing: border-box;
+  padding: 0;
+}
+
+.virtual-row .record {
+  display: table-cell;
+  min-width: 200px;
+  height: 40px;
+  vertical-align: middle;
+  border-right: 1px solid #e1e5e9;
+  border-bottom: 1px solid #e1e5e9;
+  padding: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+
+.virtual-row:hover .row-number,
+.virtual-row:hover .record {
+  background-color: #f8fafc !important;
+}
+
+.entire-row:hover {
+  border: 2px solid black;
+  background-color: #f8fafc !important;
+}
+
+
+/* Ensure virtual cells match header dimensions exactly */
+.virtual-row .row-number {
+  display: table-cell;
+  width: 40px;
+  min-width: 40px;
+  max-width: 40px;
+  height: 40px;
+  vertical-align: middle;
+  border-right: 1px solid #e1e5e9;
+  border-bottom: 1px solid #e1e5e9;
+  text-align: center;
+  background-color: #f7f9fc;
+  color: #6c757d;
+  box-sizing: border-box;
+}
+
+.virtual-row .record {
+  display: table-cell;
+  width: 150px; /* Match column header width exactly */
+  height: 40px;
+  vertical-align: middle;
+  border-right: 1px solid #e1e5e9;
+  border-bottom: 1px solid #e1e5e9;
+  padding: 0;
+  box-sizing: border-box;
 }

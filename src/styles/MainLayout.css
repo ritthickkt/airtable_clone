@@ -1,0 +1,36 @@
+/* Base Layout Styles */
+.base-dashboard {
+  height: 100vh;
+  display: flex;
+  flex-direction: row;
+  font-family: BlinkMacSystemFont, -apple-system, sans-serif;
+  overflow: hidden;
+}
+
+.main-of-the-main-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.base-dashboard-main-content {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.base-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.wrapper-for-side-bar-main {
+  display: flex;
+  flex-direction: row;
+}

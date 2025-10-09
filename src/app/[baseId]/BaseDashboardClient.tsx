@@ -16,6 +16,7 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
   const [baseName, setBaseName] = useState(initialBase.name ?? 'Untitled Base');
   const [isEditing, setIsEditing] = useState(false);
   const [currentTableIndex, setCurrentTableIndex] = useState(0);
+  const [add100kRowsPressed, set100kRowsPressed] = useState(false);
 
   const [base, setBase] = useState(initialBase)
 
@@ -170,8 +171,13 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
               createTableMutation={createTableMutation}
             />
             <div className="table-container">
-              <TableControls />
-              <DataTable currentTable={currentTable} onColumnUpdate={updateTableColumns}/>
+              <TableControls set100kRowsPressed={set100kRowsPressed}/>
+              <DataTable 
+                currentTable={currentTable} 
+                onColumnUpdate={updateTableColumns} 
+                add100kRowsPressed={add100kRowsPressed} 
+                set100kRowsPressed={set100kRowsPressed}
+              />
             </div>
           </div>
         </div>

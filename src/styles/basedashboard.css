@@ -956,6 +956,10 @@ table {
   box-sizing: border-box;
 }
 
+.column-names:hover {
+  cursor: pointer
+}
+
 .column-header-content {
   display: flex;
   align-items: center;

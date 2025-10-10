@@ -1,6 +1,8 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
+import hideField from '../assets/hide-fields.svg'
 import '../../styles/columncontext.css';
 
 interface ColumnContextMenuProps {
@@ -13,6 +15,7 @@ interface ColumnContextMenuProps {
   onDuplicate: () => void;
   onInsertLeft: () => void;
   onInsertRight: () => void;
+  onHide: () => void;
   onDelete: () => void;
   onCancel: () => void;
 }
@@ -27,6 +30,7 @@ export default function ColumnContextMenu({
   onDuplicate,
   onInsertLeft,
   onInsertRight,
+  onHide,
   onDelete,
   onCancel
 }: ColumnContextMenuProps) {
@@ -47,12 +51,12 @@ export default function ColumnContextMenu({
         onClick={handleMenuClick}
       >
         <div className="context-menu-item" onClick={onEdit}>
-          <span className="context-menu-icon">✏️</span>
+          <span className="context-menu-icon"></span>
           <span>Edit field</span>
         </div>
         
         <div className="context-menu-item" onClick={onDuplicate}>
-          <span className="context-menu-icon">📋</span>
+          <span className="context-menu-icon"></span>
           <span>Duplicate field</span>
         </div>
         
@@ -71,70 +75,70 @@ export default function ColumnContextMenu({
         <div className="context-menu-separator"></div>
         
         <div className="context-menu-item">
-          <span className="context-menu-icon">📄</span>
+          <span className="context-menu-icon"></span>
           <span>Summarize attachment</span>
         </div>
         
         <div className="context-menu-item">
-          <span className="context-menu-icon">📝</span>
+          <span className="context-menu-icon"></span>
           <span>Extract title from attachment</span>
         </div>
         
         <div className="context-menu-item">
-          <span className="context-menu-icon">📋</span>
+          <span className="context-menu-icon"></span>
           <span>Write an outline of attachment</span>
         </div>
         
         <div className="context-menu-separator"></div>
         
         <div className="context-menu-item">
-          <span className="context-menu-icon">🔗</span>
+          <span className="context-menu-icon"></span>
           <span>Copy field URL</span>
         </div>
         
         <div className="context-menu-item">
-          <span className="context-menu-icon">ℹ️</span>
+          <span className="context-menu-icon"></span>
           <span>Edit field description</span>
         </div>
         
         <div className="context-menu-item">
-          <span className="context-menu-icon">🔒</span>
+          <span className="context-menu-icon"></span>
           <span>Edit field permissions</span>
         </div>
         
         <div className="context-menu-separator"></div>
         
         <div className="context-menu-item">
-          <span className="context-menu-icon">🔤</span>
+          <span className="context-menu-icon"></span>
           <span>Sort A → Z</span>
         </div>
         
         <div className="context-menu-item">
-          <span className="context-menu-icon">🔡</span>
+          <span className="context-menu-icon"></span>
           <span>Sort Z → A</span>
         </div>
         
         <div className="context-menu-separator"></div>
         
         <div className="context-menu-item">
-          <span className="context-menu-icon">🔍</span>
+          <span className="context-menu-icon"></span>
           <span>Filter by this field</span>
         </div>
         
         <div className="context-menu-item">
-          <span className="context-menu-icon">📊</span>
+          <span className="context-menu-icon"></span>
           <span>Group by this field</span>
         </div>
         
         <div className="context-menu-item">
-          <span className="context-menu-icon">🔗</span>
+          <span className="context-menu-icon"></span>
           <span>Show dependencies</span>
         </div>
         
         <div className="context-menu-separator"></div>
         
-        <div className="context-menu-item">
-          <span className="context-menu-icon">👁️</span>
+        <div className="context-menu-item" onClick={onHide}>
+          <span className="context-menu-icon"><Image src={hideField} alt='hide-field'/></span>
           <span>Hide field</span>
         </div>
         

@@ -24,13 +24,17 @@ interface DataTableProps {
   onColumnUpdate: (tableId: string, newColumn: any) => void;
   add100kRowsPressed: boolean;
   set100kRowsPressed: (editing: boolean) => void;
+  hiddenColumns: Set<string>; // Add this prop
+  onHideColumn: (columnId: string) => void; // Add this prop
 }
 
 export default function DataTable({ 
     currentTable, 
     onColumnUpdate,
     add100kRowsPressed, 
-    set100kRowsPressed
+    set100kRowsPressed,
+    hiddenColumns,
+    onHideColumn 
   }: DataTableProps) {
   const [isCreatingRecord, setIsCreatingRecord] = useState(false);
   const [isCreatingColumn, setIsCreatingColumn] = useState(false);
@@ -49,6 +53,11 @@ export default function DataTable({
     columnName: string;
   } | null>(null);
 
+  const handleHideColumn = useCallback((columnId: string) => {
+    onHideColumn(columnId);
+    setColumnContextMenu(null);
+  }, [onHideColumn]);
+
   const createRecordMutation = api.base.createRecord.useMutation();
   const createColumnMutation = api.base.createColumn.useMutation();
   const updateCellMutation = api.base.updateCell.useMutation();
@@ -56,6 +65,7 @@ export default function DataTable({
   // const deleteTableMutation = api.base.deleteTable.uesMutation();
   const deleteColumnMutation = api.base.deleteColumn.useMutation();
   const createBulkRecordsMutation = api.base.createBulkRecords.useMutation();
+  
   
   const parentRef = React.useRef<HTMLDivElement>(null);
 
@@ -624,6 +634,7 @@ export default function DataTable({
 
     return currentTable.columns
       .sort((a, b) => a.position - b.position)
+      .filter(col => !hiddenColumns.has(col.id))
       .map((col, columnIndex) => {
         const fieldKey = col.name.toLowerCase().replace(/\s+/g, '');
 
@@ -682,7 +693,7 @@ export default function DataTable({
           })
         });
       });
-  }, [currentTable?.columns, getColumnIcon, handleColumnRightClick]);
+  }, [currentTable?.columns, getColumnIcon, handleColumnRightClick, hiddenColumns]);
 
     const table = useReactTable({
     data: tableData,
@@ -808,6 +819,7 @@ export default function DataTable({
             console.log('Insert right');
             setColumnContextMenu(null);
           }}
+          onHide={() => handleHideColumn(columnContextMenu?.columnId ?? '')}
           onDelete={handleDeleteColumn}
           onCancel={() => setColumnContextMenu(null)}
         />

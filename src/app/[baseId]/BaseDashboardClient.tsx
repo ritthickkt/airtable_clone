@@ -18,9 +18,37 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
   const [currentTableIndex, setCurrentTableIndex] = useState(0);
   const [add100kRowsPressed, set100kRowsPressed] = useState(false);
 
+  // Add hidden columns state here
+  const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set());
+
   const [base, setBase] = useState(initialBase)
 
   const currentTable = base.tables?.[currentTableIndex] ?? base.tables?.[0] ?? null;
+
+  // Add hidden columns handlers
+  const handleShowColumn = useCallback((columnId: string) => {
+    setHiddenColumns(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(columnId);
+      return newSet;
+    });
+  }, []);
+
+  const handleHideColumn = useCallback((columnId: string) => {
+    setHiddenColumns(prev => new Set([...prev, columnId]));
+  }, []);
+
+  const handleShowAllColumns = useCallback(() => {
+    setHiddenColumns(new Set());
+  }, []);
+
+  const handleHideAllColumns = useCallback(() => {
+    if (currentTable?.columns && currentTable.columns.length > 1) {
+      const columnsToHide = currentTable.columns.slice(1).map(col => col.id);
+      setHiddenColumns(new Set(columnsToHide));
+    }
+  }, [currentTable?.columns]);
+
 
   const createTableMutation = api.base.createTable.useMutation({
     onSuccess: (newTable) => {
@@ -171,12 +199,32 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
               createTableMutation={createTableMutation}
             />
             <div className="table-container">
-              <TableControls set100kRowsPressed={set100kRowsPressed}/>
+              <TableControls 
+                set100kRowsPressed={set100kRowsPressed}
+                hiddenColumns={Array.from(hiddenColumns)}
+                allColumns={currentTable?.columns?.map(col => ({
+                  id: col.id,
+                  name: col.name,
+                  type: col.type
+                })) ?? []}
+                onShowColumn={handleShowColumn}
+                onHideAllColumns={() => {
+                  if (currentTable?.columns && currentTable.columns.length > 1) {
+                    const columnsToHide = currentTable.columns.slice(1).map(col => col.id);
+                    setHiddenColumns(new Set(columnsToHide));
+                  }
+                }}
+                onShowAllColumns={handleShowAllColumns}
+                onHideAllColumns={handleHideAllColumns}
+                onShowAllColumns={handleShowAllColumns}
+              />
               <DataTable 
                 currentTable={currentTable} 
                 onColumnUpdate={updateTableColumns} 
                 add100kRowsPressed={add100kRowsPressed} 
                 set100kRowsPressed={set100kRowsPressed}
+                hiddenColumns={hiddenColumns}
+                onHideColumn={handleHideColumn}
               />
             </div>
           </div>

@@ -37,8 +37,26 @@ export default function TableTabs({
     };
   }, [addTable]);
 
+  // Returns a lighter shade of the base color (expects hex format)
+  function lighterShadeofBaseColor(hex: string, percent = 0.5) {
+    // Remove '#' if present
+    hex = hex.replace(/^#/, '');
+    // Parse r, g, b
+    let r = parseInt(hex.substring(0,2),16);
+    let g = parseInt(hex.substring(2,4),16);
+    let b = parseInt(hex.substring(4,6),16);
+
+    // Increase each by percent toward 255
+    r = Math.round(r + (255 - r) * percent);
+    g = Math.round(g + (255 - g) * percent);
+    b = Math.round(b + (255 - b) * percent);
+
+    // Return as hex
+    return `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
+  }
+
   return (
-    <div className="tabs-header">
+    <div className="tabs-header" style={{ background: lighterShadeofBaseColor(base.color ?? 'black')}}>
       <div className="tab-background"></div>
       <div className="tabs-list">
         {base.tables?.map((table, index) => (

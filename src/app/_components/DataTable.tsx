@@ -14,6 +14,7 @@ import TextIcon from './columnIcons/text';
 import ContextMenuRecord from './ContextMenuRecord';
 import type { TableRow, Table } from '../../types';
 import ColumnConfiguration from '../_components/ColumnConfiguration';
+import ColumnContextMenu from './ColumnContextMenu';
 import React from 'react';
 
 const columnHelper = createColumnHelper<TableRow>();
@@ -40,16 +41,78 @@ export default function DataTable({
   const colConfigRef = React.useRef<HTMLDivElement>(null);
   const addColBtnRef = React.useRef<HTMLButtonElement>(null);
   const [pendingBulkRecords, setPendingBulkRecords] = useState<Record<string, TableRow[]>>({});
+  const [columnContextMenu, setColumnContextMenu] = useState<{
+    visible: boolean;
+    x: number;
+    y: number;
+    columnId: string;
+    columnName: string;
+  } | null>(null);
 
   const createRecordMutation = api.base.createRecord.useMutation();
   const createColumnMutation = api.base.createColumn.useMutation();
   const updateCellMutation = api.base.updateCell.useMutation();
   const deleteRecordMutation = api.base.deleteRecord.useMutation();
   // const deleteTableMutation = api.base.deleteTable.uesMutation();
-  // const deleteColumnMutation = api.base.deleteColumn.useMutation();
+  const deleteColumnMutation = api.base.deleteColumn.useMutation();
   const createBulkRecordsMutation = api.base.createBulkRecords.useMutation();
   
   const parentRef = React.useRef<HTMLDivElement>(null);
+
+  const handleColumnRightClick = useCallback((e: React.MouseEvent, columnId: string, columnName: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const menuHeight = 600; // Approximate height of the context menu
+    const menuWidth = 220;
+
+    let x = e.clientX;
+    let y = e.clientY;
+
+    // Adjust position to prevent overflow
+    if (y + menuHeight > window.innerHeight) {
+      y = e.clientY - menuHeight;
+    }
+
+    if (x + menuWidth > window.innerWidth) {
+      x = e.clientX - menuWidth;
+    }
+
+    setColumnContextMenu({
+      visible: true,
+      x,
+      y,
+      columnId,
+      columnName,
+    });
+  }, []);
+
+  const handleDeleteColumn = useCallback(() => {
+    if (!columnContextMenu) return;
+
+    deleteColumnMutation.mutate({
+      columnId: columnContextMenu.columnId,
+    }, {
+      onSuccess: () => {
+        // Refresh the page or update the state
+        window.location.reload();
+      },
+      onError: (error) => {
+        console.error('Failed to delete column:', error);
+      }
+    });
+
+    setColumnContextMenu(null);
+  }, [columnContextMenu, deleteColumnMutation]);
+
+  React.useEffect(() => {
+    const handleClick = () => {
+      setContextMenu(null);
+      setColumnContextMenu(null); // Add this line
+    };
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, []);
 
   const [contextMenu, setContextMenu] = useState<{
     visible: boolean;
@@ -566,7 +629,7 @@ export default function DataTable({
 
         return columnHelper.accessor(fieldKey, {
           header: () => (
-            <div className="column-header-content">
+            <div className="column-header-content" onContextMenu={(e) => handleColumnRightClick(e, col.id, col.name )}>
               <span className="column-icon">{getColumnIcon(col.type)}</span>
               <span className="column-name" title={col.name}>{col.name}</span>
             </div>
@@ -619,7 +682,7 @@ export default function DataTable({
           })
         });
       });
-  }, [currentTable?.columns, getColumnIcon, handleCellRightClick]);
+  }, [currentTable?.columns, getColumnIcon, handleColumnRightClick]);
 
     const table = useReactTable({
     data: tableData,
@@ -722,6 +785,31 @@ export default function DataTable({
           rowIndex={contextMenu?.rowIndex ?? 0}
           onDelete={handleDeleteRow}
           onCancel={() => setContextMenu(null)}
+        />
+        <ColumnContextMenu
+          visible={columnContextMenu?.visible ?? false}
+          x={columnContextMenu?.x ?? 0}
+          y={columnContextMenu?.y ?? 0}
+          columnId={columnContextMenu?.columnId ?? ''}
+          columnName={columnContextMenu?.columnName ?? ''}
+          onEdit={() => {
+            console.log('Edit column');
+            setColumnContextMenu(null);
+          }}
+          onDuplicate={() => {
+            console.log('Duplicate column');
+            setColumnContextMenu(null);
+          }}
+          onInsertLeft={() => {
+            console.log('Insert left');
+            setColumnContextMenu(null);
+          }}
+          onInsertRight={() => {
+            console.log('Insert right');
+            setColumnContextMenu(null);
+          }}
+          onDelete={handleDeleteColumn}
+          onCancel={() => setColumnContextMenu(null)}
         />
       </div>
       {isColumnModalOpen && colConfigPosition && (

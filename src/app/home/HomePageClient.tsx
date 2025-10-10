@@ -129,10 +129,14 @@ export default function HomePageClient({ session }: { session: Session | null })
                 ) : bases && bases.length > 0 ? (
                   bases.map((base) => (
                     <div key={base.id} onClick={() => window.location.href = `/${base.id}`}>
-                      <Base 
+                      <Base
+                        id={base.id} 
                         name={base.name} 
                         description={formatTimeAgo(new Date(base.updatedAt))}
                         color={base.color ?? 'black'} 
+                        onBaseDeleted={() => {
+                          window.location.reload();
+                        }}
                       />
                     </div>
                   ))

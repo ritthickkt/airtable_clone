@@ -313,4 +313,111 @@ export const baseRouter = createTRPCRouter({
       data: recordsToInsert,
     });
   }),
+
+  //Deleting a base
+  deleteBase: protectedProcedure
+    .input(z.object({
+      baseId: z.string(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // Verify the user owns this base
+      const base = await ctx.db.base.findFirst({
+        where: {
+          id: input.baseId,
+          createdById: ctx.session.user.id,
+        },
+      });
+
+      if (!base) {
+        throw new Error("Base not found or access denied");
+      }
+
+      // Delete the base (this will cascade delete tables, columns, and records)
+      await ctx.db.base.delete({
+        where: {
+          id: input.baseId,
+        },
+      });
+
+      return { success: true };
+    }),
+
+  //Deleting a column
+  deleteColumn: protectedProcedure
+    .input(z.object({
+      columnId: z.string(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // Verify the user owns this column through the table/base relationship
+      const column = await ctx.db.column.findFirst({
+        where: {
+          id: input.columnId,
+        },
+        include: {
+          table: {
+            include: {
+              base: true,
+            },
+          },
+        },
+      });
+
+      if (!column || column.table.base.createdById !== ctx.session.user.id) {
+        throw new Error("Column not found or access denied");
+      }
+
+      // Delete the column
+      await ctx.db.column.delete({
+        where: {
+          id: input.columnId,
+        },
+      });
+
+      // Update positions of remaining columns
+      await ctx.db.column.updateMany({
+        where: {
+          tableId: column.tableId,
+          position: {
+            gt: column.position,
+          },
+        },
+        data: {
+          position: {
+            decrement: 1,
+          },
+        },
+      });
+
+      return { success: true };
+    }),
+
+  //Deleting a table
+  deleteTable: protectedProcedure
+    .input(z.object({
+      tableId: z.string(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // Verify the user owns this table through the base relationship
+      const table = await ctx.db.table.findFirst({
+        where: {
+          id: input.tableId,
+        },
+        include: {
+          base: true,
+        },
+      });
+
+      if (!table || table.base.createdById !== ctx.session.user.id) {
+        throw new Error("Table not found or access denied");
+      }
+
+      // Delete the table (this will cascade delete columns and records)
+      await ctx.db.table.delete({
+        where: {
+          id: input.tableId,
+        },
+      });
+
+      return { success: true };
+    }),
 });

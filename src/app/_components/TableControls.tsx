@@ -21,8 +21,8 @@ export default function TableControls({ set100kRowsPressed }: { set100kRowsPress
 
   return (
     <div className="table-controls">
-      <div className="table-controls-left">
-        <button type="button" className="control-btn">⊞ Grid view </button>
+      <div className="table-controls-left"> 
+        <button type="button" className="control-btn">⊞ Grid view</button>
       </div>
       <div className="table-controls-right">
         <button type="button" className="control-btn" onClick={handle100kRowsPressed}>Add 100k rows</button>

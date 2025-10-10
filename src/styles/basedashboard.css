@@ -437,7 +437,7 @@
   padding: 8px 16px;
   border-bottom: 1px solid #e9ecef;
   background: white;
-  flex-shrink: 0; /* Prevent from shrinking */
+  flex-shrink: 0; 
 }
 
 .table-control-icons {
@@ -483,7 +483,6 @@
   padding: 0;
   box-sizing: border-box;
 }
-
 
 .column-icon {
   margin-right: 6px;
@@ -703,7 +702,6 @@
 .tabs-header {
   position: relative;
   border-bottom: 1px solid #e1e5e9;
-  background: white;
   flex-shrink: 0; /* Prevent from shrinking */
 }
 

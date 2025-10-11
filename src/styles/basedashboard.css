@@ -31,22 +31,59 @@
 .add-row-button {
   border-right: 1px solid #E5E5E5;
   border-bottom: 1px solid #E5E5E5;
+  display: flex;
+  justify-content: left;
+  padding-left: 14px;
   color: #6c757d;
-  width: 40px;
-  height: 30px;
+  font-weight: 100; 
+  min-width: fit-content;
+  background-color: white;
 }
 
 .add-row-button:hover {
   cursor: pointer;
 }
 
+.add-col-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  /* Fix the conflicting widths */
+  min-width: 200px;    /* Change from 150px to 40px */
+  max-width: 200px;    /* Change from 150px to 40px */
+  height: 30px;
+  vertical-align: middle;
+  box-sizing: border-box;
+  padding: 0;
+  border-bottom: 1px solid #e1e5e9;
+}
+
+.add-col-spacer {
+  display: flex;
+  align-items: center;
+  width: 200px; 
+  min-width: 200px;    /* Change from 150px to 40px */
+  max-width: 200px;    /* Change from 150px to 40px */
+  height: 30px;
+  background-color: #F7F8FC;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+
 .add-col-button {
-  border-right: 1px solid #E5E5E5;
-  border-bottom: 1px solid #E5E5E5;
+  width: 100%;
+  height: 100%;
+  border: none;
   color: #6c757d;
-  height: 40px;
-  width: 150px; /* Make it take full available width */
-  border-left: 1px solid #E5E5E5;
+  font-size: 16px;
+  width: 200px;
+  font-weight: 100;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
 }
 
 .add-col-button:hover {
@@ -270,12 +307,6 @@
   overflow: hidden;
 }
 
-.table-main-content {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start; /* Add this to align items to the top */
-}
-
 .record {
   border-right: 1px solid #e5e5e5;
   border-bottom: 1px solid #e5e5e5;
@@ -472,31 +503,23 @@
 .control-btn:hover {
   background-color: #f8f9fa;
 }
-
-.row-number-header {
-  width: 40px;
-  height: 40px;
-  background-color: #f8f9fa;
-  border-right: 1px solid #e1e5e9;
-  border-bottom: 1px solid #e1e5e9;
-  color: #6c757d;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-.column-icon {
-  margin-right: 6px;
-  font-size: 12px;
-}
-
 .table-scroll-container {
   width: 100%;
   overflow: auto;
   height: calc(100vh); /* Adjust based on your layout */
 }
 
+.table-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* Change from auto to hidden */
+  height: 100%;
+}
+
 .cell-input {
   width: 100%;
+  height: 30px;
   border: none;
   padding: 8px 12px;
   outline: none;
@@ -525,7 +548,6 @@
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  border-top: 1px solid #e9ecef;
   background-color: #f8f9fa;
 }
 
@@ -547,19 +569,6 @@
   color: #6c757d;
 }
 
-/* TanStack Table Styles */
-.tanstack-table-container {
-  flex: 1;
-  overflow: auto;
-  background: white;
-}
-
-.tanstack-table {
-  width: 100%;
-  border-collapse: collapse;
-  background: white;
-}
-
 .column-header {
   background-color: #f7f9fc;
   /* border-right: 1px solid #e1e5e9;
@@ -570,22 +579,6 @@
   min-width: 150px;
 }
 
-.column-header-content {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.column-icon {
-  font-size: 12px;
-}
-
-.table-cell {
-  /* border-right: 1px solid #e1e5e9;
-  border-bottom: 1px solid #e1e5e9; */
-  padding: 0;
-  min-width: 150px;
-}
 
 .cell-input {
   width: 100%;
@@ -594,7 +587,7 @@
   outline: none;
   background: transparent;
   font-size: 14px;
-  min-height: 32px;
+  min-height: 30px;
 }
 
 /* .cell-select {
@@ -840,28 +833,6 @@
   border-bottom: 1px solid #E5E5E5;
 }
 
-/* Remove your old table-tab styles and replace with above */
-/* Delete these:
-.table-tab {
-  border: 1px solid #E5E5E5;
-  padding: 5px;
-  font-size: 13px;
-  border-radius: 5px;
-  border-bottom: none;
-  border-left: none;
-  border-top: none;
-  z-index: 2;
-  width: 70px;
-  text-align: center;
-}
-
-.table-tab-background {
-  border: 2px solid black;
-  position: relative;
-  z-index: 1;
-  height: 40px;
-}
-*/
 
 .help-icon {
   width: 30px;
@@ -916,7 +887,6 @@
 }
 
 
-/* Table Container */
 .table-container {
   background: white;
   border-radius: 8px;
@@ -924,31 +894,32 @@
   overflow: hidden;
 }
 
-/* Table Styles */
-/* Update table styles */
-table {
-  width: 80%;
-  border-collapse: separate;
-  border-spacing: 0;
-  font-size: 13px;
-  background: white;
-  table-layout: fixed; /* This is crucial for consistent column widths */
+
+
+.row-number-header {
+  width: 40px;
+  height: 30px;
+  background-color: white;
+  border-bottom: 1px solid #e1e5e9;
+  color: #6c757d;
+  padding: 0;
+  box-sizing: border-box;
 }
+
 
 /* Header Styles */
 .column-names {
-  background: #f7f9fc;
   position: sticky;
   top: 0;
   z-index: 10;
   border-bottom: 1px solid #e1e5e9;
   border-right: 1px solid #e1e5e9;
-  padding: 8px 12px;
-  text-align: left;
+  align-items: center;
   font-weight: 500;
+  padding-left: 12px;
   color: #374151;
+  background-color: white;
   width: 200px;
-  height: 40px;
   vertical-align: middle;
   white-space: nowrap;
   overflow: hidden;
@@ -956,41 +927,18 @@ table {
   box-sizing: border-box;
 }
 
-.column-names:hover {
-  cursor: pointer
-}
-
 .column-header-content {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  font-size: 12;
   width: 100%;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
-/* Ensure icon doesn't shrink */
-.column-header-content > *:first-child {
-  flex-shrink: 0;
-}
-
-/* Make the text part overflow with ellipsis */
-.column-header-content > *:last-child {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
 .column-names:last-child {
   border-right: none;
-}
-
-.column-header-content {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
 }
 
 .column-icon {
@@ -1008,7 +956,7 @@ tbody tr {
 td {
   padding: 0;
   border-right: 1px solid #e1e5e9;
-  height: 32px;
+  height: 20px;
   vertical-align: middle;
   position: relative;
 }
@@ -1018,15 +966,13 @@ td:last-child {
   border-right: none;
 }
 
-/*Row Number */
+/* Row Number
 .row-number {
   width: 40px;
   min-width: 40px;
   max-width: 40px;
   height: 40px;
   background-color: #f7f9fc;
-  border-right: 1px solid #e1e5e9;
-  border-bottom: 1px solid #e1e5e9;
   color: #6c757d;
   vertical-align: middle;
   padding: 0;
@@ -1035,12 +981,12 @@ td:last-child {
   position: sticky;
   top: 0;
   z-index: 10;
-}
+} */
 
 /* Input Styles */
 .cell-input {
   width: 100%;
-  height: 32px;
+  height: 30px;
   padding: 8px 12px;
   font-size: 13px;
   background: transparent;
@@ -1055,7 +1001,7 @@ td:last-child {
 /* Select Styles */
 .cell-select {
   width: 100%;
-  height: 32px;
+  height: 30px;
   border: none;
   padding: 4px 12px;
   font-size: 13px;
@@ -1064,14 +1010,6 @@ td:last-child {
   font-family: inherit;
   cursor: pointer;
 }
-
-/* .cell-select:focus {
-  background: white;
-  box-shadow: inset 0 0 0 2px #3b82f6;
-  border-radius: 4px;
-  margin: 2px;
-  height: 28px;
-} */
 
 /* Attachment Styles */
 .attachment-cell {
@@ -1120,6 +1058,16 @@ td:last-child {
   color: #374151;
 }
 
+
+.table {
+  width: max-content; /* Let table grow beyond container */
+  min-width: 100%;
+  table-layout: fixed; /* Keep fixed for consistent column widths */
+  font-size: 13px;
+  background: white;
+  border-collapse: collapse;
+}
+
 /* Table footer */
 .table-footer {
   padding: 8px 12px;
@@ -1160,6 +1108,10 @@ td:last-child {
   background: transparent;
 }
 
+.record:last-child {
+  border-right: none;
+}
+
 .left-side-bar {
   width: 300px;
   padding: 10px;
@@ -1197,18 +1149,9 @@ td:last-child {
 .table-main-content {
   display: flex;
   flex-direction: row;
-  align-items: flex-start;
   background-color: #F7F8FC;
   flex: 1; /* Add this */
   overflow: hidden; /* Add this */
-}
-
-.table-wrapper {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden; /* Change from auto to hidden */
-  height: 100%;
 }
 
 .sidebar-buttons:hover {
@@ -1220,32 +1163,8 @@ td:last-child {
 }
 
 
-.virtual-row {
-  display: table-cell;
-  width: 40px;
-  min-width: 40px;
-  max-width: 40px;
-  height: 40px;
-  vertical-align: middle;
-  border-right: 1px solid #e1e5e9;
-  border-bottom: 1px solid #e1e5e9;
-  text-align: center;
-  background-color: #f7f9fc;
-  color: #6c757d;
-  box-sizing: border-box;
-  padding: 0;
-}
-
-.virtual-row .record {
-  display: table-cell;
-  min-width: 200px;
-  height: 40px;
-  vertical-align: middle;
-  border-right: 1px solid #e1e5e9;
-  border-bottom: 1px solid #e1e5e9;
-  padding: 0;
-  box-sizing: border-box;
-  overflow: hidden;
+.record {
+  max-height: 30px;
 }
 
 
@@ -1255,34 +1174,67 @@ td:last-child {
 }
 
 .entire-row:hover {
-  border: 2px solid black;
   background-color: #f8fafc !important;
 }
 
-
-/* Ensure virtual cells match header dimensions exactly */
-.virtual-row .row-number {
-  display: table-cell;
-  width: 40px;
-  min-width: 40px;
-  max-width: 40px;
-  height: 40px;
-  vertical-align: middle;
-  border-right: 1px solid #e1e5e9;
-  border-bottom: 1px solid #e1e5e9;
-  text-align: center;
-  background-color: #f7f9fc;
-  color: #6c757d;
+.virtual-row {
+  display: flex;
+  align-items: center;
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 30px;
+  background-color: white;
   box-sizing: border-box;
 }
 
+.virtual-row .row-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  min-width: 40px;
+  max-width: 40px;
+  height: 30px;
+  border-bottom: 1px solid #e1e5e9;
+  background-color: white;
+  color: #6c757d;
+  font-size: 12px;
+  font-weight: 500;
+  box-sizing: border-box;
+  flex-shrink: 0; /* Prevent shrinking */
+}
+
 .virtual-row .record {
-  display: table-cell;
-  width: 150px; /* Match column header width exactly */
-  height: 40px;
-  vertical-align: middle;
+  display: flex;
+  align-items: center;
+  width: 200px; /* Match your column-names width */
+  height: 30px;
   border-right: 1px solid #e1e5e9;
   border-bottom: 1px solid #e1e5e9;
-  padding: 0;
+  background-color: white;
   box-sizing: border-box;
+  flex-shrink: 0; /* Prevent shrinking */
+}
+
+.record:last-child {
+  border-right: none;
+}
+
+/* Input styling inside cells */
+.virtual-row .record input {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: transparent;
+  padding: 0 12px;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.virtual-row .record input:focus {
+  background-color: #fff;
+  box-shadow: inset 0 0 0 2px #3b82f6;
 }

@@ -17,6 +17,7 @@ interface TableControlsProps {
   hiddenColumns: string[];
   allColumns: Array<{ id: string; name: string; type: string }>;
   onShowColumn: (columnId: string) => void;
+  onHideColumn: (columnId: string) => void;
   onHideAllColumns: () => void;
   onShowAllColumns: () => void;
 }
@@ -26,6 +27,7 @@ export default function TableControls({
   hiddenColumns, 
   allColumns, 
   onShowColumn, 
+  onHideColumn,
   onHideAllColumns,
   onShowAllColumns 
 }: TableControlsProps) {
@@ -112,6 +114,7 @@ export default function TableControls({
         hiddenColumns={hiddenColumns}
         allColumns={allColumns}
         onShowColumn={onShowColumn}
+        onHideColumn={onHideColumn}
         onHideAll={onHideAllColumns}
         onShowAll={onShowAllColumns}
         onCancel={() => setShowHiddenFieldsDropdown(false)}

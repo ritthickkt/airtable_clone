@@ -25,7 +25,7 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
 
   const currentTable = base.tables?.[currentTableIndex] ?? base.tables?.[0] ?? null;
 
-  // Add hidden columns handlers
+
   const handleShowColumn = useCallback((columnId: string) => {
     setHiddenColumns(prev => {
       const newSet = new Set(prev);
@@ -208,15 +208,9 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
                   type: col.type
                 })) ?? []}
                 onShowColumn={handleShowColumn}
-                onHideAllColumns={() => {
-                  if (currentTable?.columns && currentTable.columns.length > 1) {
-                    const columnsToHide = currentTable.columns.slice(1).map(col => col.id);
-                    setHiddenColumns(new Set(columnsToHide));
-                  }
-                }}
                 onShowAllColumns={handleShowAllColumns}
                 onHideAllColumns={handleHideAllColumns}
-                onShowAllColumns={handleShowAllColumns}
+                onHideColumn={handleHideColumn}
               />
               <DataTable 
                 currentTable={currentTable} 

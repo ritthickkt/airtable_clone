@@ -10,6 +10,7 @@ interface HiddenFieldsDropdownProps {
   hiddenColumns: string[];
   allColumns: Array<{ id: string; name: string; type: string }>;
   onShowColumn: (columnId: string) => void;
+  onHideColumn: (columnId: string) => void;
   onHideAll: () => void;
   onShowAll: () => void;
   onCancel: () => void;
@@ -22,6 +23,7 @@ export default function HiddenFieldsDropdown({
   hiddenColumns,
   allColumns,
   onShowColumn,
+  onHideColumn,
   onHideAll,
   onShowAll,
   onCancel
@@ -36,10 +38,15 @@ export default function HiddenFieldsDropdown({
     switch (type) {
       case 'text': return '📝';
       case 'number': return '#';
-      case 'status': return '✓';
-      case 'select': return '▼';
-      case 'attachment': return '📎';
-      default: return '📝';
+      default: return '';
+    }
+  };
+
+  const handleToggleColumn = (columnId: string) => {
+    if (hiddenColumns.includes(columnId)) {
+      onShowColumn(columnId);
+    } else {
+      onHideColumn(columnId);
     }
   };
 
@@ -66,33 +73,24 @@ export default function HiddenFieldsDropdown({
         </div>
         
         <div className="fields-list">
-          {/* Visible Fields */}
-          {visibleColumns.map((column) => (
-            <div key={column.id} className="field-item visible">
-              <div className="field-toggle">
-                <div className="toggle-switch active"></div>
+          {allColumns.map((column) => {
+            const isHidden = hiddenColumns.includes(column.id);
+            
+            return (
+              <div 
+                key={column.id} 
+                className={`field-item ${isHidden ? 'hidden' : 'visible'}`}
+                onClick={() => handleToggleColumn(column.id)}
+              >
+                <div className="field-toggle">
+                  <div className={`toggle-switch ${!isHidden ? 'active' : ''}`}></div>
+                </div>
+                <span className="field-icon">{getColumnIcon(column.type)}</span>
+                <span className="field-name">{column.name}</span>
+                <span className="field-drag-handle">⋮⋮</span>
               </div>
-              <span className="field-icon">{getColumnIcon(column.type)}</span>
-              <span className="field-name">{column.name}</span>
-              <span className="field-drag-handle">⋮⋮</span>
-            </div>
-          ))}
-          
-          {/* Hidden Fields */}
-          {hiddenColumnData.map((column) => (
-            <div 
-              key={column.id} 
-              className="field-item hidden"
-              onClick={() => onShowColumn(column.id)}
-            >
-              <div className="field-toggle">
-                <div className="toggle-switch"></div>
-              </div>
-              <span className="field-icon">{getColumnIcon(column.type)}</span>
-              <span className="field-name">{column.name}</span>
-              <span className="field-drag-handle">⋮⋮</span>
-            </div>
-          ))}
+            );
+          })}
         </div>
         
         <div className="dropdown-footer">

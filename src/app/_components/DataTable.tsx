@@ -156,7 +156,7 @@ export default function DataTable({
   const rowVirtualizer = useVirtualizer({
     count: tableData.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 40,
+    estimateSize: () => 30,
     overscan: 5,
   });
 
@@ -503,6 +503,14 @@ export default function DataTable({
           <div 
             data-row-index={index} 
             data-column-index={columnIndex}
+            style={{
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              margin: 0,
+              padding: 0,
+            }}
           >
             <input
               value={value as string || ''}
@@ -512,10 +520,16 @@ export default function DataTable({
               onContextMenu={(e) => handleCellRightClick(e, index)}
               style={{ 
                 width: '100%', 
-                border: 'none', 
+                height: '100%',        // Fill the entire cell height
+                border: 'none',        // Remove all borders
                 background: 'transparent', 
-                padding: '8px',
-                fontSize: '14px',
+                padding: '0 12px',     // Only horizontal padding
+                fontSize: '13px',
+                fontFamily: 'inherit',
+                outline: 'none',       // Remove default outline
+                boxSizing: 'border-box',
+                margin: 0,             // Remove any margin
+                borderRadius: 3,
               }}
             />
           </div>
@@ -642,7 +656,7 @@ export default function DataTable({
           header: () => (
             <div className="column-header-content" onContextMenu={(e) => handleColumnRightClick(e, col.id, col.name )}>
               <span className="column-icon">{getColumnIcon(col.type)}</span>
-              <span className="column-name" title={col.name}>{col.name}</span>
+              <span title={col.name}>{col.name}</span>
             </div>
           ),
           ...(col.type !== 'text' && {
@@ -705,89 +719,103 @@ export default function DataTable({
     },
   });
 
+  // const visibleColumns = currentTable?.columns?.filter(col => !hiddenColumns.has(col.id)) || [];
+  // const visibleColumns = currentTable?.columns?.filter(col => !hiddenColumns.has(col.id)) ?? [];
+  const visibleColumns = currentTable?.columns?.filter(col => !hiddenColumns.has(col.id)) ?? [];
+  const totalTableWidth = 40 + (visibleColumns.length * 200);
+
   return (
     <div className='table-main-content'>
       <SideBar />
       <div className='table-wrapper'>
         <div className='table-scroll-container'>
-          <table>
-            <thead>
-              {table.getHeaderGroups().map(headerGroup => (
-                <tr key={headerGroup.id}>
-                  <th className="row-number-header">#</th>
-                  {headerGroup.headers.map(header => (
-                    <th key={header.id} className='column-names'>
-                      {flexRender(header.column.columnDef.header, header.getContext())}
-                    </th>
-                  ))}
-                  <button 
-                    ref={addColBtnRef}
-                    onClick={addNewCol}
-                    disabled={isCreatingColumn}
-                    className="add-col-button"
-                    style={{ 
-                      opacity: isCreatingColumn ? 0.6 : 1,
-                      cursor: isCreatingColumn ? 'not-allowed' : 'pointer'
-                    }}
-                  >
-                    {isCreatingColumn ? '...' : '+'}
-                  </button>
-                </tr>
-              ))}
-            </thead>
-            <tbody>
-              <tr style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
-                <td>
-                  <div ref={parentRef} style={{ height: '100%', position: 'relative' }}>
-                    {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                      const row = table.getRowModel().rows[virtualRow.index];
-                      if (!row) return null;
-
-                      return (
-                        <div
-                          key={row.id}
-                          className="virtual-row"
-                          style={{
-                            position: 'absolute',
-                            top: `${virtualRow.start}px`,
-                            left: 0,
-                            width: '100%',
-                            height: `${virtualRow.size}px`,
-                            display: 'table-row',
+          <div>
+            <table className='table'>
+              <thead>
+                {table.getHeaderGroups().map(headerGroup => (
+                  <tr key={headerGroup.id}>
+                    <th className="row-number-header"></th>
+                    {headerGroup.headers.map(header => (
+                      <th key={header.id} className='column-names'>
+                        {flexRender(header.column.columnDef.header, header.getContext())}
+                      </th>
+                    ))}
+                    <th className="add-col-header">
+                        <button 
+                          ref={addColBtnRef}
+                          onClick={addNewCol}
+                          disabled={isCreatingColumn}
+                          className="add-col-button"
+                          style={{ 
+                            opacity: isCreatingColumn ? 0.6 : 1,
+                            cursor: isCreatingColumn ? 'not-allowed' : 'pointer'
                           }}
                         >
-                          <div 
-                            className="row-number" 
-                          >
-                            {virtualRow.index + 1}
-                          </div>
-                          {row.getVisibleCells().map(cell => (
-                            <div 
-                              key={cell.id} 
-                              className="record"
+                          {isCreatingColumn ? '...' : '+'}
+                        </button>
+                    </th>
+                  </tr>
+                ))}
+              </thead>
+              <tbody>
+                <tr style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
+                  <td>
+                    <div ref={parentRef} style={{ height: '100%', position: 'relative' }}>
+                      {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                        const row = table.getRowModel().rows[virtualRow.index];
+                        if (!row) return null;
+                        return (
+                          <>
+                            <div
+                              key={row.id}
+                              className="virtual-row"
+                              style={{
+                                position: 'absolute',
+                                top: `${virtualRow.start}px`,
+                                left: 0,
+                                width: '100%',
+                                height: `${virtualRow.size}px`,
+                              }}
                             >
-                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                              <div className="row-number">
+                                {virtualRow.index + 1}
+                              </div>
+                              {row.getVisibleCells().map((cell, cellIndex) => (
+                                <div 
+                                  key={cell.id} 
+                                  className={`record ${cellIndex === 0 ? 'first-column' : ''}`}
+                                >
+                                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                </div>
+                                
+                              ))}
+                              <div className="add-col-spacer"></div>
                             </div>
-                          ))}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <button 
-                onClick={addNewRow}
-                disabled={isCreatingRecord}
-                className="add-row-button"
-                style={{ 
-                  opacity: isCreatingRecord ? 0.6 : 1,
-                  cursor: isCreatingRecord ? 'not-allowed' : 'pointer'
-                }}
-              >
-                {isCreatingRecord ? '...' : '+'}
-            </button>
+                          </>
+                        );
+                      })}              
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div onClick={addNewRow} className='add-row-button' style={{ width: `${totalTableWidth}px`}}>
+            +
+          </div>
+        </div>
+        <div style={{
+          position: 'fixed',
+          bottom: '20px',
+          left: '20px',
+          background: 'white',
+          padding: '8px 16px',
+          borderRadius: '6px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+          fontSize: '14px',
+          color: '#666',
+        }}>
+          {tableData.length.toLocaleString()} rows
         </div>
         <ContextMenuRecord
           visible={contextMenu?.visible ?? false}
@@ -875,19 +903,6 @@ export default function DataTable({
       )}
 
       {/* Row count indicator */}
-      <div style={{
-        position: 'fixed',
-        bottom: '20px',
-        left: '20px',
-        background: 'white',
-        padding: '8px 16px',
-        borderRadius: '6px',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-        fontSize: '14px',
-        color: '#666',
-      }}>
-        {tableData.length.toLocaleString()} rows
-      </div>
     </div>
   );
 }

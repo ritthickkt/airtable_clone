@@ -11,12 +11,14 @@ interface ColumnContextMenuProps {
   y: number;
   columnId: string;
   columnName: string;
+  columnType: string;
   onEdit: () => void;
   onDuplicate: () => void;
   onInsertLeft: () => void;
   onInsertRight: () => void;
   onHide: () => void;
   onDelete: () => void;
+  onSort: (direction: 'asc' | 'desc') => void;
   onCancel: () => void;
 }
 
@@ -26,12 +28,14 @@ export default function ColumnContextMenu({
   y,
   columnId,
   columnName,
+  columnType,
   onEdit,
   onDuplicate,
   onInsertLeft,
   onInsertRight,
   onHide,
   onDelete,
+  onSort,
   onCancel
 }: ColumnContextMenuProps) {
   if (!visible) return null;
@@ -39,6 +43,22 @@ export default function ColumnContextMenu({
   const handleMenuClick = (e: React.MouseEvent) => {
     e.stopPropagation();
   };
+
+  const getSortOptions = () => {
+    if (columnType === 'number') {
+      return [
+        { label: 'Sort increasing', direction: 'asc' as const },
+        { label: 'Sort decreasing', direction: 'desc' as const }
+      ];
+    } else {
+      return [
+        { label: 'Sort A → Z', direction: 'asc' as const },
+        { label: 'Sort Z → A', direction: 'desc' as const }
+      ];
+    }
+  };
+
+  const sortOptions = getSortOptions();
 
   return (
     <div
@@ -108,15 +128,16 @@ export default function ColumnContextMenu({
         
         <div className="context-menu-separator"></div>
         
-        <div className="context-menu-item">
-          <span className="context-menu-icon"></span>
-          <span>Sort A → Z</span>
-        </div>
-        
-        <div className="context-menu-item">
-          <span className="context-menu-icon"></span>
-          <span>Sort Z → A</span>
-        </div>
+        {sortOptions.map((option) => (
+          <div 
+            key={option.direction}
+            className="context-menu-item" 
+            onClick={() => onSort(option.direction)}
+          >
+            <span className="context-menu-icon"></span>
+            <span>{option.label}</span>
+          </div>
+        ))}
         
         <div className="context-menu-separator"></div>
         

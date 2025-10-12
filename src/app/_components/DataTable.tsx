@@ -16,25 +16,32 @@ import type { TableRow, Table } from '../../types';
 import ColumnConfiguration from '../_components/ColumnConfiguration';
 import ColumnContextMenu from './ColumnContextMenu';
 import React from 'react';
+import type { StringLiteral } from 'typescript';
 
 const columnHelper = createColumnHelper<TableRow>();
 
 interface DataTableProps {
   currentTable: Table | null;
   onColumnUpdate: (tableId: string, newColumn: any) => void;
+  onColumnRemove: (tableId: string, columnId: string) => void; // Add this line
   add100kRowsPressed: boolean;
   set100kRowsPressed: (editing: boolean) => void;
-  hiddenColumns: Set<string>; // Add this prop
-  onHideColumn: (columnId: string) => void; // Add this prop
+  hiddenColumns: Set<string>;
+  onHideColumn: (columnId: string) => void;
+  currentSort: Array<{ columnId: string; direction: 'asc' | 'desc' }>;
+  onSort: (columnId: string, direction: 'asc' | 'desc') => void;
 }
 
 export default function DataTable({ 
     currentTable, 
     onColumnUpdate,
+    onColumnRemove,
     add100kRowsPressed, 
     set100kRowsPressed,
     hiddenColumns,
-    onHideColumn 
+    onHideColumn,
+    currentSort,
+    onSort
   }: DataTableProps) {
   const [isCreatingRecord, setIsCreatingRecord] = useState(false);
   const [isCreatingColumn, setIsCreatingColumn] = useState(false);
@@ -51,12 +58,18 @@ export default function DataTable({
     y: number;
     columnId: string;
     columnName: string;
+    columnType: string;
   } | null>(null);
 
   const handleHideColumn = useCallback((columnId: string) => {
     onHideColumn(columnId);
     setColumnContextMenu(null);
   }, [onHideColumn]);
+
+  const handleSortColumn = useCallback((columnId: string, direction: 'asc' | 'desc') => {
+    onSort(columnId, direction);
+    setColumnContextMenu(null);
+  }, [onSort]);
 
   const createRecordMutation = api.base.createRecord.useMutation();
   const createColumnMutation = api.base.createColumn.useMutation();
@@ -69,7 +82,7 @@ export default function DataTable({
   
   const parentRef = React.useRef<HTMLDivElement>(null);
 
-  const handleColumnRightClick = useCallback((e: React.MouseEvent, columnId: string, columnName: string) => {
+  const handleColumnRightClick = useCallback((e: React.MouseEvent, columnId: string, columnName: string, columnType: string) => {
     e.preventDefault();
     e.stopPropagation();
 
@@ -94,26 +107,82 @@ export default function DataTable({
       y,
       columnId,
       columnName,
+      columnType,
     });
   }, []);
 
+  const sortedTableData = useMemo(() => {
+    if (!currentTable?.id) return [];
+    const baseData = tablesData[currentTable.id] ?? [];
+    
+    if (currentSort.length === 0) return baseData;
+
+    return [...baseData].sort((a, b) => {
+      for (const sort of currentSort) {
+        const column = currentTable.columns?.find(col => col.id === sort.columnId);
+        if (!column) continue;
+
+        const fieldKey = column.name.toLowerCase().replace(/\s+/g, '');
+        const aValue = a[fieldKey];
+        const bValue = b[fieldKey];
+
+        let comparison = 0;
+
+        if (column.type === 'number') {
+          const aNum = parseFloat(String(aValue)) || 0;
+          const bNum = parseFloat(String(bValue)) || 0;
+          comparison = aNum - bNum;
+        } else {
+          const aStr = String(aValue ?? '').toLowerCase();
+          const bStr = String(bValue ?? '').toLowerCase();
+          comparison = aStr.localeCompare(bStr);
+        }
+
+        if (comparison !== 0) {
+          return sort.direction === 'asc' ? comparison : -comparison;
+        }
+      }
+      return 0;
+    });
+  }, [tablesData, currentTable?.id, currentTable?.columns, currentSort]);
+
   const handleDeleteColumn = useCallback(() => {
-    if (!columnContextMenu) return;
+    if (!columnContextMenu || !currentTable?.id) return;
+
+    const columnToDelete = currentTable.columns?.find(col => col.id === columnContextMenu.columnId);
+    if (!columnToDelete) return;
+
+    // Optimistically remove the column from UI immediately
+    onColumnRemove(currentTable.id, columnContextMenu.columnId);
+
+    // Also remove any data for this column from tableData
+    const fieldKey = columnToDelete.name.toLowerCase().replace(/\s+/g, '');
+    setTablesData(prev => ({
+      ...prev,
+      [currentTable.id]: (prev[currentTable.id] ?? []).map(row => {
+        const { [fieldKey]: removedField, ...restRow } = row;
+        return restRow as TableRow;
+      })
+    }));
 
     deleteColumnMutation.mutate({
       columnId: columnContextMenu.columnId,
     }, {
       onSuccess: () => {
-        // Refresh the page or update the state
-        window.location.reload();
+        console.log('Column deleted successfully');
       },
       onError: (error) => {
         console.error('Failed to delete column:', error);
+        // Restore the column on error
+        onColumnUpdate(currentTable.id, columnToDelete);
+        
+        // Restore the column data (this is more complex, you might want to refresh instead)
+        window.location.reload();
       }
     });
 
     setColumnContextMenu(null);
-  }, [columnContextMenu, deleteColumnMutation]);
+  }, [columnContextMenu, deleteColumnMutation, currentTable?.id, currentTable?.columns, onColumnRemove, onColumnUpdate]);
 
   React.useEffect(() => {
     const handleClick = () => {
@@ -541,15 +610,16 @@ export default function DataTable({
   const handleCreateColumn = useCallback((name: string, type: 'text' | 'number') => {
     if (!currentTable) return;
     
+    const tempId = `temp-col-${Date.now()}`;
     const optimisticColumn = {
-      id: `temp-col-${Date.now()}`,
+      id: tempId,
       name: name,
       type: type,
       position: currentTable.columns?.length ?? 0,
       tableId: currentTable.id,
       options: {},
     };
- 
+
     onColumnUpdate(currentTable.id, optimisticColumn);
     
     createColumnMutation.mutate({
@@ -560,6 +630,18 @@ export default function DataTable({
     }, {
       onSuccess: (realColumn) => {
         setIsColumnModalOpen(false);
+        // Update the optimistic column with the real column data
+        const updatedColumn = {
+          id: realColumn.id, // Use the real ID from database
+          name: realColumn.name,
+          type: realColumn.type,
+          position: realColumn.position,
+          tableId: realColumn.tableId,
+          options: realColumn.options,
+          createdAt: realColumn.createdAt,
+          updatedAt: realColumn.updatedAt,
+        };
+        onColumnUpdate(currentTable.id, updatedColumn);
         console.log('Column created:', realColumn);
       },
       onError: () => {
@@ -654,7 +736,7 @@ export default function DataTable({
 
         return columnHelper.accessor(fieldKey, {
           header: () => (
-            <div className="column-header-content" onContextMenu={(e) => handleColumnRightClick(e, col.id, col.name )}>
+            <div className="column-header-content" onContextMenu={(e) => handleColumnRightClick(e, col.id, col.name, col.type )}>
               <span className="column-icon">{getColumnIcon(col.type)}</span>
               <span title={col.name}>{col.name}</span>
             </div>
@@ -681,6 +763,14 @@ export default function DataTable({
                     <div 
                       data-row-index={index} 
                       data-column-index={columnIndex}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        margin: 0,
+                        padding: 0,
+                      }}
                     >
                       <input
                         type="number"
@@ -691,10 +781,16 @@ export default function DataTable({
                         onContextMenu={(e) => handleCellRightClick(e, index)}
                         style={{ 
                           width: '100%', 
-                          border: 'none', 
+                          height: '100%',        // Fill the entire cell height
+                          border: 'none',        // Remove all borders
                           background: 'transparent', 
-                          padding: '8px',
-                          outline: isCurrentCell ? '2px solid #007bff' : 'none',
+                          padding: '0 12px',     // Only horizontal padding
+                          fontSize: '13px',
+                          fontFamily: 'inherit',
+                          outline: 'none',       // Remove default outline
+                          boxSizing: 'border-box',
+                          margin: 0,             // Remove any margin
+                          borderRadius: 3,
                         }}
                       />
                     </div>
@@ -710,7 +806,7 @@ export default function DataTable({
   }, [currentTable?.columns, getColumnIcon, handleColumnRightClick, hiddenColumns]);
 
     const table = useReactTable({
-    data: tableData,
+    data: sortedTableData,
     columns,
     defaultColumn,
     getCoreRowModel: getCoreRowModel(),
@@ -740,22 +836,22 @@ export default function DataTable({
                         {flexRender(header.column.columnDef.header, header.getContext())}
                       </th>
                     ))}
-                    <th className="add-col-header">
-                        <button 
-                          ref={addColBtnRef}
-                          onClick={addNewCol}
-                          disabled={isCreatingColumn}
-                          className="add-col-button"
-                          style={{ 
-                            opacity: isCreatingColumn ? 0.6 : 1,
-                            cursor: isCreatingColumn ? 'not-allowed' : 'pointer'
-                          }}
-                        >
-                          {isCreatingColumn ? '...' : '+'}
-                        </button>
+                    <th className='add-col-header'>
+                      <button
+                        ref={addColBtnRef}
+                        onClick={addNewCol}
+                        disabled={isCreatingColumn}
+                        className="add-col-button"
+                        style={{ 
+                          opacity: isCreatingColumn ? 0.6 : 1,
+                          cursor: isCreatingColumn ? 'not-allowed' : 'pointer'
+                        }}
+                      >
+                        {isCreatingColumn ? '...' : '+'}
+                      </button>  
                     </th>
                   </tr>
-                ))}
+                ))} 
               </thead>
               <tbody>
                 <tr style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
@@ -789,7 +885,7 @@ export default function DataTable({
                                 </div>
                                 
                               ))}
-                              <div className="add-col-spacer"></div>
+                              {/* <div className="add-col-spacer"></div> */}
                             </div>
                           </>
                         );
@@ -831,6 +927,7 @@ export default function DataTable({
           y={columnContextMenu?.y ?? 0}
           columnId={columnContextMenu?.columnId ?? ''}
           columnName={columnContextMenu?.columnName ?? ''}
+          columnType={columnContextMenu?.columnType ?? 'text'}
           onEdit={() => {
             console.log('Edit column');
             setColumnContextMenu(null);
@@ -849,6 +946,7 @@ export default function DataTable({
           }}
           onHide={() => handleHideColumn(columnContextMenu?.columnId ?? '')}
           onDelete={handleDeleteColumn}
+          onSort={(direction) => handleSortColumn(columnContextMenu?.columnId ?? '', direction)}
           onCancel={() => setColumnContextMenu(null)}
         />
       </div>

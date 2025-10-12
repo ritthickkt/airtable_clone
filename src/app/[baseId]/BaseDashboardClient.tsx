@@ -17,9 +17,8 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
   const [isEditing, setIsEditing] = useState(false);
   const [currentTableIndex, setCurrentTableIndex] = useState(0);
   const [add100kRowsPressed, set100kRowsPressed] = useState(false);
-
-  // Add hidden columns state here
   const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set());
+  const [currentSort, setCurrentSort] = useState<Array<{ columnId: string; direction: 'asc' | 'desc' }>>([]);
 
   const [base, setBase] = useState(initialBase)
 
@@ -49,6 +48,14 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
     }
   }, [currentTable?.columns]);
 
+  const handleSort = useCallback((columnId: string, direction: 'asc' | 'desc') => {
+    setCurrentSort(prev => {
+      // Remove any existing sort for this column
+      const filtered = prev.filter(sort => sort.columnId !== columnId);
+      // Add the new sort at the beginning (primary sort)
+      return [{ columnId, direction }, ...filtered];
+    });
+  }, []);
 
   const createTableMutation = api.base.createTable.useMutation({
     onSuccess: (newTable) => {
@@ -138,9 +145,49 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
         table.id === tableId 
           ? { 
               ...table, 
-              columns: table.columns?.some(col => col.id === newColumn.id)
-                ? table.columns.map(col => col.id === newColumn.id ? newColumn : col) // Replace existing
-                : [...(table.columns ?? []), newColumn] // Add new
+              columns: (() => {
+                const currentColumns = table.columns ?? [];
+                
+                // Check if this is updating a temp column
+                const tempColumnIndex = currentColumns.findIndex(col =>
+                  col.id.startsWith('temp-col-') && 
+                  col.name === newColumn.name && 
+                  col.position === newColumn.position
+                );
+                
+                if (tempColumnIndex !== -1) {
+                  // Replace the temp column with real column data
+                  return currentColumns.map((col, index) => 
+                    index === tempColumnIndex ? newColumn : col
+                  );
+                }
+                
+                // Check if column already exists (update case)
+                const existingColumnIndex = currentColumns.findIndex(col => col.id === newColumn.id);
+                if (existingColumnIndex !== -1) {
+                  // Update existing column
+                  return currentColumns.map((col, index) => 
+                    index === existingColumnIndex ? newColumn : col
+                  );
+                }
+                
+                // Add new column to the end
+                return [...currentColumns, newColumn];
+              })()
+            }
+          : table
+      ) ?? []
+    }));
+  }, []);
+
+  const removeTableColumn = useCallback((tableId: string, columnId: string) => {
+    setBase(prevBase => ({
+      ...prevBase,
+      tables: prevBase.tables?.map(table => 
+        table.id === tableId 
+          ? { 
+              ...table, 
+              columns: table.columns?.filter(col => col.id !== columnId) ?? []
             }
           : table
       ) ?? []
@@ -211,14 +258,19 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
                 onShowAllColumns={handleShowAllColumns}
                 onHideAllColumns={handleHideAllColumns}
                 onHideColumn={handleHideColumn}
+                currentSort={currentSort}
+                onSort={handleSort}
               />
               <DataTable 
                 currentTable={currentTable} 
                 onColumnUpdate={updateTableColumns} 
+                onColumnRemove={removeTableColumn}
                 add100kRowsPressed={add100kRowsPressed} 
                 set100kRowsPressed={set100kRowsPressed}
                 hiddenColumns={hiddenColumns}
                 onHideColumn={handleHideColumn}
+                currentSort={currentSort}
+                onSort={handleSort}
               />
             </div>
           </div>

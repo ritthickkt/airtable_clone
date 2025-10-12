@@ -55,23 +55,27 @@ export default function ColumnConfiguration({ isOpen, onClose, onCreateColumn, c
   if (!isOpen) return null;
 
   const menuItems = [
-    { 
-      icon: 'A', 
-      label: 'Add Text Column', 
-      action: () => {
-        setColType('text');
-        handleCreateColumn();
-      } 
-    },
-    { 
-      icon: '#', 
-      label: 'Add Number Column', 
-      action: () => {
-        setColType('number');
-        handleCreateColumn();
-      } 
-    },
-  ];
+  { 
+    icon: 'A', 
+    label: 'Add Text Column', 
+    action: () => {
+      setColType('text');
+      const defaultName = colName.trim() || 'Text Column';
+      onCreateColumn(defaultName, 'text');
+      onClose();
+    } 
+  },
+  { 
+    icon: '#', 
+    label: 'Add Number Column', 
+    action: () => {
+      setColType('number');
+      const defaultName = colName.trim() || 'Number Column';
+      onCreateColumn(defaultName, 'number');
+      onClose();
+    } 
+  },
+];
 
   return (
     <>    

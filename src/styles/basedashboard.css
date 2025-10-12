@@ -48,38 +48,33 @@
   position: sticky;
   top: 0;
   z-index: 10;
-  /* Fix the conflicting widths */
-  min-width: 200px;    /* Change from 150px to 40px */
-  max-width: 200px;    /* Change from 150px to 40px */
+  min-width: 200px;    
+  max-width: 200px;    
   height: 30px;
   vertical-align: middle;
-  border-left: 1px solid #E5E5E5;
   border-bottom: 1px solid #E5E5E5;
+  border-right: 1px solid #E5E5E5;
   padding: 0;
 }
 
-.add-col-spacer {
+/* .add-col-spacer {
   display: flex;
+  border: 2px solid black;
   align-items: center;
-  width: 200px; 
-  min-width: 200px;    /* Change from 150px to 40px */
-  max-width: 200px;    /* Change from 150px to 40px */
-  height: 30px;
-  background-color: #F7F8FC;
-  flex-shrink: 0;
-}
+} */
 
 
 .add-col-button {
-  width: 100%;
-  height: 100%;
   color: #6c757d;
   font-size: 16px;
+  height: 100%;
+  background-color: white;
   width: 200px;
   font-weight: 100;
   cursor: pointer;
   display: flex;
   align-items: center;
+  border-right: 1px solid #E5E5E5;
   justify-content: center;
   transition: all 0.2s ease;
 }
@@ -933,9 +928,6 @@
 }
 
 
-.column-names:last-child {
-  border-right: none;
-}
 
 .column-icon {
   display: flex;
@@ -957,10 +949,6 @@ td {
   position: relative;
 }
 
-
-td:last-child {
-  border-right: none;
-}
 
 /* Row Number
 .row-number {
@@ -1057,10 +1045,8 @@ td:last-child {
 
 .table {
   width: max-content; /* Let table grow beyond container */
-  min-width: 100%;
   table-layout: fixed; /* Keep fixed for consistent column widths */
   font-size: 13px;
-  background: white;
   border-collapse: separate; /* Change from collapse to separate */
   border-spacing: 0; /* Remove spacing between cells */
 }
@@ -1105,9 +1091,6 @@ td:last-child {
   background: transparent;
 }
 
-.record:last-child {
-  border-right: none;
-}
 
 .left-side-bar {
   width: 300px;
@@ -1214,9 +1197,6 @@ td:last-child {
   flex-shrink: 0; /* Prevent shrinking */
 }
 
-.record:last-child {
-  border-right: none;
-}
 
 /* Input styling inside cells */
 .virtual-row .record input {

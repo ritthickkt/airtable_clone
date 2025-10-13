@@ -217,7 +217,7 @@ export default function DataTable({
         id: fieldKey, // Use fieldKey as the column id for sorting
         desc: sort.direction === 'desc'
       };
-    }).filter(Boolean);
+    }).filter((item): item is NonNullable<typeof item> => item !== null);
   }, [currentSort, currentTable?.columns]);
 
   const [bulkProgress, setBulkProgress] = useState<{
@@ -740,7 +740,7 @@ export default function DataTable({
           columnType: filter.columnType // Add column type for better filtering
         }
       };
-    }).filter(Boolean);
+    }).filter((filter): filter is NonNullable<typeof filter> => filter !== null);
   }, [currentFilters, currentTable?.columns]);
 
   // Custom filter function
@@ -879,11 +879,38 @@ export default function DataTable({
       sorting: tanStackSorting,
       columnFilters: tanStackFilters,
     },
-    onSortingChange: () => {},
-    onColumnFiltersChange: () => {},
+    onSortingChange: (updater) => {
+      // Handle TanStack sorting changes and convert back to your format
+      const newSorting = typeof updater === 'function' ? updater(tanStackSorting) : updater;
+      
+      // Convert TanStack sorting back to your currentSort format
+      const convertedSort = newSorting.map(sort => {
+        // Find the column by fieldKey (which is the TanStack column id)
+        const column = currentTable?.columns?.find(col => {
+          const fieldKey = col.name.toLowerCase().replace(/\s+/g, '');
+          return fieldKey === sort.id;
+        });
+        
+        if (!column) return null;
+        
+        return {
+          columnId: column.id,
+          direction: sort.desc ? 'desc' as const : 'asc' as const
+        };
+      }).filter((item): item is NonNullable<typeof item> => item !== null);
+      
+      // Update your parent state - only if we have valid converted sorts
+      if (convertedSort.length > 0 && convertedSort[0]) {
+        onSort(convertedSort[0].columnId, convertedSort[0].direction);
+      }
+    },
+    onColumnFiltersChange: (updater) => {
+      // Handle filter changes if needed
+      const newFilters = typeof updater === 'function' ? updater(tanStackFilters) : updater;
+      // You can implement filter synchronization here if needed
+    },
     enableSorting: true,
     enableColumnFilters: true,
-    // Add global filter function configuration
     globalFilterFn: customFilterFn,
     meta: {
       updateData,
@@ -1045,7 +1072,7 @@ export default function DataTable({
                                 el.style.transition = 'none';
                                 
                                 // Force a reflow to ensure the initial position is applied
-                                el.offsetHeight;
+                                void el.offsetHeight;
                                 
                                 // Then start the animation to final position
                                 requestAnimationFrame(() => {

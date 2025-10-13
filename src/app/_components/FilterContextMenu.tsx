@@ -109,7 +109,7 @@ export default function FilterContextMenu({
     
     setNewFilter({
       columnId,
-      operator: operators.length > 0 ? operators[0].value : '',
+      operator: operators.length > 0 && operators[0] ? operators[0].value : '',
       value: '',
     });
   };
@@ -168,7 +168,7 @@ export default function FilterContextMenu({
                     columnId: e.target.value,
                     columnName: column.name,
                     columnType: column.type,
-                    operator: operators[0]?.value || '',
+                    operator: operators[0]?.value ?? '',
                     value: '',
                   });
                 }

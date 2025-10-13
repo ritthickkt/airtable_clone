@@ -36,7 +36,7 @@
   padding-left: 14px;
   color: #6c757d;
   font-weight: 100; 
-  min-width: fit-content;
+  min-width: 40px;
   background-color: white;
 }
 
@@ -69,12 +69,13 @@
   font-size: 16px;
   height: 100%;
   background-color: white;
-  width: 200px;
+  width: 100px;
   font-weight: 100;
   cursor: pointer;
   display: flex;
   align-items: center;
   border-right: 1px solid #E5E5E5;
+  border-bottom: 1px solid #E5E5E5;
   justify-content: center;
   transition: all 0.2s ease;
 }
@@ -300,10 +301,6 @@
   overflow: hidden;
 }
 
-.record {
-  border-right: 1px solid #e5e5e5;
-  border-bottom: 1px solid #e5e5e5;
-}
 
 .user-avatar {
   width: 32px;
@@ -452,6 +449,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  border-spacing: 0;
 }
 
 .table-controls {
@@ -512,17 +510,47 @@
 
 .cell-input {
   width: 100%;
-  height: 30px;
+  height: 100%;
   border: none;
-  padding: 8px 12px;
-  outline: none;
   background: transparent;
-  font-size: 14px;
+  padding: 0 12px;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  box-sizing: border-box;
 }
 
 .cell-input:focus {
   background-color: #f8f9fa;
 }
+
+.cell-container {
+  width: 100%;
+  height: 100%;
+  gap: 0;
+  display: flex;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+}
+
+.cell-container:focus {
+  background-color: #f8f9fa;
+  border: 1px solid blue;
+  border-radius: 4px;
+}
+
+.cell-container.cell-selected {
+  background-color: #f8f9fa;
+  border: 2px solid #2563eb;
+  border-radius: 4px;
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.1);
+}
+
+.cell-container.cell-selected .cell-input {
+  background-color: transparent;
+}
+
 
 .cell-content {
   padding: 8px 12px;
@@ -592,11 +620,6 @@
   min-height: 32px;
 } */
 
-.cell-select:focus {
-  background-color: #f8f9fa;
-  border: 1px solid blue;
-  border-radius: 4px;
-}
 
 /* .attachment-cell {
   display: flex;
@@ -622,6 +645,11 @@
   font-size: 12px;
   color: #6c757d;
 } */
+
+.table-body {
+  border: 2px solid black;
+  width: 100%;
+}
 
 .actions-header {
   width: 80px;
@@ -885,20 +913,19 @@
   overflow: hidden;
 }
 
-
-
 .row-number-header {
-  width: 40px;
-  height: 30px;
+  width: 39px;
+  min-width: 39.5px;
+  height: 35px;         
   background-color: white;
   border-bottom: 1px solid #e1e5e9;
   color: #6c757d;
   padding: 0;
+  text-align: center;   
+  vertical-align: middle; 
   box-sizing: border-box;
 }
 
-
-/* Header Styles */
 .column-names {
   position: sticky;
   top: 0;
@@ -911,6 +938,9 @@
   color: #374151;
   background-color: white;
   width: 200px;
+  min-width: 200px;
+  max-width: 200px;     
+  height: 35px;         
   vertical-align: middle;
   white-space: nowrap;
   overflow: hidden;
@@ -1045,7 +1075,8 @@ td {
 
 .table {
   width: max-content; /* Let table grow beyond container */
-  table-layout: fixed; /* Keep fixed for consistent column widths */
+  table-layout: auto; /* Keep fixed for consistent column widths */
+  height: 700px;
   font-size: 13px;
   border-collapse: separate; /* Change from collapse to separate */
   border-spacing: 0; /* Remove spacing between cells */
@@ -1078,15 +1109,26 @@ td {
   color: #374151;
 }
 
-.record.selected {
+.row-count-indicator {
+  border: 1px solid #e5e5e5;
+  padding-left: 12px;
+  border-left: none;
+  background-color: white;
+  color: #6c757d;
+  font-size: 12px;
+  font-weight: 500;
+  display: inline-block;
+  min-width: 28px;
+  text-align: left;
+}
+
+.cell-selected {
   background-color: #eff6ff;
   border: 2px solid #3b82f6;
   box-shadow: 0 0 0 1px #3b82f6;
 }
 
-/* Remove default table cell borders when selected */
-.record.selected .cell-input,
-.record.selected .cell-select {
+.cell-select {
   border: none;
   background: transparent;
 }
@@ -1130,7 +1172,6 @@ td {
   display: flex;
   flex-direction: row;
   background-color: #F7F8FC;
-  flex: 1; /* Add this */
   overflow: hidden; /* Add this */
 }
 
@@ -1144,9 +1185,19 @@ td {
 
 
 .record {
-  max-height: 30px;
+  display: flex;
+  height: 35px;
+  width: 200px;
+  border-right: 1px solid #e5e5e5;
+  border-bottom: 1px solid #e5e5e5;
+  background-color: white;
+  margin: 0;
+  padding: 0;
 }
 
+.record:last-child {
+  border-right: none;
+}
 
 .virtual-row:hover .row-number,
 .virtual-row:hover .record {
@@ -1215,3 +1266,4 @@ td {
   background-color: #fff;
   box-shadow: inset 0 0 0 2px #3b82f6;
 }
+

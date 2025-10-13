@@ -450,20 +450,20 @@ export default function DataTable({
   finishes typing, (onBlur) event so when the focus is removed is calls this function. 
   The setTableData updates the tableData state using the previous state as a starting point. 
   */
-  const updateData = useCallback((rowIndex: number, columnId: string, value: unknown) => {
+  const updateData = useCallback((rowIndex: number, fieldKey: string, value: unknown) => { // Parameter is now fieldKey
     if (!currentTable?.id) return;
 
     setTablesData(prev => {
       const currentData = prev[currentTable.id] ?? [];
       const updatedData = currentData.map((row, index) => {
         if (index === rowIndex) {
-          const updatedRow = { ...row, [columnId]: value };
+          const updatedRow = { ...row, [fieldKey]: value }; // Use fieldKey for data access
           
           // **ONLY sync to database if it's NOT a temporary record**
           if (!row.id.startsWith('temp-bulk-') && !row.id.startsWith('temp-')) {
             updateCellMutation.mutate({
               recordId: row.id,
-              fieldKey: columnId,
+              fieldKey: fieldKey, // Use fieldKey for database update
               value: value as string,
             });
           }
@@ -547,17 +547,18 @@ export default function DataTable({
   */
   const defaultColumn = useMemo(
     () => ({
-      cell: ({ getValue, row: { index }, column: { id }, table }: any) => {
+      cell: ({ getValue, row: { index }, column, table }: any) => {
         const initialValue = getValue();
         const [value, setValue] = React.useState(initialValue);
 
         // Get column index from visible columns
         const columnIndex = table.getAllColumns()
           .filter((col: any) => col.getIsVisible())
-          .findIndex((col: any) => col.id === id);
+          .findIndex((col: any) => col.id === column.id); // Use col.id for identification
 
         const onBlur = () => {
-          table.options.meta?.updateData(index, id, value);
+          // Use column.columnDef.accessorKey (which is fieldKey) for data updates
+          table.options.meta?.updateData(index, column.columnDef.accessorKey, value);
         };
 
         const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -589,15 +590,15 @@ export default function DataTable({
               onContextMenu={(e) => handleCellRightClick(e, index)}
               style={{ 
                 width: '100%', 
-                height: '100%',        // Fill the entire cell height
-                border: 'none',        // Remove all borders
+                height: '100%',
+                border: 'none',
                 background: 'transparent', 
-                padding: '0 12px',     // Only horizontal padding
+                padding: '0 12px',
                 fontSize: '13px',
                 fontFamily: 'inherit',
-                outline: 'none',       // Remove default outline
+                outline: 'none',
                 boxSizing: 'border-box',
-                margin: 0,             // Remove any margin
+                margin: 0,
                 borderRadius: 3,
               }}
             />
@@ -734,7 +735,8 @@ export default function DataTable({
       .map((col, columnIndex) => {
         const fieldKey = col.name.toLowerCase().replace(/\s+/g, '');
 
-        return columnHelper.accessor(fieldKey, {
+        return columnHelper.accessor(fieldKey, { // Use fieldKey as accessorKey
+          id: col.id, // Keep col.id for identification
           header: () => (
             <div className="column-header-content" onContextMenu={(e) => handleColumnRightClick(e, col.id, col.name, col.type )}>
               <span className="column-icon">{getColumnIcon(col.type)}</span>
@@ -742,7 +744,7 @@ export default function DataTable({
             </div>
           ),
           ...(col.type !== 'text' && {
-            cell: ({ getValue, row: { index }, column: { id }, table }) => {
+            cell: ({ getValue, row: { index }, column, table }) => {
               const value = getValue() as string || '';
 
               switch (col.type) {
@@ -776,20 +778,20 @@ export default function DataTable({
                         type="number"
                         value={numValue}
                         onChange={(e) => setNumValue(e.target.value)}
-                        onBlur={() => (table.options.meta as any)?.updateData(index, id, numValue)}
+                        onBlur={() => (table.options.meta as any)?.updateData(index, fieldKey, numValue)} // Use fieldKey for data update
                         onFocus={onFocus}
                         onContextMenu={(e) => handleCellRightClick(e, index)}
                         style={{ 
                           width: '100%', 
-                          height: '100%',        // Fill the entire cell height
-                          border: 'none',        // Remove all borders
+                          height: '100%',
+                          border: 'none',
                           background: 'transparent', 
-                          padding: '0 12px',     // Only horizontal padding
+                          padding: '0 12px',
                           fontSize: '13px',
                           fontFamily: 'inherit',
-                          outline: 'none',       // Remove default outline
+                          outline: 'none',
                           boxSizing: 'border-box',
-                          margin: 0,             // Remove any margin
+                          margin: 0,
                           borderRadius: 3,
                         }}
                       />
@@ -805,7 +807,7 @@ export default function DataTable({
       });
   }, [currentTable?.columns, getColumnIcon, handleColumnRightClick, hiddenColumns]);
 
-    const table = useReactTable({
+  const table = useReactTable({
     data: sortedTableData,
     columns,
     defaultColumn,
@@ -825,12 +827,11 @@ export default function DataTable({
       <SideBar />
       <div className='table-wrapper'>
         <div className='table-scroll-container'>
-          <div>
-            <table className='table'>
+            <table>
               <thead>
                 {table.getHeaderGroups().map(headerGroup => (
                   <tr key={headerGroup.id}>
-                    <th className="row-number-header"></th>
+                    <th className="row-number-header">#</th>
                     {headerGroup.headers.map(header => (
                       <th key={header.id} className='column-names'>
                         {flexRender(header.column.columnDef.header, header.getContext())}
@@ -885,7 +886,6 @@ export default function DataTable({
                                 </div>
                                 
                               ))}
-                              {/* <div className="add-col-spacer"></div> */}
                             </div>
                           </>
                         );
@@ -895,7 +895,6 @@ export default function DataTable({
                 </tr>
               </tbody>
             </table>
-          </div>
           <div onClick={addNewRow} className='add-row-button' style={{ width: `${totalTableWidth}px`}}>
             +
           </div>

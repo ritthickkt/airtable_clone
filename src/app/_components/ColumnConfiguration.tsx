@@ -9,11 +9,10 @@ interface ColumnConfigurationProps {
   onClose: () => void;
   onCreateColumn: (name: string, type: 'text' | 'number') => void;
   isColumnModalOpen: boolean;
-  colConfigPosition: { top: number; left: number } | null;
 }
 
-export default function ColumnConfiguration({ isOpen, onClose, onCreateColumn, colConfigPosition }: ColumnConfigurationProps) {
-  if (!isOpen || !colConfigPosition) return null;
+export default function ColumnConfiguration({ isOpen, onClose, onCreateColumn }: ColumnConfigurationProps) {
+  if (!isOpen) return null;
   const [colName, setColName] = useState('');
   const [colType, setColType] = useState<'text' | 'number'>('text');
   const modalRef = useRef<HTMLDivElement>(null);

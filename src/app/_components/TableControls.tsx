@@ -23,6 +23,8 @@ interface TableControlsProps {
   onShowAllColumns: () => void;
   currentSort: Array<{ columnId: string; direction: 'asc' | 'desc' }>;
   onSort: (columnId: string, direction: 'asc' | 'desc') => void;
+  onClearSort: () => void; // Add this line
+  onRemoveColumnSort: (columnId: string) => void;
 }
 
 export default function TableControls({ 
@@ -34,7 +36,9 @@ export default function TableControls({
   onHideAllColumns,
   onShowAllColumns,
   currentSort,
-  onSort
+  onSort,
+  onClearSort,
+  onRemoveColumnSort
 }: TableControlsProps) {
   const [showHiddenFieldsDropdown, setShowHiddenFieldsDropdown] = useState(false);
   const [showSortDropdown, setShowSortDropdown] = useState(false);
@@ -165,7 +169,9 @@ export default function TableControls({
         allColumns={allColumns}
         currentSort={currentSort}
         onSort={onSort}
+        onClearSort={onClearSort}
         onCancel={() => setShowSortDropdown(false)}
+        onRemoveColumnSort={onRemoveColumnSort}
       />
     </>
   );

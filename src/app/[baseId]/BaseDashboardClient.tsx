@@ -57,6 +57,14 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
     });
   }, []);
 
+  const handleClearSort = useCallback(() => {
+    setCurrentSort([]);
+  }, []);
+
+  const handleRemoveColumnSort = useCallback((columnId: string) => {
+    setCurrentSort(prev => prev.filter(sort => sort.columnId !== columnId));
+  }, []);
+
   const createTableMutation = api.base.createTable.useMutation({
     onSuccess: (newTable) => {
       console.log('Table created:', newTable);
@@ -260,6 +268,8 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
                 onHideColumn={handleHideColumn}
                 currentSort={currentSort}
                 onSort={handleSort}
+                onClearSort={handleClearSort} // Add this prop
+                onRemoveColumnSort={handleRemoveColumnSort}
               />
               <DataTable 
                 currentTable={currentTable} 

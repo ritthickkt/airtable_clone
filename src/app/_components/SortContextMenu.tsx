@@ -12,6 +12,8 @@ interface SortDropdownProps {
   allColumns: Array<{ id: string; name: string; type: string }>;
   currentSort: Array<{ columnId: string; direction: 'asc' | 'desc' }>;
   onSort: (columnId: string, direction: 'asc' | 'desc') => void;
+  onClearSort: () => void;
+  onRemoveColumnSort: (columnId: string) => void; // Add this new prop
   onCancel: () => void;
 }
 
@@ -22,6 +24,8 @@ export default function SortDropdown({
   allColumns,
   currentSort,
   onSort,
+  onClearSort,
+  onRemoveColumnSort, // Add this new prop
   onCancel
 }: SortDropdownProps) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -67,6 +71,15 @@ export default function SortDropdown({
       >
         <div className="sort-dropdown-header">
           <h3>Sort by</h3>
+          {currentSort.length > 0 && (
+            <button
+              className="sort-clear-button"
+              onClick={onClearSort}
+              title="Clear all sorting"
+            >
+              Clear all
+            </button>
+          )}
         </div>
 
         <div className="sort-search-container">
@@ -90,6 +103,15 @@ export default function SortDropdown({
                 <div className="sort-field-header">
                   <span className="sort-field-icon">{getColumnIcon(column.type)}</span>
                   <span className="sort-field-name">{column.name}</span>
+                  {currentColumnSort && (
+                    <button
+                      className="sort-remove-column-button"
+                      onClick={() => onRemoveColumnSort(column.id)}
+                      title={`Remove sort from ${column.name}`}
+                    >
+                      ✕
+                    </button>
+                  )}
                 </div>
                 <div className="sort-options">
                   {sortOptions.map((option) => (

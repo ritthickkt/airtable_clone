@@ -6,6 +6,7 @@ import {
   createColumnHelper,
   flexRender,
   getCoreRowModel,
+  getSortedRowModel, // Add this import
   useReactTable,
 } from '@tanstack/react-table';
 import SideBar from './sidebar';
@@ -23,7 +24,7 @@ const columnHelper = createColumnHelper<TableRow>();
 interface DataTableProps {
   currentTable: Table | null;
   onColumnUpdate: (tableId: string, newColumn: any) => void;
-  onColumnRemove: (tableId: string, columnId: string) => void; // Add this line
+  onColumnRemove: (tableId: string, columnId: string) => void;
   add100kRowsPressed: boolean;
   set100kRowsPressed: (editing: boolean) => void;
   hiddenColumns: Set<string>;
@@ -51,6 +52,12 @@ export default function DataTable({
   const [colConfigPosition, setColConfigPosition] = useState<{ top: number; left: number } | null>(null);
   const colConfigRef = React.useRef<HTMLDivElement>(null);
   const addColBtnRef = React.useRef<HTMLButtonElement>(null);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const prevSortRef = React.useRef(currentSort);
+  const [rowAnimationData, setRowAnimationData] = useState<Map<string, {
+    fromIndex: number;
+    toIndex: number;
+  }>>(new Map());
   const [pendingBulkRecords, setPendingBulkRecords] = useState<Record<string, TableRow[]>>({});
   const [columnContextMenu, setColumnContextMenu] = useState<{
     visible: boolean;
@@ -75,10 +82,8 @@ export default function DataTable({
   const createColumnMutation = api.base.createColumn.useMutation();
   const updateCellMutation = api.base.updateCell.useMutation();
   const deleteRecordMutation = api.base.deleteRecord.useMutation();
-  // const deleteTableMutation = api.base.deleteTable.uesMutation();
   const deleteColumnMutation = api.base.deleteColumn.useMutation();
   const createBulkRecordsMutation = api.base.createBulkRecords.useMutation();
-  
   
   const parentRef = React.useRef<HTMLDivElement>(null);
 
@@ -86,13 +91,12 @@ export default function DataTable({
     e.preventDefault();
     e.stopPropagation();
 
-    const menuHeight = 600; // Approximate height of the context menu
+    const menuHeight = 600;
     const menuWidth = 220;
 
     let x = e.clientX;
     let y = e.clientY;
 
-    // Adjust position to prevent overflow
     if (y + menuHeight > window.innerHeight) {
       y = e.clientY - menuHeight;
     }
@@ -111,51 +115,14 @@ export default function DataTable({
     });
   }, []);
 
-  const sortedTableData = useMemo(() => {
-    if (!currentTable?.id) return [];
-    const baseData = tablesData[currentTable.id] ?? [];
-    
-    if (currentSort.length === 0) return baseData;
-
-    return [...baseData].sort((a, b) => {
-      for (const sort of currentSort) {
-        const column = currentTable.columns?.find(col => col.id === sort.columnId);
-        if (!column) continue;
-
-        const fieldKey = column.name.toLowerCase().replace(/\s+/g, '');
-        const aValue = a[fieldKey];
-        const bValue = b[fieldKey];
-
-        let comparison = 0;
-
-        if (column.type === 'number') {
-          const aNum = parseFloat(String(aValue)) || 0;
-          const bNum = parseFloat(String(bValue)) || 0;
-          comparison = aNum - bNum;
-        } else {
-          const aStr = String(aValue ?? '').toLowerCase();
-          const bStr = String(bValue ?? '').toLowerCase();
-          comparison = aStr.localeCompare(bStr);
-        }
-
-        if (comparison !== 0) {
-          return sort.direction === 'asc' ? comparison : -comparison;
-        }
-      }
-      return 0;
-    });
-  }, [tablesData, currentTable?.id, currentTable?.columns, currentSort]);
-
   const handleDeleteColumn = useCallback(() => {
     if (!columnContextMenu || !currentTable?.id) return;
 
     const columnToDelete = currentTable.columns?.find(col => col.id === columnContextMenu.columnId);
     if (!columnToDelete) return;
 
-    // Optimistically remove the column from UI immediately
     onColumnRemove(currentTable.id, columnContextMenu.columnId);
 
-    // Also remove any data for this column from tableData
     const fieldKey = columnToDelete.name.toLowerCase().replace(/\s+/g, '');
     setTablesData(prev => ({
       ...prev,
@@ -173,10 +140,7 @@ export default function DataTable({
       },
       onError: (error) => {
         console.error('Failed to delete column:', error);
-        // Restore the column on error
         onColumnUpdate(currentTable.id, columnToDelete);
-        
-        // Restore the column data (this is more complex, you might want to refresh instead)
         window.location.reload();
       }
     });
@@ -187,7 +151,7 @@ export default function DataTable({
   React.useEffect(() => {
     const handleClick = () => {
       setContextMenu(null);
-      setColumnContextMenu(null); // Add this line
+      setColumnContextMenu(null);
     };
     document.addEventListener('click', handleClick);
     return () => document.removeEventListener('click', handleClick);
@@ -222,12 +186,19 @@ export default function DataTable({
     }
   }, [currentTable?.id, currentTable?.records, tablesData]);
 
-  const rowVirtualizer = useVirtualizer({
-    count: tableData.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 30,
-    overscan: 5,
-  });
+  // Convert currentSort to TanStack format
+  const tanStackSorting = useMemo(() => {
+    return currentSort.map(sort => {
+      const column = currentTable?.columns?.find(col => col.id === sort.columnId);
+      if (!column) return null;
+      
+      const fieldKey = column.name.toLowerCase().replace(/\s+/g, '');
+      return {
+        id: fieldKey, // Use fieldKey as the column id for sorting
+        desc: sort.direction === 'desc'
+      };
+    }).filter(Boolean);
+  }, [currentSort, currentTable?.columns]);
 
   const [bulkProgress, setBulkProgress] = useState<{
     isAdding: boolean;
@@ -248,11 +219,10 @@ export default function DataTable({
         emptyData[fieldKey] = '';
       });
 
-      const uiChunkSize = 100; // Add 100 rows to UI at a time
-      const dbBatchSize = 500; // Send 500 rows to DB at a time
+      const uiChunkSize = 100;
+      const dbBatchSize = 500;
       const totalRecords = 100000;
       
-      // **PHASE 1: Gradual UI Updates (smooth, no lag)**
       const addUIChunks = async () => {
         const totalUIChunks = Math.ceil(totalRecords / uiChunkSize);
         const baseTimestamp = Date.now();
@@ -262,7 +232,6 @@ export default function DataTable({
           const endIndex = Math.min(startIndex + uiChunkSize, totalRecords);
           const currentChunkSize = endIndex - startIndex;
           
-          // Create chunk of records for UI
           const chunkRecords: TableRow[] = [];
           
           for (let i = 0; i < currentChunkSize; i++) {
@@ -272,24 +241,20 @@ export default function DataTable({
             } as TableRow);
           }
 
-          // Add chunk to UI state
           setTablesData(prev => ({
             ...prev,
             [currentTable.id]: [...(prev[currentTable.id] ?? []), ...chunkRecords]
           }));
 
-          // Update progress for UI
           setBulkProgress(prev => prev ? {
             ...prev,
             added: endIndex
           } : null);
 
-          // Small delay to keep UI responsive
           await new Promise(resolve => setTimeout(resolve, 10));
         }
       };
 
-      // **PHASE 2: Background Database Sync (simplified)**
       const syncToDatabase = async () => {
         const totalDBBatches = Math.ceil(totalRecords / dbBatchSize);
         let dbRecordsCreated = 0;
@@ -298,7 +263,6 @@ export default function DataTable({
           try {
             const batchData = Array(dbBatchSize).fill(emptyData);
             
-            // Send batch to database - this returns BatchPayload with count
             const batchResult = await createBulkRecordsMutation.mutateAsync({
               tableId: currentTable.id,
               records: batchData,
@@ -310,21 +274,17 @@ export default function DataTable({
             
           } catch (error) {
             console.error(`❌ Database batch ${batchIndex} failed:`, error);
-            // Continue with next batch even if one fails
           }
           
-          // Small delay between database batches
           await new Promise(resolve => setTimeout(resolve, 50));
         }
         
         console.log('✅ Database sync completed!');
       };
 
-      // **RUN BOTH PHASES IN PARALLEL**
       await Promise.all([
-        addUIChunks(), // Gradual UI updates
+        addUIChunks(),
         new Promise(resolve => {
-          // Start database sync after UI has started (1 second delay)
           setTimeout(() => {
             syncToDatabase().then(resolve);
           }, 1000);
@@ -335,7 +295,6 @@ export default function DataTable({
         
     } catch (error) {
       console.error('Failed to add 100k rows:', error);
-      // Rollback on error
       setTablesData(prev => ({
         ...prev,
         [currentTable.id]: prev[currentTable.id]?.slice(0, -(bulkProgress?.added ?? 0)) ?? []
@@ -344,7 +303,6 @@ export default function DataTable({
       setIsCreatingRecord(false);
       set100kRowsPressed(false);
       
-      // Clear progress after completion
       setTimeout(() => {
         setBulkProgress(null);
       }, 2000);
@@ -417,57 +375,58 @@ export default function DataTable({
   const handleDeleteRow = useCallback(() => {
     if (!contextMenu || !currentTable?.id) return;
 
-    const rowToDelete = tableData[contextMenu.rowIndex];
+    // Use the appropriate row model based on current sort state
+    const rows = currentSort.length === 0 
+      ? table.getCoreRowModel().rows 
+      : table.getSortedRowModel().rows;
+      
+    const rowToDelete = rows[contextMenu.rowIndex]?.original;
     if (!rowToDelete) return;
 
     setTablesData(prev => ({
       ...prev,
-    [currentTable.id]: prev[currentTable.id]?.filter((_, index) => index !== contextMenu.rowIndex) ?? []
+      [currentTable.id]: prev[currentTable.id]?.filter(row => row.id !== rowToDelete.id) ?? []
     }));
 
     deleteRecordMutation.mutate({
       recordId: rowToDelete.id, 
     }, {
       onError: () => {
-        setTablesData(prev => {
-          const currentData = prev[currentTable.id] ?? [];
-          const newData = [...currentData];
-          newData.splice(contextMenu.rowIndex, 0, rowToDelete);
-          return {
-            ...prev,
-            [currentTable.id]: newData
-          };
-        });
+        setTablesData(prev => ({
+          ...prev,
+          [currentTable.id]: [...(prev[currentTable.id] ?? []), rowToDelete]
+        }));
       }
     });
 
     setContextMenu(null);
-  }, [contextMenu, tableData, currentTable?.id, deleteRecordMutation]);
+  }, [contextMenu, currentTable?.id, deleteRecordMutation, currentSort.length]);
 
-  /*
-  Function used to update a cell. Takes a Row Index, a Column Id to know which column
-  the row is in and the value to what its changed to. This is called when a user
-  finishes typing, (onBlur) event so when the focus is removed is calls this function. 
-  The setTableData updates the tableData state using the previous state as a starting point. 
-  */
-  const updateData = useCallback((rowIndex: number, fieldKey: string, value: unknown) => { // Parameter is now fieldKey
+  const updateData = useCallback((rowIndex: number, fieldKey: string, value: unknown) => {
     if (!currentTable?.id) return;
 
     setTablesData(prev => {
       const currentData = prev[currentTable.id] ?? [];
-      const updatedData = currentData.map((row, index) => {
-        if (index === rowIndex) {
-          const updatedRow = { ...row, [fieldKey]: value }; // Use fieldKey for data access
+      
+      // Use the appropriate row model based on current sort state
+      const rows = currentSort.length === 0 
+        ? table.getCoreRowModel().rows 
+        : table.getSortedRowModel().rows;
+        
+      const actualRow = rows[rowIndex]?.original;
+      if (!actualRow) return prev;
+      
+      const updatedData = currentData.map((row) => {
+        if (row.id === actualRow.id) {
+          const updatedRow = { ...row, [fieldKey]: value };
           
-          // **ONLY sync to database if it's NOT a temporary record**
           if (!row.id.startsWith('temp-bulk-') && !row.id.startsWith('temp-')) {
             updateCellMutation.mutate({
               recordId: row.id,
-              fieldKey: fieldKey, // Use fieldKey for database update
+              fieldKey: fieldKey,
               value: value as string,
             });
           }
-          // For temp records, just update locally - they'll be synced when background process completes
 
           return updatedRow;
         }
@@ -479,10 +438,15 @@ export default function DataTable({
         [currentTable.id]: updatedData
       };
     });
-  }, [updateCellMutation, currentTable?.id]);
+  }, [updateCellMutation, currentTable?.id, currentSort.length]);
 
   const handleKeyDown = useCallback((event: React.KeyboardEvent, rowIndex: number, columnIndex: number) => {
-    const maxRows = tableData.length;
+    // Use the appropriate row model based on current sort state
+    const rows = currentSort.length === 0 
+      ? table.getCoreRowModel().rows 
+      : table.getSortedRowModel().rows;
+      
+    const maxRows = rows.length;
     const maxCols = currentTable?.columns?.length ?? 0;
 
     let newRowIndex = rowIndex;
@@ -495,7 +459,7 @@ export default function DataTable({
         break;
       case 'ArrowDown':
         event.preventDefault();
-        newRowIndex = Math.min(rowIndex + 1);
+        newRowIndex = Math.min(maxRows - 1, rowIndex + 1);
         break;
       case 'ArrowLeft':
         event.preventDefault();
@@ -540,24 +504,19 @@ export default function DataTable({
         cell.select();
       }
     }, 0);
-  }, [tableData.length, currentTable?.columns?.length]);
+  }, [currentTable?.columns?.length, currentSort.length]);
 
-  /*
-  Behavior for what happens when a user starts typing into a cell
-  */
   const defaultColumn = useMemo(
     () => ({
       cell: ({ getValue, row: { index }, column, table }: any) => {
         const initialValue = getValue();
         const [value, setValue] = React.useState(initialValue);
 
-        // Get column index from visible columns
         const columnIndex = table.getAllColumns()
           .filter((col: any) => col.getIsVisible())
-          .findIndex((col: any) => col.id === column.id); // Use col.id for identification
+          .findIndex((col: any) => col.id === column.id);
 
         const onBlur = () => {
-          // Use column.columnDef.accessorKey (which is fieldKey) for data updates
           table.options.meta?.updateData(index, column.columnDef.accessorKey, value);
         };
 
@@ -631,9 +590,8 @@ export default function DataTable({
     }, {
       onSuccess: (realColumn) => {
         setIsColumnModalOpen(false);
-        // Update the optimistic column with the real column data
         const updatedColumn = {
-          id: realColumn.id, // Use the real ID from database
+          id: realColumn.id,
           name: realColumn.name,
           type: realColumn.type,
           position: realColumn.position,
@@ -656,29 +614,26 @@ export default function DataTable({
   }, [currentTable, createColumnMutation, onColumnUpdate]);
 
   const addNewCol = useCallback(() => {
-  if (addColBtnRef.current) {
-    const rect = addColBtnRef.current.getBoundingClientRect();
-    // Estimate your popup's width and height (adjust as needed)
-    const popupWidth = 300;
-    const popupHeight = 200;
+    if (addColBtnRef.current) {
+      const rect = addColBtnRef.current.getBoundingClientRect();
+      const popupWidth = 300;
+      const popupHeight = 200;
 
-    let top = rect.bottom + window.scrollY;
-    let left = rect.left + window.scrollX;
+      let top = rect.bottom + window.scrollY;
+      let left = rect.left + window.scrollX;
 
-    // Adjust if popup would overflow right edge
-    if (left + popupWidth > window.innerWidth) {
-      left = window.innerWidth - popupWidth - 16; // 16px margin from edge
+      if (left + popupWidth > window.innerWidth) {
+        left = window.innerWidth - popupWidth - 16;
+      }
+      if (top + popupHeight > window.innerHeight + window.scrollY) {
+        top = rect.top + window.scrollY - popupHeight;
+        if (top < 0) top = 16;
+      }
+
+      setColConfigPosition({ top, left });
     }
-    // Adjust if popup would overflow bottom edge
-    if (top + popupHeight > window.innerHeight + window.scrollY) {
-      top = rect.top + window.scrollY - popupHeight;
-      if (top < 0) top = 16; // 16px margin from top
-    }
-
-    setColConfigPosition({ top, left });
-  }
-  setIsColumnModalOpen(true);
-}, []);
+    setIsColumnModalOpen(true);
+  }, []);
 
   const addNewRow = useCallback(() => {
     if (!currentTable || isCreatingRecord) return;
@@ -691,7 +646,6 @@ export default function DataTable({
       emptyData[fieldKey] = '';
     });
     
-    // **FIX: Use a more stable ID generation**
     const optimisticRecord = {
       id: `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       ...emptyData,
@@ -735,14 +689,16 @@ export default function DataTable({
       .map((col, columnIndex) => {
         const fieldKey = col.name.toLowerCase().replace(/\s+/g, '');
 
-        return columnHelper.accessor(fieldKey, { // Use fieldKey as accessorKey
-          id: col.id, // Keep col.id for identification
+        return columnHelper.accessor(fieldKey, {
+          id: fieldKey, // Use fieldKey as both id and accessor for TanStack sorting
           header: () => (
             <div className="column-header-content" onContextMenu={(e) => handleColumnRightClick(e, col.id, col.name, col.type )}>
               <span className="column-icon">{getColumnIcon(col.type)}</span>
               <span title={col.name}>{col.name}</span>
             </div>
           ),
+          // Add sorting configuration for number columns
+          sortingFn: col.type === 'number' ? 'basic' : 'alphanumeric',
           ...(col.type !== 'text' && {
             cell: ({ getValue, row: { index }, column, table }) => {
               const value = getValue() as string || '';
@@ -778,7 +734,7 @@ export default function DataTable({
                         type="number"
                         value={numValue}
                         onChange={(e) => setNumValue(e.target.value)}
-                        onBlur={() => (table.options.meta as any)?.updateData(index, fieldKey, numValue)} // Use fieldKey for data update
+                        onBlur={() => (table.options.meta as any)?.updateData(index, fieldKey, numValue)}
                         onFocus={onFocus}
                         onContextMenu={(e) => handleCellRightClick(e, index)}
                         style={{ 
@@ -799,7 +755,7 @@ export default function DataTable({
                   );
                   
                 default:
-                  return null; // Will use defaultColumn
+                  return null;
               }
             }
           })
@@ -807,20 +763,93 @@ export default function DataTable({
       });
   }, [currentTable?.columns, getColumnIcon, handleColumnRightClick, hiddenColumns]);
 
+  const visibleColumns = currentTable?.columns?.filter(col => !hiddenColumns.has(col.id)) ?? [];
+  const totalTableWidth = 40 + (visibleColumns.length * 200);
+
   const table = useReactTable({
-    data: sortedTableData,
+    data: tableData, // Use unsorted data, let TanStack handle sorting
     columns,
     defaultColumn,
     getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(), // Add sorted row model
+    state: {
+      sorting: tanStackSorting, // Pass the converted sorting state
+    },
+    onSortingChange: () => {}, // We handle sorting through our context menu
+    enableSorting: true,
     meta: {
       updateData,
     },
   });
 
-  // const visibleColumns = currentTable?.columns?.filter(col => !hiddenColumns.has(col.id)) || [];
-  // const visibleColumns = currentTable?.columns?.filter(col => !hiddenColumns.has(col.id)) ?? [];
-  const visibleColumns = currentTable?.columns?.filter(col => !hiddenColumns.has(col.id)) ?? [];
-  const totalTableWidth = 40 + (visibleColumns.length * 200);
+  const rowVirtualizer = useVirtualizer({
+    count: table.getSortedRowModel().rows.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 30,
+    overscan: 5,
+  });
+
+  React.useEffect(() => {
+    // Track the previous sort state to detect when sorting changes (including clearing) 
+    
+    // Check if sort has changed (either applied or cleared)
+    const sortChanged = JSON.stringify(prevSortRef.current) !== JSON.stringify(currentSort);
+    
+    if (sortChanged) {
+      // Capture positions before sort change
+      const beforeSort = new Map<string, number>();
+      
+      // If we're clearing sort, use the current sorted positions as "before"
+      // If we're applying sort, use the core (unsorted) positions as "before"
+      const sourceRows = currentSort.length === 0 
+        ? table.getSortedRowModel().rows  // Use current sorted positions when clearing
+        : table.getCoreRowModel().rows;   // Use unsorted positions when applying sort
+        
+      sourceRows.forEach((row, index) => {
+        beforeSort.set(row.id, index);
+      });
+
+      // Small delay to let TanStack update, then capture after positions
+      setTimeout(() => {
+        const afterSort = new Map<string, number>();
+        
+        // Target positions after the sort change
+        const targetRows = currentSort.length === 0 
+          ? table.getCoreRowModel().rows    // Back to original order when clearing
+          : table.getSortedRowModel().rows; // New sorted order when applying
+          
+        targetRows.forEach((row, index) => {
+          afterSort.set(row.id, index);
+        });
+
+        // Calculate animation data
+        const animationData = new Map<string, { fromIndex: number; toIndex: number }>();
+        beforeSort.forEach((fromIndex, rowId) => {
+          const toIndex = afterSort.get(rowId);
+          if (toIndex !== undefined && fromIndex !== toIndex) {
+            animationData.set(rowId, { fromIndex, toIndex });
+          }
+        });
+
+        // Only animate if there are actual position changes
+        if (animationData.size > 0) {
+          setRowAnimationData(animationData);
+          setIsAnimating(true);
+
+          // End animation
+          const timer = setTimeout(() => {
+            setIsAnimating(false);
+            setRowAnimationData(new Map());
+          }, 350);
+
+          return () => clearTimeout(timer);
+        }
+      }, 10);
+    }
+    
+    // Update the previous sort reference
+    prevSortRef.current = currentSort;
+  }, [currentSort]); // Remove table dependency to avoid issues
 
   return (
     <div className='table-main-content'>
@@ -859,37 +888,81 @@ export default function DataTable({
                   <td>
                     <div ref={parentRef} style={{ height: '100%', position: 'relative' }}>
                       {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                        const row = table.getRowModel().rows[virtualRow.index];
+                        // Use the appropriate row model based on whether we're sorted or not
+                        const rows = currentSort.length === 0 
+                          ? table.getCoreRowModel().rows 
+                          : table.getSortedRowModel().rows;
+                          
+                        const row = rows[virtualRow.index];
                         if (!row) return null;
+
+                        // Get animation data for this row
+                        const animData = rowAnimationData.get(row.id);
+                        let initialOffset = 0;
+                        
+                        if (isAnimating && animData) {
+                          // Calculate how far this row needs to move
+                          initialOffset = (animData.fromIndex - animData.toIndex) * 30; // 30px per row
+                        }
+
                         return (
-                          <>
-                            <div
-                              key={row.id}
-                              className="virtual-row"
-                              style={{
-                                position: 'absolute',
-                                top: `${virtualRow.start}px`,
-                                left: 0,
-                                width: '100%',
-                                height: `${virtualRow.size}px`,
-                              }}
-                            >
-                              <div className="row-number">
-                                {virtualRow.index + 1}
-                              </div>
-                              {row.getVisibleCells().map((cell, cellIndex) => (
-                                <div 
-                                  key={cell.id} 
-                                  className={`record ${cellIndex === 0 ? 'first-column' : ''}`}
-                                >
-                                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                                </div>
+                          <div
+                            key={row.id}
+                            className={`virtual-row ${isAnimating ? 'sorting-animation' : ''}`}
+                            style={{
+                              position: 'absolute',
+                              top: `${virtualRow.start}px`,
+                              left: 0,
+                              width: '100%',
+                              height: `${virtualRow.size}px`,
+                              // Don't set transform here - let the ref handle it
+                              zIndex: isAnimating ? 10 : 1,
+                            }}
+                            ref={(el) => {
+                              if (el && isAnimating && animData) {
+                                // Set initial position immediately
+                                el.style.transform = `translateY(${initialOffset}px)`;
+                                el.style.transition = 'none';
                                 
-                              ))}
+                                // Force a reflow to ensure the initial position is applied
+                                el.offsetHeight;
+                                
+                                // Then start the animation to final position
+                                requestAnimationFrame(() => {
+                                  el.style.transition = 'transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+                                  el.style.transform = 'translateY(0px)';
+                                });
+                              } else if (el && !isAnimating) {
+                                // Reset when not animating
+                                el.style.transform = 'translateY(0px)';
+                                el.style.transition = 'none';
+                              }
+                            }}
+                            onTransitionEnd={() => {
+                              // Clean up individual row when its animation completes
+                              if (isAnimating) {
+                                setRowAnimationData(prev => {
+                                  const newMap = new Map(prev);
+                                  newMap.delete(row.id);
+                                  return newMap;
+                                });
+                              }
+                            }}
+                          >
+                            <div className="row-number">
+                              {virtualRow.index + 1}
                             </div>
-                          </>
+                            {row.getVisibleCells().map((cell, cellIndex) => (
+                              <div 
+                                key={cell.id} 
+                                className={`record ${cellIndex === 0 ? 'first-column' : ''}`}
+                              >
+                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                              </div>
+                            ))}
+                          </div>
                         );
-                      })}              
+                      })}  
                     </div>
                   </td>
                 </tr>
@@ -964,11 +1037,10 @@ export default function DataTable({
             onClose={() => setIsColumnModalOpen(false)}
             onCreateColumn={handleCreateColumn}
             isColumnModalOpen={isColumnModalOpen}
-            colConfigPosition={colConfigPosition}
+            // colConfigPosition={colConfigPosition}
           />
         </div>
       )}
-      {/* Progress indicator */}
       {bulkProgress && (
         <div style={{
           position: 'fixed',
@@ -998,8 +1070,6 @@ export default function DataTable({
           </div>
         </div>
       )}
-
-      {/* Row count indicator */}
     </div>
   );
 }

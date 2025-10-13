@@ -7,6 +7,7 @@ import {
   flexRender,
   getCoreRowModel,
   getSortedRowModel, // Add this import
+  getFilteredRowModel, // Add this import
   useReactTable,
 } from '@tanstack/react-table';
 import SideBar from './sidebar';
@@ -21,6 +22,15 @@ import type { StringLiteral } from 'typescript';
 
 const columnHelper = createColumnHelper<TableRow>();
 
+interface FilterCondition {
+  id: string;
+  columnId: string;
+  columnName: string;
+  columnType: string;
+  operator: string;
+  value: string;
+}
+
 interface DataTableProps {
   currentTable: Table | null;
   onColumnUpdate: (tableId: string, newColumn: any) => void;
@@ -31,6 +41,11 @@ interface DataTableProps {
   onHideColumn: (columnId: string) => void;
   currentSort: Array<{ columnId: string; direction: 'asc' | 'desc' }>;
   onSort: (columnId: string, direction: 'asc' | 'desc') => void;
+  currentFilters: FilterCondition[];
+  onAddFilter: (filter: FilterCondition) => void;
+  onUpdateFilter: (filterId: string, updates: Partial<FilterCondition>) => void;
+  onRemoveFilter: (filterId: string) => void;
+  onClearAllFilters: () => void;
 }
 
 export default function DataTable({ 
@@ -42,7 +57,12 @@ export default function DataTable({
     hiddenColumns,
     onHideColumn,
     currentSort,
-    onSort
+    onSort,
+    currentFilters,
+    onAddFilter,
+    onUpdateFilter,
+    onRemoveFilter,
+    onClearAllFilters
   }: DataTableProps) {
   const [isCreatingRecord, setIsCreatingRecord] = useState(false);
   const [isCreatingColumn, setIsCreatingColumn] = useState(false);
@@ -375,11 +395,20 @@ export default function DataTable({
   const handleDeleteRow = useCallback(() => {
     if (!contextMenu || !currentTable?.id) return;
 
-    // Use the appropriate row model based on current sort state
-    const rows = currentSort.length === 0 
-      ? table.getCoreRowModel().rows 
-      : table.getSortedRowModel().rows;
-      
+    const getActiveRowsHere = () => {
+        if (!table) return [];
+        
+        if (currentFilters.length > 0) {
+          return currentSort.length > 0 
+            ? table.getFilteredRowModel().rows 
+            : table.getFilteredRowModel().rows;
+        } else {
+          return currentSort.length > 0 
+            ? table.getSortedRowModel().rows 
+            : table.getCoreRowModel().rows;
+        }
+      };
+    const rows = getActiveRowsHere();
     const rowToDelete = rows[contextMenu.rowIndex]?.original;
     if (!rowToDelete) return;
 
@@ -400,19 +429,27 @@ export default function DataTable({
     });
 
     setContextMenu(null);
-  }, [contextMenu, currentTable?.id, deleteRecordMutation, currentSort.length]);
+  }, [contextMenu, currentTable?.id, deleteRecordMutation]);
 
   const updateData = useCallback((rowIndex: number, fieldKey: string, value: unknown) => {
     if (!currentTable?.id) return;
 
     setTablesData(prev => {
       const currentData = prev[currentTable.id] ?? [];
-      
-      // Use the appropriate row model based on current sort state
-      const rows = currentSort.length === 0 
-        ? table.getCoreRowModel().rows 
-        : table.getSortedRowModel().rows;
+      const getActiveRowsHere = () => {
+        if (!table) return [];
         
+        if (currentFilters.length > 0) {
+          return currentSort.length > 0 
+            ? table.getFilteredRowModel().rows 
+            : table.getFilteredRowModel().rows;
+        } else {
+          return currentSort.length > 0 
+            ? table.getSortedRowModel().rows 
+            : table.getCoreRowModel().rows;
+        }
+      };
+      const rows = getActiveRowsHere();
       const actualRow = rows[rowIndex]?.original;
       if (!actualRow) return prev;
       
@@ -438,14 +475,23 @@ export default function DataTable({
         [currentTable.id]: updatedData
       };
     });
-  }, [updateCellMutation, currentTable?.id, currentSort.length]);
+  }, [updateCellMutation, currentTable?.id]);
 
   const handleKeyDown = useCallback((event: React.KeyboardEvent, rowIndex: number, columnIndex: number) => {
-    // Use the appropriate row model based on current sort state
-    const rows = currentSort.length === 0 
-      ? table.getCoreRowModel().rows 
-      : table.getSortedRowModel().rows;
-      
+    const getActiveRowsHere = () => {
+        if (!table) return [];
+        
+        if (currentFilters.length > 0) {
+          return currentSort.length > 0 
+            ? table.getFilteredRowModel().rows 
+            : table.getFilteredRowModel().rows;
+        } else {
+          return currentSort.length > 0 
+            ? table.getSortedRowModel().rows 
+            : table.getCoreRowModel().rows;
+        }
+      };
+    const rows = getActiveRowsHere();
     const maxRows = rows.length;
     const maxCols = currentTable?.columns?.length ?? 0;
 
@@ -504,7 +550,7 @@ export default function DataTable({
         cell.select();
       }
     }, 0);
-  }, [currentTable?.columns?.length, currentSort.length]);
+  }, [currentTable?.columns?.length]);
 
   const defaultColumn = useMemo(
     () => ({
@@ -680,6 +726,62 @@ export default function DataTable({
     });
   }, [currentTable, createRecordMutation, isCreatingRecord]);
 
+  const tanStackFilters = useMemo(() => {
+    return currentFilters.map(filter => {
+      const column = currentTable?.columns?.find(col => col.id === filter.columnId);
+      if (!column) return null;
+      
+      const fieldKey = column.name.toLowerCase().replace(/\s+/g, '');
+      return {
+        id: fieldKey,
+        value: { 
+          operator: filter.operator, 
+          value: filter.value,
+          columnType: filter.columnType // Add column type for better filtering
+        }
+      };
+    }).filter(Boolean);
+  }, [currentFilters, currentTable?.columns]);
+
+  // Custom filter function
+  const customFilterFn = useCallback((row: any, columnId: string, filterValue: any) => {
+    const { operator, value } = filterValue;
+    const cellValue = row.getValue(columnId);
+    
+    // Handle null/undefined values more explicitly
+    const stringValue = cellValue != null ? String(cellValue).toLowerCase() : '';
+    const filterStringValue = value != null ? String(value).toLowerCase() : '';
+    
+    // Handle numeric values
+    const numericCellValue = cellValue != null ? parseFloat(String(cellValue)) : NaN;
+    const numericFilterValue = value != null ? parseFloat(String(value)) : NaN;
+
+    switch (operator) {
+      case 'contains':
+        return stringValue.includes(filterStringValue);
+      case 'not_contains':
+        return !stringValue.includes(filterStringValue);
+      case 'eq':
+        return stringValue === filterStringValue;
+      case 'not_eq':
+        return stringValue !== filterStringValue;
+      case 'is_empty':
+        return !cellValue || stringValue === '';
+      case 'is_not_empty':
+        return cellValue != null && stringValue !== '';
+      case 'gt':
+        return !isNaN(numericCellValue) && !isNaN(numericFilterValue) && numericCellValue > numericFilterValue;
+      case 'lt':
+        return !isNaN(numericCellValue) && !isNaN(numericFilterValue) && numericCellValue < numericFilterValue;
+      case 'gte':
+        return !isNaN(numericCellValue) && !isNaN(numericFilterValue) && numericCellValue >= numericFilterValue;
+      case 'lte':
+        return !isNaN(numericCellValue) && !isNaN(numericFilterValue) && numericCellValue <= numericFilterValue;
+      default:
+        return true;
+    }
+  }, []);
+
   const columns = useMemo(() => {
     if (!currentTable?.columns) return [];
 
@@ -697,7 +799,7 @@ export default function DataTable({
               <span title={col.name}>{col.name}</span>
             </div>
           ),
-          // Add sorting configuration for number columns
+          filterFn: customFilterFn,
           sortingFn: col.type === 'number' ? 'basic' : 'alphanumeric',
           ...(col.type !== 'text' && {
             cell: ({ getValue, row: { index }, column, table }) => {
@@ -761,33 +863,55 @@ export default function DataTable({
           })
         });
       });
-  }, [currentTable?.columns, getColumnIcon, handleColumnRightClick, hiddenColumns]);
+  }, [currentTable?.columns, getColumnIcon, handleColumnRightClick, hiddenColumns, customFilterFn]);
 
   const visibleColumns = currentTable?.columns?.filter(col => !hiddenColumns.has(col.id)) ?? [];
   const totalTableWidth = 40 + (visibleColumns.length * 200);
 
   const table = useReactTable({
-    data: tableData, // Use unsorted data, let TanStack handle sorting
+    data: tableData,
     columns,
     defaultColumn,
     getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(), // Add sorted row model
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
     state: {
-      sorting: tanStackSorting, // Pass the converted sorting state
+      sorting: tanStackSorting,
+      columnFilters: tanStackFilters,
     },
-    onSortingChange: () => {}, // We handle sorting through our context menu
+    onSortingChange: () => {},
+    onColumnFiltersChange: () => {},
     enableSorting: true,
+    enableColumnFilters: true,
+    // Add global filter function configuration
+    globalFilterFn: customFilterFn,
     meta: {
       updateData,
     },
   });
 
   const rowVirtualizer = useVirtualizer({
-    count: table.getSortedRowModel().rows.length,
+    count: currentFilters.length > 0 
+      ? table.getFilteredRowModel().rows.length 
+      : currentSort.length > 0 
+        ? table.getSortedRowModel().rows.length 
+        : table.getCoreRowModel().rows.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 30,
     overscan: 5,
   });
+
+  const getActiveRows = useCallback(() => {
+    if (currentFilters.length > 0) {
+      return currentSort.length > 0 
+        ? table.getFilteredRowModel().rows 
+        : table.getFilteredRowModel().rows;
+    } else {
+      return currentSort.length > 0 
+        ? table.getSortedRowModel().rows 
+        : table.getCoreRowModel().rows;
+    }
+  }, [currentFilters.length, currentSort.length, table]);
 
   React.useEffect(() => {
     // Track the previous sort state to detect when sorting changes (including clearing) 
@@ -888,11 +1012,7 @@ export default function DataTable({
                   <td>
                     <div ref={parentRef} style={{ height: '100%', position: 'relative' }}>
                       {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                        // Use the appropriate row model based on whether we're sorted or not
-                        const rows = currentSort.length === 0 
-                          ? table.getCoreRowModel().rows 
-                          : table.getSortedRowModel().rows;
-                          
+                        const rows = getActiveRows();
                         const row = rows[virtualRow.index];
                         if (!row) return null;
 
@@ -972,18 +1092,8 @@ export default function DataTable({
             +
           </div>
         </div>
-        <div style={{
-          position: 'fixed',
-          bottom: '20px',
-          left: '20px',
-          background: 'white',
-          padding: '8px 16px',
-          borderRadius: '6px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-          fontSize: '14px',
-          color: '#666',
-        }}>
-          {tableData.length.toLocaleString()} rows
+        <div className='number-of-rows'>
+          {tableData.length.toLocaleString()} Records
         </div>
         <ContextMenuRecord
           visible={contextMenu?.visible ?? false}

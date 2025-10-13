@@ -52,8 +52,6 @@
   max-width: 200px;    
   height: 30px;
   vertical-align: middle;
-  border-bottom: 1px solid #E5E5E5;
-  border-right: 1px solid #E5E5E5;
   padding: 0;
 }
 
@@ -918,7 +916,7 @@
   min-width: 39.5px;
   height: 35px;         
   background-color: white;
-  border-bottom: 1px solid #e1e5e9;
+  border-bottom: 1px solid #E5E5E5;
   color: #6c757d;
   padding: 0;
   text-align: center;   
@@ -930,8 +928,8 @@
   position: sticky;
   top: 0;
   z-index: 10;
-  border-bottom: 1px solid #e1e5e9;
-  border-right: 1px solid #e1e5e9;
+  border-bottom: 1px solid #E5E5E5;
+  border-right: 1px solid #E5E5E5;
   align-items: center;
   font-weight: 500;
   padding-left: 12px;
@@ -965,10 +963,6 @@
   justify-content: center;
 }
 
-/* Row Styles */
-tbody tr {
-  border-bottom: 1px solid #e1e5e9;
-}
 
 /* Cell Styles */
 td {
@@ -1221,6 +1215,18 @@ td {
 
 .virtual-row {
   will-change: transform;
+}
+
+.number-of-rows {
+  width: 100%;
+  padding-bottom: 12px;
+  padding-top: 5px;
+  font-size: 12px;
+  border: 1px solid #E5E5E5;
+  background-color: white;
+  padding-left: 12px;
+  font-family: inherit;
+  font-weight: 300;
 }
 
 .virtual-row.sorting-animation {

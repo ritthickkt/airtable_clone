@@ -12,6 +12,16 @@ import Search from '../assets/search.svg';
 import RowHeight from '../assets/row-height.png';
 import HiddenFieldsDropdown from '../_components/HiddenFields';
 import SortDropdown from './SortContextMenu';
+import FilterContextMenu from './FilterContextMenu';
+
+interface FilterCondition {
+  id: string;
+  columnId: string;
+  columnName: string;
+  columnType: string;
+  operator: string;
+  value: string;
+}
 
 interface TableControlsProps {
   set100kRowsPressed: (editing: boolean) => void;
@@ -23,8 +33,13 @@ interface TableControlsProps {
   onShowAllColumns: () => void;
   currentSort: Array<{ columnId: string; direction: 'asc' | 'desc' }>;
   onSort: (columnId: string, direction: 'asc' | 'desc') => void;
-  onClearSort: () => void; // Add this line
+  onClearSort: () => void;
   onRemoveColumnSort: (columnId: string) => void;
+  currentFilters: FilterCondition[];
+  onAddFilter: (filter: FilterCondition) => void;
+  onUpdateFilter: (filterId: string, updates: Partial<FilterCondition>) => void;
+  onRemoveFilter: (filterId: string) => void;
+  onClearAllFilters: () => void;
 }
 
 export default function TableControls({ 
@@ -38,14 +53,22 @@ export default function TableControls({
   currentSort,
   onSort,
   onClearSort,
-  onRemoveColumnSort
+  onRemoveColumnSort,
+  currentFilters = [],
+  onAddFilter,
+  onUpdateFilter,
+  onRemoveFilter,
+  onClearAllFilters
 }: TableControlsProps) {
   const [showHiddenFieldsDropdown, setShowHiddenFieldsDropdown] = useState(false);
   const [showSortDropdown, setShowSortDropdown] = useState(false);
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const [sortDropdownPosition, setSortDropdownPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  const [filterDropdownPosition, setFilterDropdownPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const hideFieldsBtnRef = useRef<HTMLButtonElement>(null);
   const sortBtnRef = useRef<HTMLButtonElement>(null);
+  const filterBtnRef = useRef<HTMLButtonElement>(null);
 
   const handle100kRowsPressed = () => {
     set100kRowsPressed(true);
@@ -60,7 +83,6 @@ export default function TableControls({
       let top = rect.bottom + window.scrollY + 4;
       let left = rect.left + window.scrollX;
 
-      // Adjust if dropdown would overflow
       if (left + dropdownWidth > window.innerWidth) {
         left = window.innerWidth - dropdownWidth - 16;
       }
@@ -82,7 +104,6 @@ export default function TableControls({
       let top = rect.bottom + window.scrollY + 4;
       let left = rect.left + window.scrollX;
 
-      // Adjust if dropdown would overflow
       if (left + dropdownWidth > window.innerWidth) {
         left = window.innerWidth - dropdownWidth - 16;
       }
@@ -93,6 +114,27 @@ export default function TableControls({
       setSortDropdownPosition({ top, left });
     }
     setShowSortDropdown(!showSortDropdown);
+  };
+
+  const handleFilterClick = () => {
+    if (filterBtnRef.current) {
+      const rect = filterBtnRef.current.getBoundingClientRect();
+      const dropdownWidth = 300;
+      const dropdownHeight = 500;
+
+      let top = rect.bottom + window.scrollY + 4;
+      let left = rect.left + window.scrollX;
+
+      if (left + dropdownWidth > window.innerWidth) {
+        left = window.innerWidth - dropdownWidth - 16;
+      }
+      if (top + dropdownHeight > window.innerHeight + window.scrollY) {
+        top = rect.top + window.scrollY - dropdownHeight - 4;
+      }
+
+      setFilterDropdownPosition({ top, left });
+    }
+    setShowFilterDropdown(!showFilterDropdown);
   };
 
   return (
@@ -117,8 +159,16 @@ export default function TableControls({
               <span className="hidden-count-badge">{hiddenColumns.length}</span>
             )}
           </button>
-          <button type="button" className="control-btn">
+          <button 
+            ref={filterBtnRef}
+            type="button" 
+            className="control-btn"
+            onClick={handleFilterClick}
+          >
             <Image className='table-control-icons' src={Filter} alt='Filter'/> Filter
+            {currentFilters.length > 0 && (
+              <span className="hidden-count-badge">{currentFilters.length}</span>
+            )}
           </button>
           <button type="button" className="control-btn">
             <Image className='table-control-icons' src={Group} alt='Group'/> Group
@@ -172,6 +222,19 @@ export default function TableControls({
         onClearSort={onClearSort}
         onCancel={() => setShowSortDropdown(false)}
         onRemoveColumnSort={onRemoveColumnSort}
+      />
+
+      <FilterContextMenu
+        visible={showFilterDropdown}
+        x={filterDropdownPosition.left}
+        y={filterDropdownPosition.top}
+        allColumns={allColumns}
+        currentFilters={currentFilters}
+        onAddFilter={onAddFilter}
+        onUpdateFilter={onUpdateFilter}
+        onRemoveFilter={onRemoveFilter}
+        onClearAllFilters={onClearAllFilters}
+        onCancel={() => setShowFilterDropdown(false)}
       />
     </>
   );

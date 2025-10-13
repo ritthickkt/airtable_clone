@@ -34,14 +34,6 @@ export default function HiddenFieldsDropdown({
     e.stopPropagation();
   };
 
-  const getColumnIcon = (type: string) => {
-    switch (type) {
-      case 'text': return '📝';
-      case 'number': return '#';
-      default: return '';
-    }
-  };
-
   const handleToggleColumn = (columnId: string) => {
     if (hiddenColumns.includes(columnId)) {
       onShowColumn(columnId);
@@ -85,7 +77,6 @@ export default function HiddenFieldsDropdown({
                 <div className="field-toggle">
                   <div className={`toggle-switch ${!isHidden ? 'active' : ''}`}></div>
                 </div>
-                <span className="field-icon">{getColumnIcon(column.type)}</span>
                 <span className="field-name">{column.name}</span>
                 <span className="field-drag-handle">⋮⋮</span>
               </div>

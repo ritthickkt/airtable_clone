@@ -11,6 +11,17 @@ import NavigateSidebar from '../_components/NavigateSideBar';
 import type { BaseDashboardClientProps } from '../../types';
 import '../../styles/basedashboard.css';
 
+
+interface FilterCondition {
+  id: string;
+  columnId: string;
+  columnName: string;
+  columnType: string;
+  operator: string;
+  value: string;
+}
+
+
 export default function BaseDashboardClient({ session, base: initialBase }: BaseDashboardClientProps) {
   const [activeTab, setActiveTab] = useState('Data');
   const [baseName, setBaseName] = useState(initialBase.name ?? 'Untitled Base');
@@ -19,10 +30,30 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
   const [add100kRowsPressed, set100kRowsPressed] = useState(false);
   const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set());
   const [currentSort, setCurrentSort] = useState<Array<{ columnId: string; direction: 'asc' | 'desc' }>>([]);
+  const [currentFilters, setCurrentFilters] = useState<FilterCondition[]>([]);
 
   const [base, setBase] = useState(initialBase)
 
   const currentTable = base.tables?.[currentTableIndex] ?? base.tables?.[0] ?? null;
+
+  // Add filter handlers
+  const handleAddFilter = useCallback((filter: FilterCondition) => {
+    setCurrentFilters(prev => [...prev, filter]);
+  }, []);
+
+  const handleUpdateFilter = useCallback((filterId: string, updates: Partial<FilterCondition>) => {
+    setCurrentFilters(prev => prev.map(filter => 
+      filter.id === filterId ? { ...filter, ...updates } : filter
+    ));
+  }, []);
+
+  const handleRemoveFilter = useCallback((filterId: string) => {
+    setCurrentFilters(prev => prev.filter(filter => filter.id !== filterId));
+  }, []);
+
+  const handleClearAllFilters = useCallback(() => {
+    setCurrentFilters([]);
+  }, []);
 
 
   const handleShowColumn = useCallback((columnId: string) => {
@@ -64,6 +95,8 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
   const handleRemoveColumnSort = useCallback((columnId: string) => {
     setCurrentSort(prev => prev.filter(sort => sort.columnId !== columnId));
   }, []);
+
+
 
   const createTableMutation = api.base.createTable.useMutation({
     onSuccess: (newTable) => {
@@ -270,6 +303,11 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
                 onSort={handleSort}
                 onClearSort={handleClearSort} // Add this prop
                 onRemoveColumnSort={handleRemoveColumnSort}
+                currentFilters={currentFilters}
+                onAddFilter={handleAddFilter}
+                onUpdateFilter={handleUpdateFilter}
+                onRemoveFilter={handleRemoveFilter}
+                onClearAllFilters={handleClearAllFilters}
               />
               <DataTable 
                 currentTable={currentTable} 
@@ -281,6 +319,11 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
                 onHideColumn={handleHideColumn}
                 currentSort={currentSort}
                 onSort={handleSort}
+                currentFilters={currentFilters}
+                onAddFilter={handleAddFilter}
+                onUpdateFilter={handleUpdateFilter}
+                onRemoveFilter={handleRemoveFilter}
+                onClearAllFilters={handleClearAllFilters}
               />
             </div>
           </div>

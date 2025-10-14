@@ -183,13 +183,16 @@ export default function DataTable({
   } | null>(null);
 
   const { data: tableWithSortedRecords, refetch } = api.base.getTableRecords.useQuery(
-    { tableId: currentTable?.id ?? '' },
+    {
+      tableId: currentTable?.id ?? '',
+      sortConfig: currentSort,
+      filterConfig: currentFilters,
+    },
     { 
       enabled: !!currentTable?.id,
       refetchOnWindowFocus: false,
     }
   );
-
   React.useEffect(() => {
     if (currentTable?.id && (currentSort.length > 0 || currentFilters.length > 0)) {
       refetch();
@@ -211,14 +214,35 @@ export default function DataTable({
       
       // Add any local optimistic records that aren't in the database yet
       const localTempRecords = localData.filter(row => 
-        row.id.startsWith('temp-') && 
+        (row.id.startsWith('temp-') || row.id.startsWith('temp-bulk-')) && 
         !dbData.some(dbRow => dbRow.id === row.id)
       );
       
       return [...dbData, ...localTempRecords];
     }
     
-    // If no sorting/filtering, use local data for immediate updates
+    // If no sorting/filtering, use local data to maintain current order
+    // Only fall back to database data if we don't have local data
+    if (currentSort.length === 0 && currentFilters.length === 0) {
+      // If we have local data, use it to maintain the current visual order
+      if (localData.length > 0) {
+        return localData;
+      }
+      
+      // If no local data but we have database data, use database data
+      if (tableWithSortedRecords) {
+        const dbData = tableWithSortedRecords.records.map((record) => {
+          const data = record.data as Record<string, unknown> || {};
+          return {
+            id: record.id,
+            ...data,
+          } as TableRow;
+        });
+        return dbData;
+      }
+    }
+    
+    // Fallback to local data
     return localData;
   }, [tableWithSortedRecords, tablesData, currentTable?.id, currentSort, currentFilters]);
 

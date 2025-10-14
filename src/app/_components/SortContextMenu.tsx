@@ -97,7 +97,10 @@ export default function SortDropdown({
                   {currentColumnSort && (
                     <button
                       className="sort-remove-column-button"
-                      onClick={() => onRemoveSort(column.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onRemoveSort(column.id);
+                      }}
                       title={`Remove sort from ${column.name}`}
                     >
                       ✕

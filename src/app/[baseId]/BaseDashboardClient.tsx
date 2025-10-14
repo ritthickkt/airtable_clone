@@ -33,9 +33,23 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
   const [currentSort, setCurrentSort] = useState<Array<{ columnId: string; direction: 'asc' | 'desc' }>>([]);
   const [currentFilters, setCurrentFilters] = useState<FilterCondition[]>([]);
 
+  const [sortingLoading, setSortingLoading] = useState(false);
+  const [filteringLoading, setFilteringLoading] = useState(false);
+
   const [base, setBase] = useState(initialBase)
 
   const currentTable = base.tables?.[currentTableIndex] ?? base.tables?.[0] ?? null;
+
+  const { data: tableWithSortedRecords, refetch } = api.base.getTableRecords.useQuery(
+    {
+      tableId: currentTable?.id ?? '',
+      sortConfig: currentSort,
+      filterConfig: currentFilters,
+    },
+    {
+      enabled: !!currentTable?.id,
+    }
+  );
 
    React.useEffect(() => {
     if (currentTable) {
@@ -60,6 +74,7 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
 
   // Add filter handlers
   const handleAddFilter = useCallback((filter: FilterCondition) => {
+    setFilteringLoading(true);
     const newFilters = [...currentFilters, filter];
     setCurrentFilters(newFilters);
     
@@ -67,11 +82,23 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
       updateTableFiltersMutation.mutate({
         tableId: currentTable.id,
         filterConfig: newFilters,
+      }, {
+        onSuccess: () => {
+          refetch().finally(() => {
+            setFilteringLoading(false);
+          });
+        },
+        onError: () => {
+          setFilteringLoading(false);
+        }
       });
+    } else {
+      setFilteringLoading(false);
     }
-  }, [currentFilters, currentTable?.id, updateTableFiltersMutation]);
+  }, [currentFilters, currentTable?.id, updateTableFiltersMutation, refetch]);
 
   const handleUpdateFilter = useCallback((filterId: string, updates: Partial<FilterCondition>) => {
+    setFilteringLoading(true);
     const newFilters = currentFilters.map(filter => 
       filter.id === filterId ? { ...filter, ...updates } : filter
     );
@@ -81,11 +108,23 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
       updateTableFiltersMutation.mutate({
         tableId: currentTable.id,
         filterConfig: newFilters,
+      }, {
+        onSuccess: () => {
+          refetch().finally(() => {
+            setFilteringLoading(false);
+          });
+        },
+        onError: () => {
+          setFilteringLoading(false);
+        }
       });
+    } else {
+      setFilteringLoading(false);
     }
-  }, [currentFilters, currentTable?.id, updateTableFiltersMutation]);
+  }, [currentFilters, currentTable?.id, updateTableFiltersMutation, refetch]);
 
   const handleRemoveFilter = useCallback((filterId: string) => {
+    setFilteringLoading(true);
     const newFilters = currentFilters.filter(filter => filter.id !== filterId);
     setCurrentFilters(newFilters);
     
@@ -93,20 +132,43 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
       updateTableFiltersMutation.mutate({
         tableId: currentTable.id,
         filterConfig: newFilters,
+      }, {
+        onSuccess: () => {
+          refetch().finally(() => {
+            setFilteringLoading(false);
+          });
+        },
+        onError: () => {
+          setFilteringLoading(false);
+        }
       });
+    } else {
+      setFilteringLoading(false);
     }
-  }, [currentFilters, currentTable?.id, updateTableFiltersMutation]);
+  }, [currentFilters, currentTable?.id, updateTableFiltersMutation, refetch]);
 
   const handleClearAllFilters = useCallback(() => {
+    setFilteringLoading(true);
     setCurrentFilters([]);
     
     if (currentTable?.id) {
       updateTableFiltersMutation.mutate({
         tableId: currentTable.id,
         filterConfig: [],
+      }, {
+        onSuccess: () => {
+          refetch().finally(() => {
+            setFilteringLoading(false);
+          });
+        },
+        onError: () => {
+          setFilteringLoading(false);
+        }
       });
+    } else {
+      setFilteringLoading(false);
     }
-  }, [currentTable?.id, updateTableFiltersMutation]);
+  }, [currentTable?.id, updateTableFiltersMutation, refetch]);
 
 
   const handleShowColumn = useCallback((columnId: string) => {
@@ -133,6 +195,8 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
   }, [currentTable?.columns]);
 
   const handleSort = useCallback((columnId: string, direction: 'asc' | 'desc') => {
+    setSortingLoading(true);
+    
     setCurrentSort(prevSort => {
       // Check if this column is already being sorted
       const existingIndex = prevSort.findIndex(sort => sort.columnId === columnId);
@@ -152,25 +216,49 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
         updateTableSortMutation.mutate({
           tableId: currentTable.id,
           sortConfig: newSort,
+        }, {
+          onSuccess: () => {
+            // Refetch and then stop loading
+            refetch().finally(() => {
+              setSortingLoading(false);
+            });
+          },
+          onError: () => {
+            setSortingLoading(false);
+          }
         });
+      } else {
+        setSortingLoading(false);
       }
       
       return newSort;
     });
-  }, [currentTable?.id, updateTableSortMutation]);
+  }, [currentTable?.id, updateTableSortMutation, refetch]);
 
   const handleClearSort = useCallback(() => {
+    setSortingLoading(true);
     setCurrentSort([]);
     
     if (currentTable?.id) {
       updateTableSortMutation.mutate({
         tableId: currentTable.id,
         sortConfig: [],
+      }, {
+        onSuccess: () => {
+          setSortingLoading(false);
+        },
+        onError: () => {
+          setSortingLoading(false);
+        }
       });
+    } else {
+      setSortingLoading(false);
     }
   }, [currentTable?.id, updateTableSortMutation]);
 
   const handleRemoveColumnSort = useCallback((columnId: string) => {
+    setSortingLoading(true);
+    
     setCurrentSort(prevSort => {
       const newSort = prevSort.filter(sort => sort.columnId !== columnId);
       
@@ -178,12 +266,33 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
         updateTableSortMutation.mutate({
           tableId: currentTable.id,
           sortConfig: newSort,
+        }, {
+          onSuccess: () => {
+            // Only refetch if there are remaining sorts AND filters
+            if (newSort.length > 0 && currentFilters.length >= 0) {
+              refetch().finally(() => {
+                setSortingLoading(false);
+              });
+            } else if (currentFilters.length > 0) {
+              // If there are filters but no sorts, still refetch to apply filters
+              refetch().finally(() => {
+                setSortingLoading(false);
+              });
+            } else {
+              setSortingLoading(false);
+            }
+          },
+          onError: () => {
+            setSortingLoading(false);
+          }
         });
+      } else {
+        setSortingLoading(false);
       }
       
       return newSort;
     });
-  }, [currentTable?.id, updateTableSortMutation]);
+  }, [currentTable?.id, updateTableSortMutation, refetch, currentFilters]);
 
 
   const createTableMutation = api.base.createTable.useMutation({
@@ -397,6 +506,8 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
                 onRemoveFilter={handleRemoveFilter}
                 onClearAllFilters={handleClearAllFilters}
                 baseColor={base.color}
+                sortingLoading={sortingLoading} // Add this
+                filteringLoading={filteringLoading} // Add this
               />
               <DataTable 
                 currentTable={currentTable} 
@@ -413,7 +524,54 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
                 onUpdateFilter={handleUpdateFilter}
                 onRemoveFilter={handleRemoveFilter}
                 onClearAllFilters={handleClearAllFilters}
+                sortingLoading={sortingLoading} // Add this
+                filteringLoading={filteringLoading} // Add this
               />
+
+              {/* Loading overlay */}
+              {(sortingLoading || filteringLoading) && (
+                <div style={{
+                  position: 'fixed',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  background: 'rgba(0, 0, 0, 0.1)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  zIndex: 9999,
+                  pointerEvents: 'none'
+                }}>
+                  <div style={{
+                    background: 'white',
+                    padding: '20px 30px',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px'
+                  }}>
+                    <div style={{
+                      width: '20px',
+                      height: '20px',
+                      border: '2px solid #f3f3f3',
+                      borderTop: '2px solid #3b82f6',
+                      borderRadius: '50%',
+                      animation: 'spin 1s linear infinite'
+                    }} />
+                    <span>
+                      {sortingLoading ? 'Applying sort...' : 'Applying filters...'}
+                    </span>
+                  </div>
+                </div>
+              )}
+              <style jsx>{`
+                @keyframes spin {
+                  0% { transform: rotate(0deg); }
+                  100% { transform: rotate(360deg); }
+                }
+              `}</style>
             </div>
           </div>
         </div>

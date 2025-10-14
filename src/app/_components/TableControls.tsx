@@ -41,6 +41,8 @@ interface TableControlsProps {
   onRemoveFilter: (filterId: string) => void;
   onClearAllFilters: () => void;
   baseColor?: string; // Add this
+  sortingLoading?: boolean; // Add this
+  filteringLoading?: boolean; // Add this
 }
 
 export default function TableControls({ 
@@ -60,7 +62,9 @@ export default function TableControls({
   onUpdateFilter,
   onRemoveFilter,
   onClearAllFilters,
-  baseColor
+  baseColor,
+  sortingLoading = false, // Add this
+  filteringLoading = false, // Add this
 }: TableControlsProps) {
   const [showHiddenFieldsDropdown, setShowHiddenFieldsDropdown] = useState(false);
   const [showSortDropdown, setShowSortDropdown] = useState(false);
@@ -166,10 +170,31 @@ export default function TableControls({
             type="button" 
             className="control-btn"
             onClick={handleFilterClick}
+            disabled={sortingLoading || filteringLoading}
+            style={{
+              border: currentFilters.length > 0 ? `2px solid ${baseColor ?? '#2563eb'}` : undefined,
+              backgroundColor: currentFilters.length > 0 ? `${baseColor ?? '#2563eb'}20` : undefined,
+              opacity: filteringLoading ? 0.6 : 1,
+              cursor: (sortingLoading || filteringLoading) ? 'not-allowed' : 'pointer'
+            }}
           >
-            <Image className='table-control-icons' src={Filter} alt='Filter'/> Filter
-            {currentFilters.length > 0 && (
-              <span className="hidden-count-badge">{currentFilters.length}</span>
+            {filteringLoading ? (
+              <>
+                <div style={{
+                  width: '14px',
+                  height: '14px',
+                  border: '2px solid #f3f3f3',
+                  borderTop: '2px solid #666',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite',
+                  marginRight: '6px'
+                }} />
+                Filtering...
+              </>
+            ) : (
+              <>
+                <Image className='table-control-icons' src={Filter} alt='Filter'/> Filter
+              </>
             )}
           </button>
           <button type="button" className="control-btn">
@@ -180,14 +205,32 @@ export default function TableControls({
             type="button" 
             className="control-btn"
             onClick={handleSortClick}
+            disabled={sortingLoading || filteringLoading}
             style={{
               border: currentSort.length > 0 ? `2px solid ${baseColor ?? '#2563eb'}` : undefined,
-              backgroundColor: currentSort.length > 0 ? `${baseColor ?? '#2563eb'}20` : undefined
+              backgroundColor: currentSort.length > 0 ? `${baseColor ?? '#2563eb'}20` : undefined,
+              opacity: sortingLoading ? 0.6 : 1,
+              cursor: (sortingLoading || filteringLoading) ? 'not-allowed' : 'pointer'
             }}
           >
-            <Image className='table-control-icons' src={Sort} alt='Sort'/> Sort
-            {currentSort.length > 0 && (
-              <span>{currentSort.length} Fields Sorted</span>
+            {sortingLoading ? (
+              <>
+                <div style={{
+                  width: '14px',
+                  height: '14px',
+                  border: '2px solid #f3f3f3',
+                  borderTop: '2px solid #666',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite',
+                  marginRight: '6px'
+                }} />
+                Sorting...
+              </>
+            ) : (
+              <>
+                <Image className='table-control-icons' src={Sort} alt='Sort'/> 
+                {currentSort.length > 0 ? `Sorted by ${currentSort.length} field${currentSort.length > 1 ? 's' : ''}` : 'Sort'}
+              </>
             )}
           </button>
           <button type="button" className="control-btn">

@@ -457,7 +457,12 @@
   padding: 8px 16px;
   border-bottom: 1px solid #e9ecef;
   background: white;
-  flex-shrink: 0; 
+  flex-shrink: 0;
+  height: 48px; /* Fixed height */
+  min-height: 48px; /* Prevent shrinking below this */
+  max-height: 48px; /* Prevent growing above this */
+  width: 100%; /* Keep full width */
+  box-sizing: border-box; /* Include padding in dimensions */
 }
 
 .table-control-icons {

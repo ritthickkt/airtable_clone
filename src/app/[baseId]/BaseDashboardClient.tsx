@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { api } from "ritthickclone/trpc/react";
+import React from 'react';
 import BaseHeader from '../_components/BaseHeader';
 import TableTabs from '../_components/TableTabs';
 import TableControls from '../_components/TableControls';
@@ -36,24 +37,76 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
 
   const currentTable = base.tables?.[currentTableIndex] ?? base.tables?.[0] ?? null;
 
+   React.useEffect(() => {
+    if (currentTable) {
+      // Load sort configuration from database
+      if (currentTable.sortConfig && Array.isArray(currentTable.sortConfig)) {
+        setCurrentSort(currentTable.sortConfig as Array<{ columnId: string; direction: 'asc' | 'desc' }>);
+      } else {
+        setCurrentSort([]);
+      }
+
+      // Load filter configuration from database
+      if (currentTable.filterConfig && Array.isArray(currentTable.filterConfig)) {
+        setCurrentFilters(currentTable.filterConfig as FilterCondition[]);
+      } else {
+        setCurrentFilters([]);
+      }
+    }
+  }, [currentTable?.id]);
+
+  const updateTableSortMutation = api.base.updateTableSort.useMutation();
+  const updateTableFiltersMutation = api.base.updateTableFilters.useMutation();
+
   // Add filter handlers
   const handleAddFilter = useCallback((filter: FilterCondition) => {
-    setCurrentFilters(prev => [...prev, filter]);
-  }, []);
+    const newFilters = [...currentFilters, filter];
+    setCurrentFilters(newFilters);
+    
+    if (currentTable?.id) {
+      updateTableFiltersMutation.mutate({
+        tableId: currentTable.id,
+        filterConfig: newFilters,
+      });
+    }
+  }, [currentFilters, currentTable?.id, updateTableFiltersMutation]);
 
   const handleUpdateFilter = useCallback((filterId: string, updates: Partial<FilterCondition>) => {
-    setCurrentFilters(prev => prev.map(filter => 
+    const newFilters = currentFilters.map(filter => 
       filter.id === filterId ? { ...filter, ...updates } : filter
-    ));
-  }, []);
+    );
+    setCurrentFilters(newFilters);
+    
+    if (currentTable?.id) {
+      updateTableFiltersMutation.mutate({
+        tableId: currentTable.id,
+        filterConfig: newFilters,
+      });
+    }
+  }, [currentFilters, currentTable?.id, updateTableFiltersMutation]);
 
   const handleRemoveFilter = useCallback((filterId: string) => {
-    setCurrentFilters(prev => prev.filter(filter => filter.id !== filterId));
-  }, []);
+    const newFilters = currentFilters.filter(filter => filter.id !== filterId);
+    setCurrentFilters(newFilters);
+    
+    if (currentTable?.id) {
+      updateTableFiltersMutation.mutate({
+        tableId: currentTable.id,
+        filterConfig: newFilters,
+      });
+    }
+  }, [currentFilters, currentTable?.id, updateTableFiltersMutation]);
 
   const handleClearAllFilters = useCallback(() => {
     setCurrentFilters([]);
-  }, []);
+    
+    if (currentTable?.id) {
+      updateTableFiltersMutation.mutate({
+        tableId: currentTable.id,
+        filterConfig: [],
+      });
+    }
+  }, [currentTable?.id, updateTableFiltersMutation]);
 
 
   const handleShowColumn = useCallback((columnId: string) => {
@@ -80,22 +133,57 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
   }, [currentTable?.columns]);
 
   const handleSort = useCallback((columnId: string, direction: 'asc' | 'desc') => {
-    setCurrentSort(prev => {
-      // Remove any existing sort for this column
-      const filtered = prev.filter(sort => sort.columnId !== columnId);
-      // Add the new sort at the beginning (primary sort)
-      return [{ columnId, direction }, ...filtered];
+    setCurrentSort(prevSort => {
+      // Check if this column is already being sorted
+      const existingIndex = prevSort.findIndex(sort => sort.columnId === columnId);
+      
+      let newSort;
+      if (existingIndex !== -1) {
+        // Update existing sort direction
+        newSort = [...prevSort];
+        newSort[existingIndex] = { columnId, direction };
+      } else {
+        // Add new sort to the end
+        newSort = [...prevSort, { columnId, direction }];
+      }
+      
+      // Always persist to database
+      if (currentTable?.id) {
+        updateTableSortMutation.mutate({
+          tableId: currentTable.id,
+          sortConfig: newSort,
+        });
+      }
+      
+      return newSort;
     });
-  }, []);
+  }, [currentTable?.id, updateTableSortMutation]);
 
   const handleClearSort = useCallback(() => {
     setCurrentSort([]);
-  }, []);
+    
+    if (currentTable?.id) {
+      updateTableSortMutation.mutate({
+        tableId: currentTable.id,
+        sortConfig: [],
+      });
+    }
+  }, [currentTable?.id, updateTableSortMutation]);
 
   const handleRemoveColumnSort = useCallback((columnId: string) => {
-    setCurrentSort(prev => prev.filter(sort => sort.columnId !== columnId));
-  }, []);
-
+    setCurrentSort(prevSort => {
+      const newSort = prevSort.filter(sort => sort.columnId !== columnId);
+      
+      if (currentTable?.id) {
+        updateTableSortMutation.mutate({
+          tableId: currentTable.id,
+          sortConfig: newSort,
+        });
+      }
+      
+      return newSort;
+    });
+  }, [currentTable?.id, updateTableSortMutation]);
 
 
   const createTableMutation = api.base.createTable.useMutation({
@@ -308,6 +396,7 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
                 onUpdateFilter={handleUpdateFilter}
                 onRemoveFilter={handleRemoveFilter}
                 onClearAllFilters={handleClearAllFilters}
+                baseColor={base.color}
               />
               <DataTable 
                 currentTable={currentTable} 

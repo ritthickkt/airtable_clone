@@ -6,8 +6,6 @@ import {
   createColumnHelper,
   flexRender,
   getCoreRowModel,
-  getSortedRowModel, // Add this import
-  getFilteredRowModel, // Add this import
   useReactTable,
 } from '@tanstack/react-table';
 import SideBar from './sidebar';
@@ -18,7 +16,7 @@ import type { TableRow, Table } from '../../types';
 import ColumnConfiguration from '../_components/ColumnConfiguration';
 import ColumnContextMenu from './ColumnContextMenu';
 import React from 'react';
-import type { StringLiteral } from 'typescript';
+import { getAllJSDocTagsOfKind, type StringLiteral } from 'typescript';
 
 const columnHelper = createColumnHelper<TableRow>();
 
@@ -184,10 +182,45 @@ export default function DataTable({
     y: number;
   } | null>(null);
 
+  const { data: tableWithSortedRecords, refetch } = api.base.getTableRecords.useQuery(
+    { tableId: currentTable?.id ?? '' },
+    { 
+      enabled: !!currentTable?.id,
+      refetchOnWindowFocus: false,
+    }
+  );
+
+  React.useEffect(() => {
+    if (currentTable?.id && (currentSort.length > 0 || currentFilters.length > 0)) {
+      refetch();
+    }
+  }, [currentSort, currentFilters, currentTable?.id, refetch]);
+
   const tableData = useMemo(() => {
-    if (!currentTable?.id) return [];
-    return tablesData[currentTable.id] ?? [];
-  }, [tablesData, currentTable?.id]);
+    const localData = tablesData[currentTable?.id ?? ''] ?? [];
+    
+    // If we have sorting or filtering applied, use database data as base
+    if ((currentSort.length > 0 || currentFilters.length > 0) && tableWithSortedRecords) {
+      const dbData = tableWithSortedRecords.records.map((record) => {
+        const data = record.data as Record<string, unknown> || {};
+        return {
+          id: record.id,
+          ...data,
+        } as TableRow;
+      });
+      
+      // Add any local optimistic records that aren't in the database yet
+      const localTempRecords = localData.filter(row => 
+        row.id.startsWith('temp-') && 
+        !dbData.some(dbRow => dbRow.id === row.id)
+      );
+      
+      return [...dbData, ...localTempRecords];
+    }
+    
+    // If no sorting/filtering, use local data for immediate updates
+    return localData;
+  }, [tableWithSortedRecords, tablesData, currentTable?.id, currentSort, currentFilters]);
 
   React.useEffect(() => {
     if (currentTable?.id && !tablesData[currentTable.id]) {
@@ -205,20 +238,6 @@ export default function DataTable({
       }));
     }
   }, [currentTable?.id, currentTable?.records, tablesData]);
-
-  // Convert currentSort to TanStack format
-  const tanStackSorting = useMemo(() => {
-    return currentSort.map(sort => {
-      const column = currentTable?.columns?.find(col => col.id === sort.columnId);
-      if (!column) return null;
-      
-      const fieldKey = column.name.toLowerCase().replace(/\s+/g, '');
-      return {
-        id: fieldKey, // Use fieldKey as the column id for sorting
-        desc: sort.direction === 'desc'
-      };
-    }).filter((item): item is NonNullable<typeof item> => item !== null);
-  }, [currentSort, currentTable?.columns]);
 
   const [bulkProgress, setBulkProgress] = useState<{
     isAdding: boolean;
@@ -300,6 +319,11 @@ export default function DataTable({
         }
         
         console.log('✅ Database sync completed!');
+        
+        // Only refetch if sorting/filtering is active
+        if (currentSort.length > 0 || currentFilters.length > 0) {
+          refetch();
+        }
       };
 
       await Promise.all([
@@ -327,7 +351,7 @@ export default function DataTable({
         setBulkProgress(null);
       }, 2000);
     }
-  }, [currentTable, isCreatingRecord, set100kRowsPressed, createBulkRecordsMutation]);
+  }, [currentTable, isCreatingRecord, set100kRowsPressed, createBulkRecordsMutation, currentSort, currentFilters, refetch]);
 
   React.useEffect(() => {
     if (add100kRowsPressed) {
@@ -395,23 +419,10 @@ export default function DataTable({
   const handleDeleteRow = useCallback(() => {
     if (!contextMenu || !currentTable?.id) return;
 
-    const getActiveRowsHere = () => {
-        if (!table) return [];
-        
-        if (currentFilters.length > 0) {
-          return currentSort.length > 0 
-            ? table.getFilteredRowModel().rows 
-            : table.getFilteredRowModel().rows;
-        } else {
-          return currentSort.length > 0 
-            ? table.getSortedRowModel().rows 
-            : table.getCoreRowModel().rows;
-        }
-      };
-    const rows = getActiveRowsHere();
-    const rowToDelete = rows[contextMenu.rowIndex]?.original;
+    const rowToDelete = tableData[contextMenu.rowIndex];
     if (!rowToDelete) return;
 
+    // Remove from local state immediately
     setTablesData(prev => ({
       ...prev,
       [currentTable.id]: prev[currentTable.id]?.filter(row => row.id !== rowToDelete.id) ?? []
@@ -420,7 +431,14 @@ export default function DataTable({
     deleteRecordMutation.mutate({
       recordId: rowToDelete.id, 
     }, {
+      onSuccess: () => {
+        // Only refetch if sorting/filtering is active
+        if (currentSort.length > 0 || currentFilters.length > 0) {
+          refetch();
+        }
+      },
       onError: () => {
+        // Restore record on error
         setTablesData(prev => ({
           ...prev,
           [currentTable.id]: [...(prev[currentTable.id] ?? []), rowToDelete]
@@ -429,28 +447,14 @@ export default function DataTable({
     });
 
     setContextMenu(null);
-  }, [contextMenu, currentTable?.id, deleteRecordMutation]);
+  }, [contextMenu, currentTable?.id, deleteRecordMutation, currentSort, currentFilters, refetch]);
 
   const updateData = useCallback((rowIndex: number, fieldKey: string, value: unknown) => {
     if (!currentTable?.id) return;
 
     setTablesData(prev => {
       const currentData = prev[currentTable.id] ?? [];
-      const getActiveRowsHere = () => {
-        if (!table) return [];
-        
-        if (currentFilters.length > 0) {
-          return currentSort.length > 0 
-            ? table.getFilteredRowModel().rows 
-            : table.getFilteredRowModel().rows;
-        } else {
-          return currentSort.length > 0 
-            ? table.getSortedRowModel().rows 
-            : table.getCoreRowModel().rows;
-        }
-      };
-      const rows = getActiveRowsHere();
-      const actualRow = rows[rowIndex]?.original;
+      const actualRow = currentData[rowIndex];
       if (!actualRow) return prev;
       
       const updatedData = currentData.map((row) => {
@@ -462,6 +466,23 @@ export default function DataTable({
               recordId: row.id,
               fieldKey: fieldKey,
               value: value as string,
+            }, {
+              onSuccess: () => {
+                // Only refetch if sorting/filtering is active and the updated field affects the sort/filter
+                const affectedBySort = currentSort.some(sort => {
+                  const column = currentTable.columns?.find(col => col.id === sort.columnId);
+                  return column && column.name.toLowerCase().replace(/\s+/g, '') === fieldKey;
+                });
+                
+                const affectedByFilter = currentFilters.some(filter => {
+                  const column = currentTable.columns?.find(col => col.id === filter.columnId);
+                  return column && column.name.toLowerCase().replace(/\s+/g, '') === fieldKey;
+                });
+                
+                if (affectedBySort || affectedByFilter) {
+                  refetch();
+                }
+              }
             });
           }
 
@@ -475,24 +496,11 @@ export default function DataTable({
         [currentTable.id]: updatedData
       };
     });
-  }, [updateCellMutation, currentTable?.id]);
+  }, [updateCellMutation, currentTable?.id, currentSort, currentFilters, refetch]);
 
   const handleKeyDown = useCallback((event: React.KeyboardEvent, rowIndex: number, columnIndex: number) => {
-    const getActiveRowsHere = () => {
-        if (!table) return [];
-        
-        if (currentFilters.length > 0) {
-          return currentSort.length > 0 
-            ? table.getFilteredRowModel().rows 
-            : table.getFilteredRowModel().rows;
-        } else {
-          return currentSort.length > 0 
-            ? table.getSortedRowModel().rows 
-            : table.getCoreRowModel().rows;
-        }
-      };
-    const rows = getActiveRowsHere();
-    const maxRows = rows.length;
+    
+    const maxRows = tableData.length;
     const maxCols = currentTable?.columns?.length ?? 0;
 
     let newRowIndex = rowIndex;
@@ -505,7 +513,7 @@ export default function DataTable({
         break;
       case 'ArrowDown':
         event.preventDefault();
-        newRowIndex = Math.min(maxRows - 1, rowIndex + 1);
+        newRowIndex = Math.min(rowIndex + 1);
         break;
       case 'ArrowLeft':
         event.preventDefault();
@@ -697,6 +705,7 @@ export default function DataTable({
       ...emptyData,
     } as TableRow;
     
+    // Add optimistic record immediately
     setTablesData(prev => ({
       ...prev,
       [currentTable.id]: [...(prev[currentTable.id] ?? []), optimisticRecord]
@@ -707,6 +716,7 @@ export default function DataTable({
       data: emptyData,
     }, {
       onSuccess: (realRecord) => {
+        // Replace optimistic record with real record
         setTablesData(prev => ({
           ...prev,
           [currentTable.id]: (prev[currentTable.id] ?? []).map(row => 
@@ -715,8 +725,14 @@ export default function DataTable({
               : row
           )
         }));
+        
+        // Always refetch to maintain correct order when sorting/filtering is active
+        if (currentSort.length > 0 || currentFilters.length > 0) {
+          refetch();
+        }
       },
       onError: () => {
+        // Remove optimistic record on error
         setTablesData(prev => ({
           ...prev,
           [currentTable.id]: (prev[currentTable.id] ?? []).filter(row => row.id !== optimisticRecord.id)
@@ -724,63 +740,7 @@ export default function DataTable({
       },
       onSettled: () => setIsCreatingRecord(false),
     });
-  }, [currentTable, createRecordMutation, isCreatingRecord]);
-
-  const tanStackFilters = useMemo(() => {
-    return currentFilters.map(filter => {
-      const column = currentTable?.columns?.find(col => col.id === filter.columnId);
-      if (!column) return null;
-      
-      const fieldKey = column.name.toLowerCase().replace(/\s+/g, '');
-      return {
-        id: fieldKey,
-        value: { 
-          operator: filter.operator, 
-          value: filter.value,
-          columnType: filter.columnType // Add column type for better filtering
-        }
-      };
-    }).filter((filter): filter is NonNullable<typeof filter> => filter !== null);
-  }, [currentFilters, currentTable?.columns]);
-
-  // Custom filter function
-  const customFilterFn = useCallback((row: any, columnId: string, filterValue: any) => {
-    const { operator, value } = filterValue;
-    const cellValue = row.getValue(columnId);
-    
-    // Handle null/undefined values more explicitly
-    const stringValue = cellValue != null ? String(cellValue).toLowerCase() : '';
-    const filterStringValue = value != null ? String(value).toLowerCase() : '';
-    
-    // Handle numeric values
-    const numericCellValue = cellValue != null ? parseFloat(String(cellValue)) : NaN;
-    const numericFilterValue = value != null ? parseFloat(String(value)) : NaN;
-
-    switch (operator) {
-      case 'contains':
-        return stringValue.includes(filterStringValue);
-      case 'not_contains':
-        return !stringValue.includes(filterStringValue);
-      case 'eq':
-        return stringValue === filterStringValue;
-      case 'not_eq':
-        return stringValue !== filterStringValue;
-      case 'is_empty':
-        return !cellValue || stringValue === '';
-      case 'is_not_empty':
-        return cellValue != null && stringValue !== '';
-      case 'gt':
-        return !isNaN(numericCellValue) && !isNaN(numericFilterValue) && numericCellValue > numericFilterValue;
-      case 'lt':
-        return !isNaN(numericCellValue) && !isNaN(numericFilterValue) && numericCellValue < numericFilterValue;
-      case 'gte':
-        return !isNaN(numericCellValue) && !isNaN(numericFilterValue) && numericCellValue >= numericFilterValue;
-      case 'lte':
-        return !isNaN(numericCellValue) && !isNaN(numericFilterValue) && numericCellValue <= numericFilterValue;
-      default:
-        return true;
-    }
-  }, []);
+  }, [currentTable, createRecordMutation, isCreatingRecord, currentSort, currentFilters, refetch]);
 
   const columns = useMemo(() => {
     if (!currentTable?.columns) return [];
@@ -799,8 +759,6 @@ export default function DataTable({
               <span title={col.name}>{col.name}</span>
             </div>
           ),
-          filterFn: customFilterFn,
-          sortingFn: col.type === 'number' ? 'basic' : 'alphanumeric',
           ...(col.type !== 'text' && {
             cell: ({ getValue, row: { index }, column, table }) => {
               const value = getValue() as string || '';
@@ -863,144 +821,32 @@ export default function DataTable({
           })
         });
       });
-  }, [currentTable?.columns, getColumnIcon, handleColumnRightClick, hiddenColumns, customFilterFn]);
-
-  const visibleColumns = currentTable?.columns?.filter(col => !hiddenColumns.has(col.id)) ?? [];
-  const totalTableWidth = 40 + (visibleColumns.length * 200);
+  }, [currentTable?.columns, getColumnIcon, handleColumnRightClick, hiddenColumns]);
 
   const table = useReactTable({
     data: tableData,
     columns,
     defaultColumn,
     getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    state: {
-      sorting: tanStackSorting,
-      columnFilters: tanStackFilters,
-    },
-    onSortingChange: (updater) => {
-      // Handle TanStack sorting changes and convert back to your format
-      const newSorting = typeof updater === 'function' ? updater(tanStackSorting) : updater;
-      
-      // Convert TanStack sorting back to your currentSort format
-      const convertedSort = newSorting.map(sort => {
-        // Find the column by fieldKey (which is the TanStack column id)
-        const column = currentTable?.columns?.find(col => {
-          const fieldKey = col.name.toLowerCase().replace(/\s+/g, '');
-          return fieldKey === sort.id;
-        });
-        
-        if (!column) return null;
-        
-        return {
-          columnId: column.id,
-          direction: sort.desc ? 'desc' as const : 'asc' as const
-        };
-      }).filter((item): item is NonNullable<typeof item> => item !== null);
-      
-      // Update your parent state - only if we have valid converted sorts
-      if (convertedSort.length > 0 && convertedSort[0]) {
-        onSort(convertedSort[0].columnId, convertedSort[0].direction);
-      }
-    },
-    onColumnFiltersChange: (updater) => {
-      // Handle filter changes if needed
-      const newFilters = typeof updater === 'function' ? updater(tanStackFilters) : updater;
-      // You can implement filter synchronization here if needed
-    },
-    enableSorting: true,
-    enableColumnFilters: true,
-    globalFilterFn: customFilterFn,
+    enableSorting: false,
+    enableColumnFilters: false,
+    enableGlobalFilter: false,
+    manualSorting: true, 
+    manualFiltering: true, 
     meta: {
       updateData,
     },
   });
+  const visibleColumns = currentTable?.columns?.filter(col => !hiddenColumns.has(col.id)) ?? [];
+  const totalTableWidth = 40 + (visibleColumns.length * 200);
+
 
   const rowVirtualizer = useVirtualizer({
-    count: currentFilters.length > 0 
-      ? table.getFilteredRowModel().rows.length 
-      : currentSort.length > 0 
-        ? table.getSortedRowModel().rows.length 
-        : table.getCoreRowModel().rows.length,
+    count: table.getCoreRowModel().rows.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 30,
     overscan: 5,
   });
-
-  const getActiveRows = useCallback(() => {
-    if (currentFilters.length > 0) {
-      return currentSort.length > 0 
-        ? table.getFilteredRowModel().rows 
-        : table.getFilteredRowModel().rows;
-    } else {
-      return currentSort.length > 0 
-        ? table.getSortedRowModel().rows 
-        : table.getCoreRowModel().rows;
-    }
-  }, [currentFilters.length, currentSort.length, table]);
-
-  React.useEffect(() => {
-    // Track the previous sort state to detect when sorting changes (including clearing) 
-    
-    // Check if sort has changed (either applied or cleared)
-    const sortChanged = JSON.stringify(prevSortRef.current) !== JSON.stringify(currentSort);
-    
-    if (sortChanged) {
-      // Capture positions before sort change
-      const beforeSort = new Map<string, number>();
-      
-      // If we're clearing sort, use the current sorted positions as "before"
-      // If we're applying sort, use the core (unsorted) positions as "before"
-      const sourceRows = currentSort.length === 0 
-        ? table.getSortedRowModel().rows  // Use current sorted positions when clearing
-        : table.getCoreRowModel().rows;   // Use unsorted positions when applying sort
-        
-      sourceRows.forEach((row, index) => {
-        beforeSort.set(row.id, index);
-      });
-
-      // Small delay to let TanStack update, then capture after positions
-      setTimeout(() => {
-        const afterSort = new Map<string, number>();
-        
-        // Target positions after the sort change
-        const targetRows = currentSort.length === 0 
-          ? table.getCoreRowModel().rows    // Back to original order when clearing
-          : table.getSortedRowModel().rows; // New sorted order when applying
-          
-        targetRows.forEach((row, index) => {
-          afterSort.set(row.id, index);
-        });
-
-        // Calculate animation data
-        const animationData = new Map<string, { fromIndex: number; toIndex: number }>();
-        beforeSort.forEach((fromIndex, rowId) => {
-          const toIndex = afterSort.get(rowId);
-          if (toIndex !== undefined && fromIndex !== toIndex) {
-            animationData.set(rowId, { fromIndex, toIndex });
-          }
-        });
-
-        // Only animate if there are actual position changes
-        if (animationData.size > 0) {
-          setRowAnimationData(animationData);
-          setIsAnimating(true);
-
-          // End animation
-          const timer = setTimeout(() => {
-            setIsAnimating(false);
-            setRowAnimationData(new Map());
-          }, 350);
-
-          return () => clearTimeout(timer);
-        }
-      }, 10);
-    }
-    
-    // Update the previous sort reference
-    prevSortRef.current = currentSort;
-  }, [currentSort]); // Remove table dependency to avoid issues
 
   return (
     <div className='table-main-content'>
@@ -1039,61 +885,20 @@ export default function DataTable({
                   <td>
                     <div ref={parentRef} style={{ height: '100%', position: 'relative' }}>
                       {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                        const rows = getActiveRows();
+                        const rows = table.getCoreRowModel().rows;
                         const row = rows[virtualRow.index];
                         if (!row) return null;
-
-                        // Get animation data for this row
-                        const animData = rowAnimationData.get(row.id);
-                        let initialOffset = 0;
-                        
-                        if (isAnimating && animData) {
-                          // Calculate how far this row needs to move
-                          initialOffset = (animData.fromIndex - animData.toIndex) * 30; // 30px per row
-                        }
 
                         return (
                           <div
                             key={row.id}
-                            className={`virtual-row ${isAnimating ? 'sorting-animation' : ''}`}
+                            className={`virtual-row`}
                             style={{
                               position: 'absolute',
                               top: `${virtualRow.start}px`,
                               left: 0,
                               width: '100%',
                               height: `${virtualRow.size}px`,
-                              // Don't set transform here - let the ref handle it
-                              zIndex: isAnimating ? 10 : 1,
-                            }}
-                            ref={(el) => {
-                              if (el && isAnimating && animData) {
-                                // Set initial position immediately
-                                el.style.transform = `translateY(${initialOffset}px)`;
-                                el.style.transition = 'none';
-                                
-                                // Force a reflow to ensure the initial position is applied
-                                void el.offsetHeight;
-                                
-                                // Then start the animation to final position
-                                requestAnimationFrame(() => {
-                                  el.style.transition = 'transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
-                                  el.style.transform = 'translateY(0px)';
-                                });
-                              } else if (el && !isAnimating) {
-                                // Reset when not animating
-                                el.style.transform = 'translateY(0px)';
-                                el.style.transition = 'none';
-                              }
-                            }}
-                            onTransitionEnd={() => {
-                              // Clean up individual row when its animation completes
-                              if (isAnimating) {
-                                setRowAnimationData(prev => {
-                                  const newMap = new Map(prev);
-                                  newMap.delete(row.id);
-                                  return newMap;
-                                });
-                              }
                             }}
                           >
                             <div className="row-number">

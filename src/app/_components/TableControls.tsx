@@ -40,6 +40,7 @@ interface TableControlsProps {
   onUpdateFilter: (filterId: string, updates: Partial<FilterCondition>) => void;
   onRemoveFilter: (filterId: string) => void;
   onClearAllFilters: () => void;
+  baseColor?: string; // Add this
 }
 
 export default function TableControls({ 
@@ -58,7 +59,8 @@ export default function TableControls({
   onAddFilter,
   onUpdateFilter,
   onRemoveFilter,
-  onClearAllFilters
+  onClearAllFilters,
+  baseColor
 }: TableControlsProps) {
   const [showHiddenFieldsDropdown, setShowHiddenFieldsDropdown] = useState(false);
   const [showSortDropdown, setShowSortDropdown] = useState(false);
@@ -178,10 +180,14 @@ export default function TableControls({
             type="button" 
             className="control-btn"
             onClick={handleSortClick}
+            style={{
+              border: currentSort.length > 0 ? `2px solid ${baseColor ?? '#2563eb'}` : undefined,
+              backgroundColor: currentSort.length > 0 ? `${baseColor ?? '#2563eb'}20` : undefined
+            }}
           >
             <Image className='table-control-icons' src={Sort} alt='Sort'/> Sort
             {currentSort.length > 0 && (
-              <span className="hidden-count-badge">{currentSort.length}</span>
+              <span>{currentSort.length} Fields Sorted</span>
             )}
           </button>
           <button type="button" className="control-btn">
@@ -220,8 +226,8 @@ export default function TableControls({
         currentSort={currentSort}
         onSort={onSort}
         onClearSort={onClearSort}
+        onRemoveSort={onRemoveColumnSort}
         onCancel={() => setShowSortDropdown(false)}
-        onRemoveColumnSort={onRemoveColumnSort}
       />
 
       <FilterContextMenu

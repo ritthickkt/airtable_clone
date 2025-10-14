@@ -88,6 +88,9 @@ model Table {
   records   Record[]
   base      Base     @relation(fields: [baseId], references: [id], onDelete: Cascade)
 
+  sortConfig Json?
+  filterConfig Json?
+
   @@index([baseId])
 }
 

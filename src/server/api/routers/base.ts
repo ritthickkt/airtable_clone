@@ -419,5 +419,152 @@ export const baseRouter = createTRPCRouter({
       });
 
       return { success: true };
+   }),
+
+  // Save sort configuration
+  updateTableSort: protectedProcedure
+    .input(z.object({
+      tableId: z.string(),
+      sortConfig: z.array(z.object({
+        columnId: z.string(),
+        direction: z.enum(['asc', 'desc'])
+      }))
+    }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.db.table.update({
+        where: {
+          id: input.tableId,
+        },
+        data: {
+          sortConfig: input.sortConfig,
+        },
+      });
+    }),
+
+  // Save filter configuration
+  updateTableFilters: protectedProcedure
+    .input(z.object({
+      tableId: z.string(),
+      filterConfig: z.array(z.object({
+        id: z.string(),
+        columnId: z.string(),
+        columnName: z.string(),
+        columnType: z.string(),
+        operator: z.string(),
+        value: z.string()
+      }))
+    }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.db.table.update({
+        where: {
+          id: input.tableId,
+        },
+        data: {
+          filterConfig: input.filterConfig,
+        },
+      });
+    }),
+
+  // Get records with sorting and filtering applied at DB level
+  getTableRecords: protectedProcedure
+    .input(z.object({
+      tableId: z.string(),
+    }))
+    .query(async ({ ctx, input }) => {
+      const table = await ctx.db.table.findUnique({
+        where: { id: input.tableId },
+        include: {
+          columns: {
+            orderBy: { position: 'asc' },
+          },
+          records: true,
+        },
+      });
+
+      if (!table) {
+        throw new Error('Table not found');
+      }
+
+      let records = table.records;
+
+      // Apply filtering at database level
+      if (table.filterConfig && Array.isArray(table.filterConfig)) {
+        records = records.filter(record => {
+          const data = record.data as Record<string, any>;
+          
+          return (table.filterConfig as any[]).every(filter => {
+            const column = table.columns.find(col => col.id === filter.columnId);
+            if (!column) return true;
+            
+            const fieldKey = column.name.toLowerCase().replace(/\s+/g, '');
+            const cellValue = data[fieldKey];
+            const filterValue = filter.value;
+            
+            switch (filter.operator) {
+              case 'contains':
+                return String(cellValue ?? '').toLowerCase().includes(String(filterValue).toLowerCase());
+              case 'not_contains':
+                return !String(cellValue ?? '').toLowerCase().includes(String(filterValue).toLowerCase());
+              case 'eq':
+                return String(cellValue ?? '').toLowerCase() === String(filterValue).toLowerCase();
+              case 'not_eq':
+                return String(cellValue ?? '').toLowerCase() !== String(filterValue).toLowerCase();
+              case 'is_empty':
+                return !cellValue || String(cellValue) === '';
+              case 'is_not_empty':
+                return cellValue != null && String(cellValue) !== '';
+              case 'gt':
+                return !isNaN(Number(cellValue)) && !isNaN(Number(filterValue)) && Number(cellValue) > Number(filterValue);
+              case 'lt':
+                return !isNaN(Number(cellValue)) && !isNaN(Number(filterValue)) && Number(cellValue) < Number(filterValue);
+              case 'gte':
+                return !isNaN(Number(cellValue)) && !isNaN(Number(filterValue)) && Number(cellValue) >= Number(filterValue);
+              case 'lte':
+                return !isNaN(Number(cellValue)) && !isNaN(Number(filterValue)) && Number(cellValue) <= Number(filterValue);
+              default:
+                return true;
+            }
+          });
+        });
+      }
+
+      // Apply sorting at database level
+      if (table.sortConfig && Array.isArray(table.sortConfig) && table.sortConfig.length > 0) {
+        records = records.sort((a, b) => {
+          const aData = a.data as Record<string, any>;
+          const bData = b.data as Record<string, any>;
+          
+          for (const sort of table.sortConfig as any[]) {
+            const column = table.columns.find(col => col.id === sort.columnId);
+            if (!column) continue;
+            
+            const fieldKey = column.name.toLowerCase().replace(/\s+/g, '');
+            const aValue = aData[fieldKey];
+            const bValue = bData[fieldKey];
+            
+            let comparison = 0;
+            
+            if (column.type === 'number') {
+              const aNum = Number(aValue) || 0;
+              const bNum = Number(bValue) || 0;
+              comparison = aNum - bNum;
+            } else {
+              const aStr = String(aValue ?? '').toLowerCase();
+              const bStr = String(bValue ?? '').toLowerCase();
+              comparison = aStr.localeCompare(bStr);
+            }
+            
+            if (comparison !== 0) {
+              return sort.direction === 'desc' ? -comparison : comparison;
+            }
+          }
+          return 0;
+        });
+      }
+
+      return {
+        ...table,
+        records,
+      };
     }),
 });

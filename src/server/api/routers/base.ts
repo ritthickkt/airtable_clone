@@ -467,104 +467,154 @@ export const baseRouter = createTRPCRouter({
 
   // Get records with sorting and filtering applied at DB level
   getTableRecords: protectedProcedure
+  .input(z.object({
+    tableId: z.string(),
+    sortConfig: z.array(z.object({
+      columnId: z.string(),
+      direction: z.enum(['asc', 'desc'])
+    })).optional(),
+    filterConfig: z.array(z.object({
+      id: z.string(),
+      columnId: z.string(),
+      columnName: z.string(),
+      columnType: z.string(),
+      operator: z.string(),
+      value: z.string()
+    })).optional(),
+    cursor: z.string().optional(), // For pagination
+    limit: z.number().min(1).max(1000).default(100), // Limit per page
+  }))
+  .query(async ({ ctx, input }) => {
+    const table = await ctx.db.table.findUnique({
+      where: { id: input.tableId },
+      include: {
+        columns: {
+          orderBy: { position: 'asc' },
+        },
+      },
+    });
+
+    if (!table) {
+      throw new Error('Table not found');
+    }
+
+    // Build where clause for filtering
+    let whereClause: any = {
+      tableId: input.tableId,
+    };
+
+    // Add cursor condition for pagination
+    if (input.cursor) {
+      whereClause.id = {
+        gt: input.cursor,
+      };
+    }
+
+    // Get records with pagination
+    const records = await ctx.db.record.findMany({
+      where: whereClause,
+      take: input.limit + 1, // Take one extra to check if there are more records
+      orderBy: { id: 'asc' }, // Use ID for consistent cursor-based pagination
+    });
+
+    // Check if there are more records
+    const hasNextPage = records.length > input.limit;
+    const recordsToReturn = hasNextPage ? records.slice(0, -1) : records;
+    const nextCursor = hasNextPage ? records[records.length - 2]?.id : null;
+
+    // Apply filtering at application level (since Prisma doesn't support JSON queries easily)
+    let filteredRecords = recordsToReturn;
+    if (input.filterConfig && input.filterConfig.length > 0) {
+      filteredRecords = recordsToReturn.filter(record => {
+        const data = record.data as Record<string, any>;
+        
+        return input.filterConfig!.every(filter => {
+          const column = table.columns.find(col => col.id === filter.columnId);
+          if (!column) return true;
+          
+          const fieldKey = column.name.toLowerCase().replace(/\s+/g, '');
+          const cellValue = data[fieldKey];
+          const filterValue = filter.value;
+          
+          switch (filter.operator) {
+            case 'contains':
+              return String(cellValue ?? '').toLowerCase().includes(String(filterValue).toLowerCase());
+            case 'not_contains':
+              return !String(cellValue ?? '').toLowerCase().includes(String(filterValue).toLowerCase());
+            case 'eq':
+              return String(cellValue ?? '').toLowerCase() === String(filterValue).toLowerCase();
+            case 'not_eq':
+              return String(cellValue ?? '').toLowerCase() !== String(filterValue).toLowerCase();
+            case 'is_empty':
+              return !cellValue || String(cellValue) === '';
+            case 'is_not_empty':
+              return cellValue != null && String(cellValue) !== '';
+            case 'gt':
+              return !isNaN(Number(cellValue)) && !isNaN(Number(filterValue)) && Number(cellValue) > Number(filterValue);
+            case 'lt':
+              return !isNaN(Number(cellValue)) && !isNaN(Number(filterValue)) && Number(cellValue) < Number(filterValue);
+            case 'gte':
+              return !isNaN(Number(cellValue)) && !isNaN(Number(filterValue)) && Number(cellValue) >= Number(filterValue);
+            case 'lte':
+              return !isNaN(Number(cellValue)) && !isNaN(Number(filterValue)) && Number(cellValue) <= Number(filterValue);
+            default:
+              return true;
+          }
+        });
+      });
+    }
+
+    // Apply sorting at application level
+    if (input.sortConfig && input.sortConfig.length > 0) {
+      filteredRecords = filteredRecords.sort((a, b) => {
+        const aData = a.data as Record<string, any>;
+        const bData = b.data as Record<string, any>;
+        
+        for (const sort of input.sortConfig!) {
+          const column = table.columns.find(col => col.id === sort.columnId);
+          if (!column) continue;
+          
+          const fieldKey = column.name.toLowerCase().replace(/\s+/g, '');
+          const aValue = aData[fieldKey];
+          const bValue = bData[fieldKey];
+          
+          let comparison = 0;
+          
+          if (column.type === 'number') {
+            const aNum = Number(aValue) || 0;
+            const bNum = Number(bValue) || 0;
+            comparison = aNum - bNum;
+          } else {
+            const aStr = String(aValue ?? '').toLowerCase();
+            const bStr = String(bValue ?? '').toLowerCase();
+            comparison = aStr.localeCompare(bStr);
+          }
+          
+          if (comparison !== 0) {
+            return sort.direction === 'desc' ? -comparison : comparison;
+          }
+        }
+        return 0;
+      });
+    }
+
+    return {
+      records: filteredRecords,
+      nextCursor,
+      hasNextPage,
+    };
+  }),
+
+  // Get total count for a table
+  getTableRecordCount: protectedProcedure
     .input(z.object({
       tableId: z.string(),
     }))
     .query(async ({ ctx, input }) => {
-      const table = await ctx.db.table.findUnique({
-        where: { id: input.tableId },
-        include: {
-          columns: {
-            orderBy: { position: 'asc' },
-          },
-          records: true,
+      return ctx.db.record.count({
+        where: {
+          tableId: input.tableId,
         },
       });
-
-      if (!table) {
-        throw new Error('Table not found');
-      }
-
-      let records = table.records;
-
-      // Apply filtering at database level
-      if (table.filterConfig && Array.isArray(table.filterConfig)) {
-        records = records.filter(record => {
-          const data = record.data as Record<string, any>;
-          
-          return (table.filterConfig as any[]).every(filter => {
-            const column = table.columns.find(col => col.id === filter.columnId);
-            if (!column) return true;
-            
-            const fieldKey = column.name.toLowerCase().replace(/\s+/g, '');
-            const cellValue = data[fieldKey];
-            const filterValue = filter.value;
-            
-            switch (filter.operator) {
-              case 'contains':
-                return String(cellValue ?? '').toLowerCase().includes(String(filterValue).toLowerCase());
-              case 'not_contains':
-                return !String(cellValue ?? '').toLowerCase().includes(String(filterValue).toLowerCase());
-              case 'eq':
-                return String(cellValue ?? '').toLowerCase() === String(filterValue).toLowerCase();
-              case 'not_eq':
-                return String(cellValue ?? '').toLowerCase() !== String(filterValue).toLowerCase();
-              case 'is_empty':
-                return !cellValue || String(cellValue) === '';
-              case 'is_not_empty':
-                return cellValue != null && String(cellValue) !== '';
-              case 'gt':
-                return !isNaN(Number(cellValue)) && !isNaN(Number(filterValue)) && Number(cellValue) > Number(filterValue);
-              case 'lt':
-                return !isNaN(Number(cellValue)) && !isNaN(Number(filterValue)) && Number(cellValue) < Number(filterValue);
-              case 'gte':
-                return !isNaN(Number(cellValue)) && !isNaN(Number(filterValue)) && Number(cellValue) >= Number(filterValue);
-              case 'lte':
-                return !isNaN(Number(cellValue)) && !isNaN(Number(filterValue)) && Number(cellValue) <= Number(filterValue);
-              default:
-                return true;
-            }
-          });
-        });
-      }
-
-      // Apply sorting at database level
-      if (table.sortConfig && Array.isArray(table.sortConfig) && table.sortConfig.length > 0) {
-        records = records.sort((a, b) => {
-          const aData = a.data as Record<string, any>;
-          const bData = b.data as Record<string, any>;
-          
-          for (const sort of table.sortConfig as any[]) {
-            const column = table.columns.find(col => col.id === sort.columnId);
-            if (!column) continue;
-            
-            const fieldKey = column.name.toLowerCase().replace(/\s+/g, '');
-            const aValue = aData[fieldKey];
-            const bValue = bData[fieldKey];
-            
-            let comparison = 0;
-            
-            if (column.type === 'number') {
-              const aNum = Number(aValue) || 0;
-              const bNum = Number(bValue) || 0;
-              comparison = aNum - bNum;
-            } else {
-              const aStr = String(aValue ?? '').toLowerCase();
-              const bStr = String(bValue ?? '').toLowerCase();
-              comparison = aStr.localeCompare(bStr);
-            }
-            
-            if (comparison !== 0) {
-              return sort.direction === 'desc' ? -comparison : comparison;
-            }
-          }
-          return 0;
-        });
-      }
-
-      return {
-        ...table,
-        records,
-      };
     }),
 });

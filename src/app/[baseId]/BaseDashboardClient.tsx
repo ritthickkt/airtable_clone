@@ -258,7 +258,10 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
         sortConfig: [],
       }, {
         onSuccess: () => {
-          setSortingLoading(false);
+          // Force refetch to get unsorted data from database
+          refetch().finally(() => {
+            setSortingLoading(false);
+          });
         },
         onError: () => {
           setSortingLoading(false);
@@ -267,7 +270,7 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
     } else {
       setSortingLoading(false);
     }
-  }, [currentTable?.id, updateTableSortMutation]);
+  }, [currentTable?.id, updateTableSortMutation, refetch]);
 
   const handleRemoveColumnSort = useCallback((columnId: string) => {
     setSortingLoading(true);

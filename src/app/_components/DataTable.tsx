@@ -16,7 +16,6 @@ import type { TableRow, Table } from '../../types';
 import ColumnConfiguration from '../_components/ColumnConfiguration';
 import ColumnContextMenu from './ColumnContextMenu';
 import React from 'react';
-import { getAllJSDocTagsOfKind, type StringLiteral } from 'typescript';
 
 const columnHelper = createColumnHelper<TableRow>();
 
@@ -77,21 +76,20 @@ export default function DataTable({
     searchResults = [],
     currentSearchIndex = 0,
   }: DataTableProps) {
+  
+  // All useState hooks first
   const [isCreatingRecord, setIsCreatingRecord] = useState(false);
   const [isCreatingColumn, setIsCreatingColumn] = useState(false);
   const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
   const [tablesData, setTablesData] = useState<Record<string, TableRow[]>>({});
   const [currentCell, setCurrentCell] = useState<{rowIndex: number; columnIndex: number} | null>(null);
   const [colConfigPosition, setColConfigPosition] = useState<{ top: number; left: number } | null>(null);
-  const colConfigRef = React.useRef<HTMLDivElement>(null);
-  const addColBtnRef = React.useRef<HTMLButtonElement>(null);
-  const [isAnimating, setIsAnimating] = useState(false);
-  const prevSortRef = React.useRef(currentSort);
-  const [rowAnimationData, setRowAnimationData] = useState<Map<string, {
-    fromIndex: number;
-    toIndex: number;
-  }>>(new Map());
-  const [pendingBulkRecords, setPendingBulkRecords] = useState<Record<string, TableRow[]>>({});
+  const [contextMenu, setContextMenu] = useState<{
+    visible: boolean;
+    rowIndex: number;
+    x: number;
+    y: number;
+  } | null>(null);
   const [columnContextMenu, setColumnContextMenu] = useState<{
     visible: boolean;
     x: number;
@@ -100,8 +98,52 @@ export default function DataTable({
     columnName: string;
     columnType: string;
   } | null>(null);
+  const [bulkProgress, setBulkProgress] = useState<{
+    isAdding: boolean;
+    added: number;
+    total: number;
+  } | null>(null);
 
-  const highlightSearchTerm = (text: string, searchTerm: string) => {
+  // All useRef hooks
+  const colConfigRef = React.useRef<HTMLDivElement>(null);
+  const addColBtnRef = React.useRef<HTMLButtonElement>(null);
+  const parentRef = React.useRef<HTMLDivElement>(null);
+
+  // All API hooks
+  const createRecordMutation = api.base.createRecord.useMutation();
+  const createColumnMutation = api.base.createColumn.useMutation();
+  const updateCellMutation = api.base.updateCell.useMutation();
+  const deleteRecordMutation = api.base.deleteRecord.useMutation();
+  const deleteColumnMutation = api.base.deleteColumn.useMutation();
+  const createBulkRecordsMutation = api.base.createBulkRecords.useMutation();
+
+  const { 
+    data: paginatedData, 
+    fetchNextPage, 
+    hasNextPage, 
+    isFetchingNextPage,
+    refetch 
+  } = api.base.getTableRecords.useInfiniteQuery(
+    {
+      tableId: currentTable?.id ?? '',
+      sortConfig: currentSort,
+      filterConfig: currentFilters,
+      limit: 100,
+    },
+    { 
+      enabled: !!currentTable?.id,
+      getNextPageParam: (lastPage) => lastPage.nextCursor,
+      refetchOnWindowFocus: false,
+    }
+  );
+
+  const { data: totalCount } = api.base.getTableRecordCount.useQuery(
+    { tableId: currentTable?.id ?? '' },
+    { enabled: !!currentTable?.id }
+  );
+
+  // All useCallback hooks
+  const highlightSearchTerm = useCallback((text: string, searchTerm: string) => {
     if (!searchTerm.trim()) return text;
     
     const regex = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
@@ -112,32 +154,31 @@ export default function DataTable({
         <span key={index} className="search-highlight">{part}</span>
       ) : part
     );
-  };
+  }, []);
 
-  const isRowHighlighted = (rowIndex: number) => {
+  const isRowHighlighted = useCallback((rowIndex: number) => {
     if (!searchTerm || searchResults.length === 0) return false;
     return searchResults.some(result => result.rowIndex === rowIndex && !result.isColumnHeader);
-  };
+  }, [searchTerm, searchResults]);
 
-  // Check if a column header should be highlighted
-  const isColumnHighlighted = (columnId: string) => {
+  const isColumnHighlighted = useCallback((columnId: string) => {
     if (!searchTerm || searchResults.length === 0) return false;
     return searchResults.some(result => result.columnId === columnId && result.isColumnHeader);
-  };
+  }, [searchTerm, searchResults]);
 
-  const isCurrentRowHighlighted = (rowIndex: number) => {
+  const isCurrentRowHighlighted = useCallback((rowIndex: number) => {
     if (!searchTerm || searchResults.length === 0) return false;
     const currentResult = searchResults[currentSearchIndex];
     return currentResult && currentResult.rowIndex === rowIndex && !currentResult.isColumnHeader;
-  };
+  }, [searchTerm, searchResults, currentSearchIndex]);
 
-  const isCurrentColumnHighlighted = (columnId: string) => {
+  const isCurrentColumnHighlighted = useCallback((columnId: string) => {
     if (!searchTerm || searchResults.length === 0) return false;
     const currentResult = searchResults[currentSearchIndex];
     return currentResult && currentResult.columnId === columnId && currentResult.isColumnHeader;
-  };
+  }, [searchTerm, searchResults, currentSearchIndex]);
 
-  const highlightSearchTermWithCurrent = (text: string, searchTerm: string, columnId: string, rowIndex: number) => {
+  const highlightSearchTermWithCurrent = useCallback((text: string, searchTerm: string, columnId: string, rowIndex: number) => {
     if (!searchTerm.trim()) return text;
     
     const currentResult = searchResults[currentSearchIndex];
@@ -158,7 +199,7 @@ export default function DataTable({
         </span>
       ) : part
     );
-  };
+  }, [searchResults, currentSearchIndex]);
 
   const handleHideColumn = useCallback((columnId: string) => {
     onHideColumn(columnId);
@@ -169,15 +210,6 @@ export default function DataTable({
     onSort(columnId, direction);
     setColumnContextMenu(null);
   }, [onSort]);
-
-  const createRecordMutation = api.base.createRecord.useMutation();
-  const createColumnMutation = api.base.createColumn.useMutation();
-  const updateCellMutation = api.base.updateCell.useMutation();
-  const deleteRecordMutation = api.base.deleteRecord.useMutation();
-  const deleteColumnMutation = api.base.deleteColumn.useMutation();
-  const createBulkRecordsMutation = api.base.createBulkRecords.useMutation();
-  
-  const parentRef = React.useRef<HTMLDivElement>(null);
 
   const handleColumnRightClick = useCallback((e: React.MouseEvent, columnId: string, columnName: string, columnType: string) => {
     e.preventDefault();
@@ -240,255 +272,6 @@ export default function DataTable({
     setColumnContextMenu(null);
   }, [columnContextMenu, deleteColumnMutation, currentTable?.id, currentTable?.columns, onColumnRemove, onColumnUpdate]);
 
-  React.useEffect(() => {
-    const handleClick = () => {
-      setContextMenu(null);
-      setColumnContextMenu(null);
-    };
-    document.addEventListener('click', handleClick);
-    return () => document.removeEventListener('click', handleClick);
-  }, []);
-
-  const [contextMenu, setContextMenu] = useState<{
-    visible: boolean;
-    rowIndex: number;
-    x: number;
-    y: number;
-  } | null>(null);
-
-  const { data: tableWithSortedRecords, refetch } = api.base.getTableRecords.useQuery(
-    {
-      tableId: currentTable?.id ?? '',
-      sortConfig: currentSort,
-      filterConfig: currentFilters,
-    },
-    { 
-      enabled: !!currentTable?.id,
-      refetchOnWindowFocus: false,
-    }
-  );
-  React.useEffect(() => {
-    if (currentTable?.id && (currentSort.length > 0 || currentFilters.length > 0)) {
-      refetch();
-    }
-  }, [currentSort, currentFilters, currentTable?.id, refetch]);
-
-  const tableData = useMemo(() => {
-    const localData = tablesData[currentTable?.id ?? ''] ?? [];
-    
-    // If we have sorting or filtering applied, use database data as base
-    if ((currentSort.length > 0 || currentFilters.length > 0) && tableWithSortedRecords) {
-      const dbData = tableWithSortedRecords.records.map((record) => {
-        const data = record.data as Record<string, unknown> || {};
-        return {
-          id: record.id,
-          ...data,
-        } as TableRow;
-      });
-      
-      // Add any local optimistic records that aren't in the database yet
-      const localTempRecords = localData.filter(row => 
-        (row.id.startsWith('temp-') || row.id.startsWith('temp-bulk-')) && 
-        !dbData.some(dbRow => dbRow.id === row.id)
-      );
-      
-      return [...dbData, ...localTempRecords];
-    }
-    
-    // If no sorting/filtering, use local data to maintain current order
-    // Only fall back to database data if we don't have local data
-    if (currentSort.length === 0 && currentFilters.length === 0) {
-      // If we have local data, use it to maintain the current visual order
-      if (localData.length > 0) {
-        return localData;
-      }
-      
-      // If no local data but we have database data, use database data
-      if (tableWithSortedRecords) {
-        const dbData = tableWithSortedRecords.records.map((record) => {
-          const data = record.data as Record<string, unknown> || {};
-          return {
-            id: record.id,
-            ...data,
-          } as TableRow;
-        });
-        return dbData;
-      }
-    }
-    
-    // Fallback to local data
-    return localData;
-  }, [tableWithSortedRecords, tablesData, currentTable?.id, currentSort, currentFilters]);
-
-  React.useEffect(() => {
-    if (currentTable?.id && !tablesData[currentTable.id]) {
-      const initialData = currentTable.records?.map((record) => {
-        const data = record.data as Record<string, unknown> || {};
-        return {
-          id: record.id,
-          ...data,
-        } as TableRow;
-      }) ?? [];
-
-      setTablesData(prev => ({
-        ...prev,
-        [currentTable.id]: initialData
-      }));
-    }
-  }, [currentTable?.id, currentTable?.records, tablesData]);
-
-  const [bulkProgress, setBulkProgress] = useState<{
-    isAdding: boolean;
-    added: number;
-    total: number;
-  } | null>(null);
-  
-  const add100kRows = useCallback(async () => {
-    if (!currentTable || isCreatingRecord) return;
-    
-    setIsCreatingRecord(true);
-    setBulkProgress({ isAdding: true, added: 0, total: 100000 });
-    
-    try {
-      const emptyData: Record<string, string> = {};
-      currentTable.columns?.forEach(col => {
-        const fieldKey = col.name.toLowerCase().replace(/\s+/g, '');
-        emptyData[fieldKey] = '';
-      });
-
-      const uiChunkSize = 100;
-      const dbBatchSize = 500;
-      const totalRecords = 100000;
-      
-      const addUIChunks = async () => {
-        const totalUIChunks = Math.ceil(totalRecords / uiChunkSize);
-        const baseTimestamp = Date.now();
-        
-        for (let chunkIndex = 0; chunkIndex < totalUIChunks; chunkIndex++) {
-          const startIndex = chunkIndex * uiChunkSize;
-          const endIndex = Math.min(startIndex + uiChunkSize, totalRecords);
-          const currentChunkSize = endIndex - startIndex;
-          
-          const chunkRecords: TableRow[] = [];
-          
-          for (let i = 0; i < currentChunkSize; i++) {
-            chunkRecords.push({
-              id: `temp-bulk-${baseTimestamp}-${startIndex + i}`,
-              ...emptyData,
-            } as TableRow);
-          }
-
-          setTablesData(prev => ({
-            ...prev,
-            [currentTable.id]: [...(prev[currentTable.id] ?? []), ...chunkRecords]
-          }));
-
-          setBulkProgress(prev => prev ? {
-            ...prev,
-            added: endIndex
-          } : null);
-
-          await new Promise(resolve => setTimeout(resolve, 10));
-        }
-      };
-
-      const syncToDatabase = async () => {
-        const totalDBBatches = Math.ceil(totalRecords / dbBatchSize);
-        let dbRecordsCreated = 0;
-        
-        for (let batchIndex = 0; batchIndex < totalDBBatches; batchIndex++) {
-          try {
-            const batchData = Array(dbBatchSize).fill(emptyData);
-            
-            const batchResult = await createBulkRecordsMutation.mutateAsync({
-              tableId: currentTable.id,
-              records: batchData,
-            });
-
-            dbRecordsCreated += batchResult.count;
-
-            console.log(`📊 Database batch ${batchIndex + 1}/${totalDBBatches} completed (${dbRecordsCreated}/${totalRecords})`);
-            
-          } catch (error) {
-            console.error(`❌ Database batch ${batchIndex} failed:`, error);
-          }
-          
-          await new Promise(resolve => setTimeout(resolve, 50));
-        }
-        
-        console.log('✅ Database sync completed!');
-        
-        // Only refetch if sorting/filtering is active
-        if (currentSort.length > 0 || currentFilters.length > 0) {
-          refetch();
-        }
-      };
-
-      await Promise.all([
-        addUIChunks(),
-        new Promise(resolve => {
-          setTimeout(() => {
-            syncToDatabase().then(resolve);
-          }, 1000);
-        })
-      ]);
-
-      console.log('✅ All operations completed successfully');
-        
-    } catch (error) {
-      console.error('Failed to add 100k rows:', error);
-      setTablesData(prev => ({
-        ...prev,
-        [currentTable.id]: prev[currentTable.id]?.slice(0, -(bulkProgress?.added ?? 0)) ?? []
-      }));
-    } finally {
-      setIsCreatingRecord(false);
-      set100kRowsPressed(false);
-      
-      setTimeout(() => {
-        setBulkProgress(null);
-      }, 2000);
-    }
-  }, [currentTable, isCreatingRecord, set100kRowsPressed, createBulkRecordsMutation, currentSort, currentFilters, refetch]);
-
-  React.useEffect(() => {
-    if (add100kRowsPressed) {
-      add100kRows();
-    }
-  }, [add100kRowsPressed, add100kRows]);
-
-  const getColumnIcon = useCallback((type: string) => {
-    switch (type) {
-      case 'text': return <TextIcon/>;
-      case 'number': return <div>#</div>;
-      default: return '📝';
-    }
-  }, []);
-
-  React.useEffect(() => {
-    const handleClick = () => setContextMenu(null);
-    document.addEventListener('click', handleClick);
-    return () => document.removeEventListener('click', handleClick);
-  }, [])
-
-  React.useEffect(() => {
-    if (!isColumnModalOpen) return;
-
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        colConfigRef.current &&
-        !colConfigRef.current.contains(event.target as Node) &&
-        addColBtnRef.current &&
-        !addColBtnRef.current.contains(event.target as Node)
-      ) {
-        setIsColumnModalOpen(false);
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isColumnModalOpen]);
-
   const handleCellRightClick = useCallback((e: React.MouseEvent, rowIndex: number) => {
     e.preventDefault();
 
@@ -514,13 +297,33 @@ export default function DataTable({
     });
   }, []);
 
+  const tableData = useMemo(() => {
+    const localData = tablesData[currentTable?.id ?? ''] ?? [];
+    
+    const paginatedRecords = paginatedData?.pages.flatMap(page => 
+      page.records.map((record) => {
+        const data = record.data as Record<string, unknown> || {};
+        return {
+          id: record.id,
+          ...data,
+        } as TableRow;
+      })
+    ) ?? [];
+    
+    const localTempRecords = localData.filter(row => 
+      (row.id.startsWith('temp-') || row.id.startsWith('temp-bulk-')) && 
+      !paginatedRecords.some(dbRow => dbRow.id === row.id)
+    );
+    
+    return [...paginatedRecords, ...localTempRecords];
+  }, [paginatedData, tablesData, currentTable?.id]);
+
   const handleDeleteRow = useCallback(() => {
     if (!contextMenu || !currentTable?.id) return;
 
     const rowToDelete = tableData[contextMenu.rowIndex];
     if (!rowToDelete) return;
 
-    // Remove from local state immediately
     setTablesData(prev => ({
       ...prev,
       [currentTable.id]: prev[currentTable.id]?.filter(row => row.id !== rowToDelete.id) ?? []
@@ -530,13 +333,11 @@ export default function DataTable({
       recordId: rowToDelete.id, 
     }, {
       onSuccess: () => {
-        // Only refetch if sorting/filtering is active
         if (currentSort.length > 0 || currentFilters.length > 0) {
           refetch();
         }
       },
       onError: () => {
-        // Restore record on error
         setTablesData(prev => ({
           ...prev,
           [currentTable.id]: [...(prev[currentTable.id] ?? []), rowToDelete]
@@ -545,7 +346,7 @@ export default function DataTable({
     });
 
     setContextMenu(null);
-  }, [contextMenu, currentTable?.id, deleteRecordMutation, currentSort, currentFilters, refetch]);
+  }, [contextMenu, currentTable?.id, deleteRecordMutation, currentSort, currentFilters, refetch, tableData]);
 
   const updateData = useCallback((rowIndex: number, fieldKey: string, value: unknown) => {
     if (!currentTable?.id) return;
@@ -566,7 +367,6 @@ export default function DataTable({
               value: value as string,
             }, {
               onSuccess: () => {
-                // Only refetch if sorting/filtering is active and the updated field affects the sort/filter
                 const affectedBySort = currentSort.some(sort => {
                   const column = currentTable.columns?.find(col => col.id === sort.columnId);
                   return column && column.name.toLowerCase().replace(/\s+/g, '') === fieldKey;
@@ -597,7 +397,6 @@ export default function DataTable({
   }, [updateCellMutation, currentTable?.id, currentSort, currentFilters, refetch]);
 
   const handleKeyDown = useCallback((event: React.KeyboardEvent, rowIndex: number, columnIndex: number) => {
-    
     const maxRows = tableData.length;
     const maxCols = currentTable?.columns?.length ?? 0;
 
@@ -656,113 +455,15 @@ export default function DataTable({
         cell.select();
       }
     }, 0);
-  }, [currentTable?.columns?.length]);
+  }, [currentTable?.columns?.length, tableData.length]);
 
-  const defaultColumn = useMemo(
-    () => ({
-      cell: ({ getValue, row: { index }, column, table }: any) => {
-        const initialValue = getValue();
-        const [value, setValue] = React.useState(initialValue);
-
-        const columnIndex = table.getAllColumns()
-          .filter((col: any) => col.getIsVisible())
-          .findIndex((col: any) => col.id === column.id);
-
-        const onBlur = () => {
-          table.options.meta?.updateData(index, column.columnDef.accessorKey, value);
-        };
-
-        const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-          setValue(e.target.value);
-        };
-
-        React.useEffect(() => {
-          setValue(initialValue);
-        }, [initialValue]);
-
-        // Get column info for highlighting
-        const columnData = currentTable?.columns?.find(col => 
-          col.name.toLowerCase().replace(/\s+/g, '') === column.columnDef.accessorKey
-        );
-
-        // Check if this cell should have highlighted text
-        const shouldHighlight = searchTerm && value && 
-          value.toString().toLowerCase().includes(searchTerm.toLowerCase());
-
-        return (
-          <div 
-            data-row-index={index} 
-            data-column-index={columnIndex}
-            style={{
-              width: '100%',
-              height: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              margin: 0,
-              padding: 0,
-              position: 'relative',
-            }}
-          >
-            {shouldHighlight ? (
-              // Render highlighted text overlay when there's a search match
-              <div
-                style={{ 
-                  width: '100%', 
-                  height: '100%',
-                  border: 'none',
-                  background: 'transparent', 
-                  padding: '0 12px',
-                  fontSize: '13px',
-                  fontFamily: 'inherit',
-                  outline: 'none',
-                  boxSizing: 'border-box',
-                  margin: 0,
-                  borderRadius: 3,
-                  display: 'flex',
-                  alignItems: 'center',
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  pointerEvents: 'none',
-                  zIndex: 1,
-                }}
-              >
-                {highlightSearchTermWithCurrent(
-                  value.toString(), 
-                  searchTerm, 
-                  columnData?.id || '', 
-                  index
-                )}
-              </div>
-            ) : null}
-            <input
-              value={value as string || ''}
-              onChange={onChange}
-              onBlur={onBlur}
-              onKeyDown={e => handleKeyDown(e, index, columnIndex)}
-              onContextMenu={(e) => handleCellRightClick(e, index)}
-              style={{ 
-                width: '100%', 
-                height: '100%',
-                border: 'none',
-                background: shouldHighlight ? 'transparent' : 'transparent', 
-                padding: '0 12px',
-                fontSize: '13px',
-                fontFamily: 'inherit',
-                outline: 'none',
-                boxSizing: 'border-box',
-                margin: 0,
-                borderRadius: 3,
-                color: shouldHighlight ? 'transparent' : 'inherit',
-                position: 'relative',
-                zIndex: 0,
-              }}
-            />
-          </div>
-        );
-      },
-    }), [handleCellRightClick, handleKeyDown, searchTerm, searchResults, currentSearchIndex, currentTable?.columns, highlightSearchTermWithCurrent]
-  );
+  const getColumnIcon = useCallback((type: string) => {
+    switch (type) {
+      case 'text': return <TextIcon/>;
+      case 'number': return <div>#</div>;
+      default: return '📝';
+    }
+  }, []);
 
   const handleCreateColumn = useCallback((name: string, type: 'text' | 'number') => {
     if (!currentTable) return;
@@ -848,7 +549,6 @@ export default function DataTable({
       ...emptyData,
     } as TableRow;
     
-    // Add optimistic record immediately
     setTablesData(prev => ({
       ...prev,
       [currentTable.id]: [...(prev[currentTable.id] ?? []), optimisticRecord]
@@ -859,7 +559,6 @@ export default function DataTable({
       data: emptyData,
     }, {
       onSuccess: (realRecord) => {
-        // Replace optimistic record with real record
         setTablesData(prev => ({
           ...prev,
           [currentTable.id]: (prev[currentTable.id] ?? []).map(row => 
@@ -869,13 +568,11 @@ export default function DataTable({
           )
         }));
         
-        // Always refetch to maintain correct order when sorting/filtering is active
         if (currentSort.length > 0 || currentFilters.length > 0) {
           refetch();
         }
       },
       onError: () => {
-        // Remove optimistic record on error
         setTablesData(prev => ({
           ...prev,
           [currentTable.id]: (prev[currentTable.id] ?? []).filter(row => row.id !== optimisticRecord.id)
@@ -884,6 +581,176 @@ export default function DataTable({
       onSettled: () => setIsCreatingRecord(false),
     });
   }, [currentTable, createRecordMutation, isCreatingRecord, currentSort, currentFilters, refetch]);
+
+  const add100kRows = useCallback(async () => {
+    if (!currentTable || isCreatingRecord) return;
+    
+    setIsCreatingRecord(true);
+    setBulkProgress({ isAdding: true, added: 0, total: 100000 });
+    
+    try {
+      const emptyData: Record<string, string> = {};
+      currentTable.columns?.forEach(col => {
+        const fieldKey = col.name.toLowerCase().replace(/\s+/g, '');
+        emptyData[fieldKey] = '';
+      });
+
+      const dbBatchSize = 1000;
+      const totalRecords = 100000;
+      
+      const syncToDatabase = async () => {
+        const totalDBBatches = Math.ceil(totalRecords / dbBatchSize);
+        let dbRecordsCreated = 0;
+        
+        for (let batchIndex = 0; batchIndex < totalDBBatches; batchIndex++) {
+          try {
+            const batchData = Array(dbBatchSize).fill(emptyData);
+            
+            const batchResult = await createBulkRecordsMutation.mutateAsync({
+              tableId: currentTable.id,
+              records: batchData,
+            });
+
+            dbRecordsCreated += batchResult.count;
+
+            setBulkProgress(prev => prev ? {
+              ...prev,
+              added: dbRecordsCreated
+            } : null);
+
+            console.log(`📊 Database batch ${batchIndex + 1}/${totalDBBatches} completed (${dbRecordsCreated}/${totalRecords})`);
+            
+          } catch (error) {
+            console.error(`❌ Database batch ${batchIndex} failed:`, error);
+            throw error;
+          }
+          
+          await new Promise(resolve => setTimeout(resolve, 10));
+        }
+        
+        console.log('✅ Database sync completed!');
+      };
+
+      await syncToDatabase();
+      refetch();
+      console.log('✅ All operations completed successfully');
+        
+    } catch (error) {
+      console.error('Failed to add 100k rows:', error);
+    } finally {
+      setIsCreatingRecord(false);
+      set100kRowsPressed(false);
+      
+      setTimeout(() => {
+        setBulkProgress(null);
+      }, 2000);
+    }
+  }, [currentTable, isCreatingRecord, set100kRowsPressed, createBulkRecordsMutation, refetch]);
+
+  // All useMemo hooks
+
+  const defaultColumn = useMemo(
+    () => ({
+      cell: ({ getValue, row: { index }, column, table }: any) => {
+        const initialValue = getValue();
+        const [value, setValue] = React.useState(initialValue);
+
+        const columnIndex = table.getAllColumns()
+          .filter((col: any) => col.getIsVisible())
+          .findIndex((col: any) => col.id === column.id);
+
+        const onBlur = () => {
+          table.options.meta?.updateData(index, column.columnDef.accessorKey, value);
+        };
+
+        const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+          setValue(e.target.value);
+        };
+
+        React.useEffect(() => {
+          setValue(initialValue);
+        }, [initialValue]);
+
+        const columnData = currentTable?.columns?.find(col => 
+          col.name.toLowerCase().replace(/\s+/g, '') === column.columnDef.accessorKey
+        );
+
+        const shouldHighlight = searchTerm && value && 
+          value.toString().toLowerCase().includes(searchTerm.toLowerCase());
+
+        return (
+          <div 
+            data-row-index={index} 
+            data-column-index={columnIndex}
+            style={{
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              margin: 0,
+              padding: 0,
+              position: 'relative',
+            }}
+          >
+            {shouldHighlight ? (
+              <div
+                style={{ 
+                  width: '100%', 
+                  height: '100%',
+                  border: 'none',
+                  background: 'transparent', 
+                  padding: '0 12px',
+                  fontSize: '13px',
+                  fontFamily: 'inherit',
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                  margin: 0,
+                  borderRadius: 3,
+                  display: 'flex',
+                  alignItems: 'center',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  pointerEvents: 'none',
+                  zIndex: 1,
+                }}
+              >
+                {highlightSearchTermWithCurrent(
+                  value.toString(), 
+                  searchTerm, 
+                  columnData?.id || '', 
+                  index
+                )}
+              </div>
+            ) : null}
+            <input
+              value={value as string || ''}
+              onChange={onChange}
+              onBlur={onBlur}
+              onKeyDown={e => handleKeyDown(e, index, columnIndex)}
+              onContextMenu={(e) => handleCellRightClick(e, index)}
+              style={{ 
+                width: '100%', 
+                height: '100%',
+                border: 'none',
+                background: shouldHighlight ? 'transparent' : 'transparent', 
+                padding: '0 12px',
+                fontSize: '13px',
+                fontFamily: 'inherit',
+                outline: 'none',
+                boxSizing: 'border-box',
+                margin: 0,
+                borderRadius: 3,
+                color: shouldHighlight ? 'transparent' : 'inherit',
+                position: 'relative',
+                zIndex: 0,
+              }}
+            />
+          </div>
+        );
+      },
+    }), [handleCellRightClick, handleKeyDown, searchTerm, currentTable?.columns, highlightSearchTermWithCurrent]
+  );
 
   const columns = useMemo(() => {
     if (!currentTable?.columns) return [];
@@ -971,7 +838,7 @@ export default function DataTable({
           })
         });
       });
-  }, [currentTable?.columns, getColumnIcon, handleColumnRightClick, hiddenColumns, searchTerm, searchResults, currentSearchIndex]);
+  }, [currentTable?.columns, getColumnIcon, handleColumnRightClick, hiddenColumns, searchTerm, isColumnHighlighted, isCurrentColumnHighlighted, highlightSearchTermWithCurrent, handleCellRightClick]);
 
   const table = useReactTable({
     data: tableData,
@@ -987,16 +854,90 @@ export default function DataTable({
       updateData,
     },
   });
-  const visibleColumns = currentTable?.columns?.filter(col => !hiddenColumns.has(col.id)) ?? [];
-  const totalTableWidth = 40 + (visibleColumns.length * 200);
 
+  const visibleColumns = useMemo(() => 
+    currentTable?.columns?.filter(col => !hiddenColumns.has(col.id)) ?? []
+  , [currentTable?.columns, hiddenColumns]);
+
+  const totalTableWidth = useMemo(() => 
+    40 + (visibleColumns.length * 200)
+  , [visibleColumns.length]);
 
   const rowVirtualizer = useVirtualizer({
-    count: table.getCoreRowModel().rows.length,
+    count: totalCount ?? tableData.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 30,
     overscan: 5,
   });
+
+  // All useEffect hooks at the end
+  React.useEffect(() => {
+    if (currentTable?.id && (currentSort.length > 0 || currentFilters.length > 0)) {
+      refetch();
+    }
+  }, [currentSort, currentFilters, currentTable?.id, refetch]);
+
+  React.useEffect(() => {
+    if (currentTable?.id && !tablesData[currentTable.id]) {
+      const initialData = currentTable.records?.map((record) => {
+        const data = record.data as Record<string, unknown> || {};
+        return {
+          id: record.id,
+          ...data,
+        } as TableRow;
+      }) ?? [];
+
+      setTablesData(prev => ({
+        ...prev,
+        [currentTable.id]: initialData
+      }));
+    }
+  }, [currentTable?.id, currentTable?.records, tablesData]);
+
+  React.useEffect(() => {
+    if (add100kRowsPressed) {
+      add100kRows();
+    }
+  }, [add100kRowsPressed, add100kRows]);
+
+  React.useEffect(() => {
+    const handleClick = () => {
+      setContextMenu(null);
+      setColumnContextMenu(null);
+    };
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, []);
+
+  React.useEffect(() => {
+    if (!isColumnModalOpen) return;
+
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        colConfigRef.current &&
+        !colConfigRef.current.contains(event.target as Node) &&
+        addColBtnRef.current &&
+        !addColBtnRef.current.contains(event.target as Node)
+      ) {
+        setIsColumnModalOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isColumnModalOpen]);
+
+  React.useEffect(() => {
+    const items = rowVirtualizer.getVirtualItems();
+    if (!items.length) return;
+    
+    const lastItem = items[items.length - 1];
+    const shouldLoadMore = lastItem && lastItem.index >= tableData.length - 10;
+    
+    if (shouldLoadMore && hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [rowVirtualizer.getVirtualItems(), tableData.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   return (
     <div className='table-main-content'>
@@ -1077,7 +1018,8 @@ export default function DataTable({
           </div>
         </div>
         <div className='number-of-rows'>
-          {tableData.length.toLocaleString()} Records
+          {totalCount ? totalCount.toLocaleString() : tableData.length.toLocaleString()} Records
+          {isFetchingNextPage && " (Loading...)"}
         </div>
         <ContextMenuRecord
           visible={contextMenu?.visible ?? false}
@@ -1131,7 +1073,6 @@ export default function DataTable({
             onClose={() => setIsColumnModalOpen(false)}
             onCreateColumn={handleCreateColumn}
             isColumnModalOpen={isColumnModalOpen}
-            // colConfigPosition={colConfigPosition}
           />
         </div>
       )}

@@ -12,11 +12,24 @@ export interface Base {
   tables?: Table[];
 }
 
+
 export interface Table {
   id: string;
   name: string;
+  baseId: string;
   columns?: Column[];
   records?: Record[];
+  createdAt: Date;
+  updatedAt: Date;
+  sortConfig?: Array<{ columnId: string; direction: 'asc' | 'desc' }> | null;
+  filterConfig?: Array<{
+    id: string;
+    columnId: string;
+    columnName: string;
+    columnType: string;
+    operator: string;
+    value: string;
+  }> | null;
 }
 
 export interface Column {

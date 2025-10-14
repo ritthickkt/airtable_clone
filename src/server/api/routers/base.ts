@@ -499,7 +499,7 @@ export const baseRouter = createTRPCRouter({
     }
 
     // Build where clause for filtering
-    let whereClause: any = {
+    const whereClause: any = {
       tableId: input.tableId,
     };
 

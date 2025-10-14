@@ -718,7 +718,7 @@ export default function DataTable({
                 {highlightSearchTermWithCurrent(
                   value.toString(), 
                   searchTerm, 
-                  columnData?.id || '', 
+                  columnData?.id ?? '', 
                   index
                 )}
               </div>

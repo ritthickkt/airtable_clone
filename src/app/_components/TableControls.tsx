@@ -110,7 +110,7 @@ export default function TableControls({
       const rect = searchBtnRef.current.getBoundingClientRect();
       const dropdownWidth = 400;
       
-      let top = rect.bottom + window.scrollY + 8;
+      const top = rect.bottom + window.scrollY + 8;
       let left = rect.left + window.scrollX;
       
       // Adjust if dropdown would go off-screen

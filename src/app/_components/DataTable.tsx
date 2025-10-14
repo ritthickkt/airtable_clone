@@ -29,6 +29,15 @@ interface FilterCondition {
   value: string;
 }
 
+interface SearchResult {
+  rowId: string;
+  rowIndex: number;
+  columnId: string;
+  columnName: string;
+  value: string;
+  isColumnHeader?: boolean;
+}
+
 interface DataTableProps {
   currentTable: Table | null;
   onColumnUpdate: (tableId: string, newColumn: any) => void;
@@ -44,6 +53,9 @@ interface DataTableProps {
   onUpdateFilter: (filterId: string, updates: Partial<FilterCondition>) => void;
   onRemoveFilter: (filterId: string) => void;
   onClearAllFilters: () => void;
+  searchTerm?: string;
+  searchResults?: SearchResult[];
+  currentSearchIndex?: number;
 }
 
 export default function DataTable({ 
@@ -60,7 +72,10 @@ export default function DataTable({
     onAddFilter,
     onUpdateFilter,
     onRemoveFilter,
-    onClearAllFilters
+    onClearAllFilters,
+    searchTerm = '',
+    searchResults = [],
+    currentSearchIndex = 0,
   }: DataTableProps) {
   const [isCreatingRecord, setIsCreatingRecord] = useState(false);
   const [isCreatingColumn, setIsCreatingColumn] = useState(false);
@@ -85,6 +100,65 @@ export default function DataTable({
     columnName: string;
     columnType: string;
   } | null>(null);
+
+  const highlightSearchTerm = (text: string, searchTerm: string) => {
+    if (!searchTerm.trim()) return text;
+    
+    const regex = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    const parts = text.toString().split(regex);
+    
+    return parts.map((part, index) => 
+      regex.test(part) ? (
+        <span key={index} className="search-highlight">{part}</span>
+      ) : part
+    );
+  };
+
+  const isRowHighlighted = (rowIndex: number) => {
+    if (!searchTerm || searchResults.length === 0) return false;
+    return searchResults.some(result => result.rowIndex === rowIndex && !result.isColumnHeader);
+  };
+
+  // Check if a column header should be highlighted
+  const isColumnHighlighted = (columnId: string) => {
+    if (!searchTerm || searchResults.length === 0) return false;
+    return searchResults.some(result => result.columnId === columnId && result.isColumnHeader);
+  };
+
+  const isCurrentRowHighlighted = (rowIndex: number) => {
+    if (!searchTerm || searchResults.length === 0) return false;
+    const currentResult = searchResults[currentSearchIndex];
+    return currentResult && currentResult.rowIndex === rowIndex && !currentResult.isColumnHeader;
+  };
+
+  const isCurrentColumnHighlighted = (columnId: string) => {
+    if (!searchTerm || searchResults.length === 0) return false;
+    const currentResult = searchResults[currentSearchIndex];
+    return currentResult && currentResult.columnId === columnId && currentResult.isColumnHeader;
+  };
+
+  const highlightSearchTermWithCurrent = (text: string, searchTerm: string, columnId: string, rowIndex: number) => {
+    if (!searchTerm.trim()) return text;
+    
+    const currentResult = searchResults[currentSearchIndex];
+    const isCurrentMatch = currentResult && 
+      currentResult.columnId === columnId && 
+      currentResult.rowIndex === rowIndex;
+    
+    const regex = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    const parts = text.toString().split(regex);
+    
+    return parts.map((part, index) => 
+      regex.test(part) ? (
+        <span 
+          key={index} 
+          className={`search-highlight ${isCurrentMatch ? 'search-highlight-current' : ''}`}
+        >
+          {part}
+        </span>
+      ) : part
+    );
+  };
 
   const handleHideColumn = useCallback((columnId: string) => {
     onHideColumn(columnId);
@@ -606,6 +680,15 @@ export default function DataTable({
           setValue(initialValue);
         }, [initialValue]);
 
+        // Get column info for highlighting
+        const columnData = currentTable?.columns?.find(col => 
+          col.name.toLowerCase().replace(/\s+/g, '') === column.columnDef.accessorKey
+        );
+
+        // Check if this cell should have highlighted text
+        const shouldHighlight = searchTerm && value && 
+          value.toString().toLowerCase().includes(searchTerm.toLowerCase());
+
         return (
           <div 
             data-row-index={index} 
@@ -617,8 +700,41 @@ export default function DataTable({
               alignItems: 'center',
               margin: 0,
               padding: 0,
+              position: 'relative',
             }}
           >
+            {shouldHighlight ? (
+              // Render highlighted text overlay when there's a search match
+              <div
+                style={{ 
+                  width: '100%', 
+                  height: '100%',
+                  border: 'none',
+                  background: 'transparent', 
+                  padding: '0 12px',
+                  fontSize: '13px',
+                  fontFamily: 'inherit',
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                  margin: 0,
+                  borderRadius: 3,
+                  display: 'flex',
+                  alignItems: 'center',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  pointerEvents: 'none',
+                  zIndex: 1,
+                }}
+              >
+                {highlightSearchTermWithCurrent(
+                  value.toString(), 
+                  searchTerm, 
+                  columnData?.id || '', 
+                  index
+                )}
+              </div>
+            ) : null}
             <input
               value={value as string || ''}
               onChange={onChange}
@@ -629,7 +745,7 @@ export default function DataTable({
                 width: '100%', 
                 height: '100%',
                 border: 'none',
-                background: 'transparent', 
+                background: shouldHighlight ? 'transparent' : 'transparent', 
                 padding: '0 12px',
                 fontSize: '13px',
                 fontFamily: 'inherit',
@@ -637,12 +753,15 @@ export default function DataTable({
                 boxSizing: 'border-box',
                 margin: 0,
                 borderRadius: 3,
+                color: shouldHighlight ? 'transparent' : 'inherit',
+                position: 'relative',
+                zIndex: 0,
               }}
             />
           </div>
         );
       },
-    }), [handleCellRightClick, handleKeyDown, currentCell]
+    }), [handleCellRightClick, handleKeyDown, searchTerm, searchResults, currentSearchIndex, currentTable?.columns, highlightSearchTermWithCurrent]
   );
 
   const handleCreateColumn = useCallback((name: string, type: 'text' | 'number') => {
@@ -776,11 +895,20 @@ export default function DataTable({
         const fieldKey = col.name.toLowerCase().replace(/\s+/g, '');
 
         return columnHelper.accessor(fieldKey, {
-          id: fieldKey, // Use fieldKey as both id and accessor for TanStack sorting
+          id: fieldKey,
           header: () => (
-            <div className="column-header-content" onContextMenu={(e) => handleColumnRightClick(e, col.id, col.name, col.type )}>
+            <div 
+              className={`column-header-content ${
+                isColumnHighlighted(col.id) ? 'search-column-highlight' : ''
+              } ${
+                isCurrentColumnHighlighted(col.id) ? 'search-column-highlight-current' : ''
+              }`}
+              onContextMenu={(e) => handleColumnRightClick(e, col.id, col.name, col.type)}
+            >
               <span className="column-icon">{getColumnIcon(col.type)}</span>
-              <span title={col.name}>{col.name}</span>
+              <span title={col.name}>
+                {highlightSearchTermWithCurrent(col.name, searchTerm, col.id, -1)}
+              </span>
             </div>
           ),
           ...(col.type !== 'text' && {
@@ -798,8 +926,6 @@ export default function DataTable({
                   const onFocus = () => {
                     setCurrentCell({ rowIndex: index, columnIndex });
                   };
-
-                  const isCurrentCell = currentCell?.rowIndex === index && currentCell?.columnIndex === columnIndex;
 
                   return (
                     <div 
@@ -845,7 +971,7 @@ export default function DataTable({
           })
         });
       });
-  }, [currentTable?.columns, getColumnIcon, handleColumnRightClick, hiddenColumns]);
+  }, [currentTable?.columns, getColumnIcon, handleColumnRightClick, hiddenColumns, searchTerm, searchResults, currentSearchIndex]);
 
   const table = useReactTable({
     data: tableData,
@@ -878,72 +1004,74 @@ export default function DataTable({
       <div className='table-wrapper'>
         <div className='table-scroll-container'>
             <table>
-              <thead>
-                {table.getHeaderGroups().map(headerGroup => (
-                  <tr key={headerGroup.id}>
-                    <th className="row-number-header">#</th>
-                    {headerGroup.headers.map(header => (
-                      <th key={header.id} className='column-names'>
-                        {flexRender(header.column.columnDef.header, header.getContext())}
-                      </th>
-                    ))}
-                    <th className='add-col-header'>
-                      <button
-                        ref={addColBtnRef}
-                        onClick={addNewCol}
-                        disabled={isCreatingColumn}
-                        className="add-col-button"
-                        style={{ 
-                          opacity: isCreatingColumn ? 0.6 : 1,
-                          cursor: isCreatingColumn ? 'not-allowed' : 'pointer'
-                        }}
-                      >
-                        {isCreatingColumn ? '...' : '+'}
-                      </button>  
+            <thead>
+              {table.getHeaderGroups().map(headerGroup => (
+                <tr key={headerGroup.id}>
+                  <th className="row-number-header">#</th>
+                  {headerGroup.headers.map(header => (
+                    <th key={header.id} className='column-names'>
+                      {flexRender(header.column.columnDef.header, header.getContext())}
                     </th>
-                  </tr>
-                ))} 
-              </thead>
-              <tbody>
-                <tr style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
-                  <td>
-                    <div ref={parentRef} style={{ height: '100%', position: 'relative' }}>
-                      {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                        const rows = table.getCoreRowModel().rows;
-                        const row = rows[virtualRow.index];
-                        if (!row) return null;
-
-                        return (
-                          <div
-                            key={row.id}
-                            className={`virtual-row`}
-                            style={{
-                              position: 'absolute',
-                              top: `${virtualRow.start}px`,
-                              left: 0,
-                              width: '100%',
-                              height: `${virtualRow.size}px`,
-                            }}
-                          >
-                            <div className="row-number">
-                              {virtualRow.index + 1}
-                            </div>
-                            {row.getVisibleCells().map((cell, cellIndex) => (
-                              <div 
-                                key={cell.id} 
-                                className={`record ${cellIndex === 0 ? 'first-column' : ''}`}
-                              >
-                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                              </div>
-                            ))}
-                          </div>
-                        );
-                      })}  
-                    </div>
-                  </td>
+                  ))}
+                  <th className='add-col-header'>
+                    <button
+                      ref={addColBtnRef}
+                      onClick={addNewCol}
+                      disabled={isCreatingColumn}
+                      className="add-col-button"
+                      style={{ 
+                        opacity: isCreatingColumn ? 0.6 : 1,
+                        cursor: isCreatingColumn ? 'not-allowed' : 'pointer'
+                      }}
+                    >
+                      {isCreatingColumn ? '...' : '+'}
+                    </button>  
+                  </th>
                 </tr>
-              </tbody>
-            </table>
+              ))} 
+            </thead>
+            <tbody>
+              <tr style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
+                <td>
+                  <div ref={parentRef} style={{ height: '100%', position: 'relative' }}>
+                    {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                      const rows = table.getCoreRowModel().rows;
+                      const row = rows[virtualRow.index];
+                      if (!row) return null;
+
+                      const isHighlighted = isRowHighlighted(virtualRow.index);
+
+                      return (
+                        <div
+                          key={row.id}
+                          className={`virtual-row ${isHighlighted ? 'search-row-highlight' : ''}`}
+                          style={{
+                            position: 'absolute',
+                            top: `${virtualRow.start}px`,
+                            left: 0,
+                            width: '100%',
+                            height: `${virtualRow.size}px`,
+                          }}
+                        >
+                          <div className={`row-number ${isHighlighted ? 'search-row-highlight' : ''}`}>
+                            {virtualRow.index + 1}
+                          </div>
+                          {row.getVisibleCells().map((cell, cellIndex) => (
+                            <div 
+                              key={cell.id} 
+                              className={`record ${cellIndex === 0 ? 'first-column' : ''} ${isHighlighted ? 'search-row-highlight' : ''}`}
+                            >
+                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })}  
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
           <div onClick={addNewRow} className='add-row-button' style={{ width: `${totalTableWidth}px`}}>
             +
           </div>

@@ -13,6 +13,7 @@ import RowHeight from '../assets/row-height.png';
 import HiddenFieldsDropdown from '../_components/HiddenFields';
 import SortDropdown from './SortContextMenu';
 import FilterContextMenu from './FilterContextMenu';
+import SearchOverlay from './SearchField';
 
 interface FilterCondition {
   id: string;
@@ -21,6 +22,15 @@ interface FilterCondition {
   columnType: string;
   operator: string;
   value: string;
+}
+
+interface SearchResult {
+  rowId: string;
+  rowIndex: number;
+  columnId: string;
+  columnName: string;
+  value: string;
+  isColumnHeader?: boolean;
 }
 
 interface TableControlsProps {
@@ -43,6 +53,12 @@ interface TableControlsProps {
   baseColor?: string; // Add this
   sortingLoading?: boolean; // Add this
   filteringLoading?: boolean; // Add this
+  onSearch?: (term: string) => void;
+  searchTerm?: string;
+  searchResults?: SearchResult[];
+  currentSearchIndex?: number;
+  onSearchNavigate?: (direction: 'next' | 'prev') => void;
+  onSearchSelect?: (index: number) => void;
 }
 
 export default function TableControls({ 
@@ -63,8 +79,14 @@ export default function TableControls({
   onRemoveFilter,
   onClearAllFilters,
   baseColor,
-  sortingLoading = false, // Add this
-  filteringLoading = false, // Add this
+  sortingLoading = false,
+  filteringLoading = false,
+  onSearch,
+  searchTerm = '',
+  searchResults = [],
+  currentSearchIndex = 0,
+  onSearchNavigate,
+  onSearchSelect,
 }: TableControlsProps) {
   const [showHiddenFieldsDropdown, setShowHiddenFieldsDropdown] = useState(false);
   const [showSortDropdown, setShowSortDropdown] = useState(false);
@@ -75,9 +97,42 @@ export default function TableControls({
   const hideFieldsBtnRef = useRef<HTMLButtonElement>(null);
   const sortBtnRef = useRef<HTMLButtonElement>(null);
   const filterBtnRef = useRef<HTMLButtonElement>(null);
+  const [showSearchOverlay, setShowSearchOverlay] = useState(false);
+  const [searchPosition, setSearchPosition] = useState({ left: 0, top: 0 });
+  const searchBtnRef = useRef<HTMLButtonElement>(null);
 
   const handle100kRowsPressed = () => {
     set100kRowsPressed(true);
+  };
+
+  const handleSearchClick = () => {
+    if (searchBtnRef.current) {
+      const rect = searchBtnRef.current.getBoundingClientRect();
+      const dropdownWidth = 400;
+      
+      let top = rect.bottom + window.scrollY + 8;
+      let left = rect.left + window.scrollX;
+      
+      // Adjust if dropdown would go off-screen
+      if (left + dropdownWidth > window.innerWidth) {
+        left = window.innerWidth - dropdownWidth - 16;
+      }
+      
+      setSearchPosition({ top, left });
+    }
+    setShowSearchOverlay(true);
+  };
+
+  const handleSearchChange = (term: string) => {
+    onSearch?.(term);
+  };
+
+  const handleSearchNavigate = (direction: 'next' | 'prev') => {
+    onSearchNavigate?.(direction);
+  };
+
+  const handleSearchSelect = (index: number) => {
+    onSearchSelect?.(index);
   };
 
   const handleHideFieldsClick = () => {
@@ -242,8 +297,20 @@ export default function TableControls({
           <button type="button" className="control-btn">
             <Image className='table-control-icons' src={ShareAndSync} alt='Share and Sync'/> Share and sync
           </button>
-          <button type="button" className="control-btn">
+          <button 
+            ref={searchBtnRef}
+            type="button" 
+            className="control-btn"
+            onClick={handleSearchClick}
+            style={{
+              border: searchTerm ? `2px solid ${baseColor ?? '#2563eb'}` : undefined,
+              backgroundColor: searchTerm ? `${baseColor ?? '#2563eb'}20` : undefined,
+            }}
+          >
             <Image className='table-control-icons-search' src={Search} alt='Search'/>
+            {searchTerm && searchResults.length > 0 && (
+              <span className="search-count-badge">{searchResults.length}</span>
+            )}
           </button>
         </div>
       </div>
@@ -271,6 +338,20 @@ export default function TableControls({
         onClearSort={onClearSort}
         onRemoveSort={onRemoveColumnSort}
         onCancel={() => setShowSortDropdown(false)}
+      />
+
+      <SearchOverlay
+        visible={showSearchOverlay}
+        onClose={() => setShowSearchOverlay(false)}
+        searchTerm={searchTerm}
+        onSearchChange={handleSearchChange}
+        searchResults={searchResults}
+        currentResultIndex={currentSearchIndex}
+        onResultSelect={handleSearchSelect}
+        onNavigateNext={() => handleSearchNavigate('next')}
+        onNavigatePrev={() => handleSearchNavigate('prev')}
+        x={searchPosition.left}
+        y={searchPosition.top}
       />
 
       <FilterContextMenu

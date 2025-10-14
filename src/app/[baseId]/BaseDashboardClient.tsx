@@ -11,7 +11,7 @@ import BaseConfigModal from '../_components/BaseConfigurationModel';
 import NavigateSidebar from '../_components/NavigateSideBar';
 import type { BaseDashboardClientProps } from '../../types';
 import '../../styles/basedashboard.css';
-
+import '../../styles/searchfield.css';
 
 interface FilterCondition {
   id: string;
@@ -20,6 +20,15 @@ interface FilterCondition {
   columnType: string;
   operator: string;
   value: string;
+}
+
+interface SearchResult {
+  rowId: string;
+  rowIndex: number;
+  columnId: string;
+  columnName: string;
+  value: string;
+  isColumnHeader?: boolean;
 }
 
 
@@ -32,6 +41,10 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
   const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set());
   const [currentSort, setCurrentSort] = useState<Array<{ columnId: string; direction: 'asc' | 'desc' }>>([]);
   const [currentFilters, setCurrentFilters] = useState<FilterCondition[]>([]);
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
 
   const [sortingLoading, setSortingLoading] = useState(false);
   const [filteringLoading, setFilteringLoading] = useState(false);
@@ -294,6 +307,85 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
     });
   }, [currentTable?.id, updateTableSortMutation, refetch, currentFilters]);
 
+  const handleSearch = useCallback((term: string) => {
+    setSearchTerm(term);
+    
+    if (!term.trim() || !currentTable) {
+      setSearchResults([]);
+      setCurrentSearchIndex(0);
+      return;
+    }
+
+    const results: SearchResult[] = [];
+    const normalizedTerm = term.toLowerCase();
+
+    // Search in column headers
+    currentTable.columns?.forEach(column => {
+      if (column.name.toLowerCase().includes(normalizedTerm)) {
+        results.push({
+          rowId: 'header',
+          rowIndex: -1,
+          columnId: column.id,
+          columnName: column.name,
+          value: column.name,
+          isColumnHeader: true
+        });
+      }
+    });
+
+    // Get table data from the query result or table records
+    const tableData = tableWithSortedRecords?.records?.map((record) => {
+      const data = record.data as Record<string, unknown> || {};
+      return {
+        id: record.id,
+        ...data,
+      };
+    }) ?? currentTable.records?.map((record) => {
+      const data = record.data as Record<string, unknown> || {};
+      return {
+        id: record.id,
+        ...data,
+      };
+    }) ?? [];
+
+    // Search in table data
+    tableData.forEach((row, rowIndex) => {
+      currentTable.columns?.forEach(column => {
+        const fieldKey = column.name.toLowerCase().replace(/\s+/g, '');
+        const cellValue = row[fieldKey]?.toString() ?? '';
+        
+        if (cellValue.toLowerCase().includes(normalizedTerm)) {
+          results.push({
+            rowId: row.id,
+            rowIndex,
+            columnId: column.id,
+            columnName: column.name,
+            value: cellValue
+          });
+        }
+      });
+    });
+
+    setSearchResults(results);
+    setCurrentSearchIndex(0);
+  }, [currentTable, tableWithSortedRecords]);
+
+  const handleSearchNavigate = useCallback((direction: 'next' | 'prev') => {
+    if (searchResults.length === 0) return;
+
+    setCurrentSearchIndex(prevIndex => {
+      if (direction === 'next') {
+        return (prevIndex + 1) % searchResults.length;
+      } else {
+        return prevIndex === 0 ? searchResults.length - 1 : prevIndex - 1;
+      }
+    });
+  }, [searchResults.length]);
+
+  const handleSearchSelect = useCallback((index: number) => {
+    setCurrentSearchIndex(index);
+  }, []);
+
 
   const createTableMutation = api.base.createTable.useMutation({
     onSuccess: (newTable) => {
@@ -498,7 +590,7 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
                 onHideColumn={handleHideColumn}
                 currentSort={currentSort}
                 onSort={handleSort}
-                onClearSort={handleClearSort} // Add this prop
+                onClearSort={handleClearSort}
                 onRemoveColumnSort={handleRemoveColumnSort}
                 currentFilters={currentFilters}
                 onAddFilter={handleAddFilter}
@@ -506,9 +598,16 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
                 onRemoveFilter={handleRemoveFilter}
                 onClearAllFilters={handleClearAllFilters}
                 baseColor={base.color}
-                sortingLoading={sortingLoading} // Add this
-                filteringLoading={filteringLoading} // Add this
+                sortingLoading={sortingLoading}
+                filteringLoading={filteringLoading}
+                onSearch={handleSearch}
+                searchTerm={searchTerm}
+                searchResults={searchResults}
+                currentSearchIndex={currentSearchIndex}
+                onSearchNavigate={handleSearchNavigate}
+                onSearchSelect={handleSearchSelect}
               />
+              
               <DataTable 
                 currentTable={currentTable} 
                 onColumnUpdate={updateTableColumns} 
@@ -524,8 +623,11 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
                 onUpdateFilter={handleUpdateFilter}
                 onRemoveFilter={handleRemoveFilter}
                 onClearAllFilters={handleClearAllFilters}
-                sortingLoading={sortingLoading} // Add this
-                filteringLoading={filteringLoading} // Add this
+                sortingLoading={sortingLoading}
+                filteringLoading={filteringLoading}
+                searchTerm={searchTerm}
+                searchResults={searchResults}
+                currentSearchIndex={currentSearchIndex}
               />
 
               {/* Loading overlay */}

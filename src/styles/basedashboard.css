@@ -1154,6 +1154,20 @@ td {
   color:rgba(29, 31, 37, 1)
 }
 
+
+.sidebar-buttons.active-view {
+  background-color: #e3f2fd;
+  font-weight: 600;
+}
+
+.sidebar-buttons:hover {
+  background-color: #f5f5f5;
+}
+
+.sidebar-buttons.active-view:hover {
+  background-color: #bbdefb;
+}
+
 .sidebar-buttons-search {
   display: flex;
   flex-direction: row;

@@ -1,5 +1,6 @@
 import type { Session } from "next-auth";
 import type { JsonValue } from "next-auth/adapters";
+import type { StringLiteral } from "typescript";
 
 // Base interfaces
 export interface Base {
@@ -19,6 +20,7 @@ export interface Table {
   baseId: string;
   columns?: Column[];
   records?: Record[];
+  views?: View[];
   createdAt: Date;
   updatedAt: Date;
   sortConfig?: Array<{ columnId: string; direction: 'asc' | 'desc' }> | null;
@@ -95,6 +97,28 @@ export interface CreateBaseResponse {
   createdAt: string;
   updatedAt: string;
   createdById: string;
+}
+
+export interface View {
+  id: string;
+  name: string;
+  tableId: string;
+  type: 'grid';
+  config: {
+    hiddenColumns: string[];
+    sort: Array<{ columnId: string; direction: 'asc' | 'desc' }>;
+    filters: Array<{
+      id: string;
+      columnId: string;
+      columnName: string;
+      columnType: string;
+      operator: string;
+      value: string;
+    }>;
+    searchTerm?: string;
+  };
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 // Common types

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { api } from "ritthickclone/trpc/react";
 import React from 'react';
 import BaseHeader from '../_components/BaseHeader';
@@ -9,6 +9,7 @@ import TableControls from '../_components/TableControls';
 import DataTable from '../_components/DataTable';
 import BaseConfigModal from '../_components/BaseConfigurationModel';
 import NavigateSidebar from '../_components/NavigateSideBar';
+import ViewCreationModal from '../_components/ViewCreationMenu';
 import type { BaseDashboardClientProps } from '../../types';
 import '../../styles/basedashboard.css';
 import '../../styles/searchfield.css';
@@ -41,17 +42,140 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
   const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set());
   const [currentSort, setCurrentSort] = useState<Array<{ columnId: string; direction: 'asc' | 'desc' }>>([]);
   const [currentFilters, setCurrentFilters] = useState<FilterCondition[]>([]);
-
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
-
   const [sortingLoading, setSortingLoading] = useState(false);
   const [filteringLoading, setFilteringLoading] = useState(false);
-
-  const [base, setBase] = useState(initialBase)
+  const [currentViewId, setCurrentViewId] = useState<string | null>(null);
+  const [showViewCreationModal, setShowViewCreationModal] = useState(false);
+  const [viewModalPosition, setViewModalPosition] = useState({ x: 0, y: 0});
+  const [base, setBase] = useState(initialBase);
 
   const currentTable = base.tables?.[currentTableIndex] ?? base.tables?.[0] ?? null;
+
+  const { data: views = [], refetch: refetchViews } = api.view.getByTableId.useQuery(
+    { tableId: currentTable?.id ?? '' },
+    { enabled: !!currentTable?.id }
+  );
+
+  const createViewMutation = api.view.create.useMutation();
+  const updateViewMutation = api.view.update.useMutation();
+  const deleteViewMutation = api.view.delete.useMutation();
+
+  useEffect(() => {
+    if (currentViewId) {
+      const view = views.find(v => v.id === currentViewId);
+      if (view) {
+        setHiddenColumns(new Set(view.config.hiddenColumns));
+        setCurrentSort(view.config.sort);
+        setCurrentFilters(view.config.filters);
+        setSearchTerm(view.config.searchTerm ?? '');
+      }
+    } else {
+      setHiddenColumns(new Set());
+      setCurrentSort([]);
+      setCurrentFilters([]);
+      setSearchTerm('');
+    }
+  }, [currentViewId, views]);
+
+  useEffect(() => {
+    setCurrentViewId(null);
+    setHiddenColumns(new Set());
+    setCurrentSort([]);
+    setCurrentFilters([]);
+    setSearchTerm('');
+    setSearchResults([]);
+    setCurrentSearchIndex(0);
+  }, [currentTableIndex]);
+
+  const handleCreateView = useCallback(() => {
+    console.log('🔍 handleCreateView called'); // Add this
+    const sidebar = document.querySelector('.left-side-bar');
+    console.log('📍 Sidebar element:', sidebar); // Add this
+    if (sidebar) {
+      const rect = sidebar.getBoundingClientRect();
+      console.log('📍 Position:', { x: rect.right + 20, y: rect.top + 100 }); // Add this
+      setViewModalPosition({
+        x: rect.right + 20,
+        y: rect.top + 100,
+      });
+    }
+    setShowViewCreationModal(true);
+    console.log('✅ Modal should open now'); // Add this
+  }, []);
+
+  const handleViewCreation = useCallback(async (name: string) => {
+    if (!currentTable) return;
+
+    try {
+      const newView = await createViewMutation.mutateAsync({
+        tableId: currentTable.id,
+        name,
+        config: {
+          hiddenColumns: Array.from(hiddenColumns),
+          sort: currentSort,
+          filters: currentFilters,
+          searchTerm: searchTerm || undefined,
+        },
+      });
+
+      await refetchViews();
+      setCurrentViewId(newView.id);
+      setShowViewCreationModal(false);
+    } catch (error) {
+      console.error('Failed to create view:', error);
+      alert('Failed to create view. Please try again.');
+    }
+  }, [currentTable, hiddenColumns, currentSort, currentFilters, searchTerm, createViewMutation, refetchViews]);
+
+  const handleViewSelect = useCallback((viewId: string | null) => {
+    setCurrentViewId(viewId);
+  }, []);
+
+  const handleDeleteView = useCallback(async (viewId: string) => {
+    try {
+      await deleteViewMutation.mutateAsync({ viewId });
+      await refetchViews();
+      if (currentViewId === viewId) {
+        setCurrentViewId(null);
+      }
+    } catch (error) {
+      console.error('Failed to delete view:', error);
+      alert('Failed to delete view. Please try again.');
+    }
+  }, [deleteViewMutation, refetchViews, currentViewId]);
+
+  const handleUpdateCurrentView = useCallback(async () => {
+    if (!currentViewId) return;
+
+    try {
+      await updateViewMutation.mutateAsync({
+        viewId: currentViewId,
+        config: {
+          hiddenColumns: Array.from(hiddenColumns),
+          sort: currentSort,
+          filters: currentFilters,
+          searchTerm: searchTerm || undefined,
+        },
+      });
+      await refetchViews();
+    } catch (error) {
+      console.error('Failed to update view:', error);
+    }
+  }, [currentViewId, hiddenColumns, currentSort, currentFilters, searchTerm, updateViewMutation, refetchViews]);
+
+  // Auto-save view when configuration changes
+  useEffect(() => {
+    if (currentViewId) {
+      const timeoutId = setTimeout(() => {
+        handleUpdateCurrentView();
+      }, 1000);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [currentViewId, hiddenColumns, currentSort, currentFilters, searchTerm, handleUpdateCurrentView]);
 
   const { data: tableWithSortedRecords, refetch } = api.base.getTableRecords.useQuery(
     {
@@ -632,8 +756,12 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
                 searchTerm={searchTerm}
                 searchResults={searchResults}
                 currentSearchIndex={currentSearchIndex}
+                views={views}
+                currentViewId={currentViewId}
+                onViewSelect={handleViewSelect}
+                onCreateView={handleCreateView}
+                onDeleteView={handleDeleteView}
               />
-
               {/* Loading overlay */}
               {(sortingLoading || filteringLoading) && (
                 <div style={{
@@ -689,6 +817,14 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
           isEditing={isEditing}
           setIsEditing={setIsEditing}
           handleNameSave={handleNameSave}
+        />
+
+        <ViewCreationModal
+          isOpen={showViewCreationModal}
+          onClose={() => setShowViewCreationModal(false)}
+          onCreateView={handleViewCreation}
+          x={viewModalPosition.x}
+          y={viewModalPosition.y}
         />
       </div>
     </div>

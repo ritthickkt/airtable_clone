@@ -55,6 +55,11 @@ interface DataTableProps {
   searchTerm?: string;
   searchResults?: SearchResult[];
   currentSearchIndex?: number;
+  views?: Array<{ id: string; name: string; type: string }>;
+  currentViewId?: string | null;
+  onViewSelect?: (viewId: string | null) => void;
+  onCreateView?: () => void;
+  onDeleteView?: (viewId: string) => void;
 }
 
 export default function DataTable({ 
@@ -75,6 +80,11 @@ export default function DataTable({
     searchTerm = '',
     searchResults = [],
     currentSearchIndex = 0,
+    views = [],
+    currentViewId = null,
+    onViewSelect,
+    onCreateView,
+    onDeleteView,
   }: DataTableProps) {
   
   // All useState hooks first
@@ -762,7 +772,7 @@ export default function DataTable({
         const fieldKey = col.name.toLowerCase().replace(/\s+/g, '');
 
         return columnHelper.accessor(fieldKey, {
-          id: fieldKey,
+          id: col.id,
           header: () => (
             <div 
               className={`column-header-content ${
@@ -941,7 +951,13 @@ export default function DataTable({
 
   return (
     <div className='table-main-content'>
-      <SideBar />
+      <SideBar
+        views={views}
+        currentViewId={currentViewId}
+        onViewSelect={onViewSelect}
+        onCreateView={onCreateView}
+        onDeleteView={onDeleteView}
+      />
       <div className='table-wrapper'>
         <div className='table-scroll-container'>
             <table>

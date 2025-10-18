@@ -248,6 +248,23 @@ export const baseRouter = createTRPCRouter({
         ],
       });
 
+      await ctx.db.record.createMany({
+        data: [
+          {
+            tableId: newTable.id,
+            data: {},
+          },
+          {
+            tableId: newTable.id,
+            data: {},
+          },
+          {
+            tableId: newTable.id,
+            data: {},
+          },
+        ],
+      });
+
 
       return ctx.db.table.findUnique({
         where: { id: newTable.id },

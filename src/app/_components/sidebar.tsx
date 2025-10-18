@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import search from '../assets/search.svg';
 import { useState, useRef, useEffect } from 'react';
+import { cursorTo } from 'readline';
 
 interface View {
   id: string;
@@ -64,6 +65,9 @@ export default function Sidebar({
             console.log('➕ Create New clicked, current state:', showCreateMenu); // Add this
             setShowCreateMenu(!showCreateMenu)
           }}
+          style={{
+            cursor: 'pointer',
+          }}
         >
           + Create New..
         </button>
@@ -122,15 +126,8 @@ export default function Sidebar({
             type="text"
             placeholder="Find a view"
             value={viewSearchTerm}
+            className='sidebar-buttons-find'
             onChange={(e) => setViewSearchTerm(e.target.value)}
-            style={{
-              border: 'none',
-              outline: 'none',
-              backgroundColor: 'transparent',
-              fontSize: '13px',
-              marginLeft: '8px',
-              flex: 1,
-            }}
           />
         </button>
       </div>

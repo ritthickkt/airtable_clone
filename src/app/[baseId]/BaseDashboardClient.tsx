@@ -23,6 +23,13 @@ interface FilterCondition {
   value: string;
 }
 
+interface ViewConfig {
+  hiddenColumns: string[];
+  sort: Array<{ columnId: string; direction: 'asc' | 'desc' }>;
+  filters: FilterCondition[];
+  searchTerm?: string;
+}
+
 interface SearchResult {
   rowId: string;
   rowIndex: number;
@@ -52,6 +59,47 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
   const [viewModalPosition, setViewModalPosition] = useState({ x: 0, y: 0});
   const [base, setBase] = useState(initialBase);
 
+  if (base && (!base.tables || base.tables.length === 0)) {
+    return (
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100vh',
+        width: '100%',
+      }}>
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '16px',
+        }}>
+          <div style={{
+            width: '40px',
+            height: '40px',
+            border: '4px solid #f3f3f3',
+            borderTop: '4px solid #3b82f6',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+          }} />
+          <style jsx>{`
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `}</style>
+          <p style={{
+            color: '#666',
+            fontSize: '14px',
+            fontWeight: 500,
+          }}>
+            Setting up your base...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   const currentTable = base.tables?.[currentTableIndex] ?? base.tables?.[0] ?? null;
 
   const { data: views = [], refetch: refetchViews } = api.view.getByTableId.useQuery(
@@ -64,21 +112,23 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
   const deleteViewMutation = api.view.delete.useMutation();
 
   useEffect(() => {
-    if (currentViewId) {
-      const view = views.find(v => v.id === currentViewId);
-      if (view) {
-        setHiddenColumns(new Set(view.config.hiddenColumns));
-        setCurrentSort(view.config.sort);
-        setCurrentFilters(view.config.filters);
-        setSearchTerm(view.config.searchTerm ?? '');
-      }
-    } else {
-      setHiddenColumns(new Set());
-      setCurrentSort([]);
-      setCurrentFilters([]);
-      setSearchTerm('');
+  if (currentViewId) {
+    const view = views.find(v => v.id === currentViewId);
+    if (view) {
+      // Type assert the config as ViewConfig
+      const config = view.config as unknown as ViewConfig;
+      setHiddenColumns(new Set(config.hiddenColumns ?? []));
+      setCurrentSort(config.sort ?? []);
+      setCurrentFilters(config.filters ?? []);
+      setSearchTerm(config.searchTerm ?? '');
     }
-  }, [currentViewId, views]);
+  } else {
+    setHiddenColumns(new Set());
+    setCurrentSort([]);
+    setCurrentFilters([]);
+    setSearchTerm('');
+  }
+}, [currentViewId, views]);
 
   useEffect(() => {
     setCurrentViewId(null);
@@ -176,6 +226,7 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
       return () => clearTimeout(timeoutId);
     }
   }, [currentViewId, hiddenColumns, currentSort, currentFilters, searchTerm, handleUpdateCurrentView]);
+
 
   const { data: tableWithSortedRecords, refetch } = api.base.getTableRecords.useQuery(
     {

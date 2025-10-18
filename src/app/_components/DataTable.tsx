@@ -16,6 +16,7 @@ import type { TableRow, Table } from '../../types';
 import ColumnConfiguration from '../_components/ColumnConfiguration';
 import ColumnContextMenu from './ColumnContextMenu';
 import React from 'react';
+import { isInstanceOfRegisteredClass } from 'node_modules/superjson/dist/transformer';
 
 const columnHelper = createColumnHelper<TableRow>();
 
@@ -87,7 +88,6 @@ export default function DataTable({
     onDeleteView,
   }: DataTableProps) {
   
-  // All useState hooks first
   const [isCreatingRecord, setIsCreatingRecord] = useState(false);
   const [isCreatingColumn, setIsCreatingColumn] = useState(false);
   const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
@@ -113,6 +113,7 @@ export default function DataTable({
     added: number;
     total: number;
   } | null>(null);
+  const [previousTableId, setPreviousTableId] = useState<string | null>(null);
 
   // All useRef hooks
   const colConfigRef = React.useRef<HTMLDivElement>(null);
@@ -132,7 +133,9 @@ export default function DataTable({
     fetchNextPage, 
     hasNextPage, 
     isFetchingNextPage,
-    refetch 
+    isLoading: isLoadingRecords,
+    isFetching: isFetchingRecords, 
+    refetch
   } = api.base.getTableRecords.useInfiniteQuery(
     {
       tableId: currentTable?.id ?? '',
@@ -151,6 +154,18 @@ export default function DataTable({
     { tableId: currentTable?.id ?? '' },
     { enabled: !!currentTable?.id }
   );
+
+  const isTableSwitching = currentTable?.id !== previousTableId;
+  
+  const shouldShowLoading = (isLoadingRecords ?? (isTableSwitching && !isFetchingRecords)) && 
+                            !isCreatingRecord &&
+                            !isCreatingColumn;
+
+  React.useEffect(() => {
+    if (currentTable?.id && currentTable.id !== previousTableId) {
+      setPreviousTableId(currentTable.id);
+    }
+  }, [currentTable?.id, previousTableId]);
 
   // All useCallback hooks
   const highlightSearchTerm = useCallback((text: string, searchTerm: string) => {
@@ -959,84 +974,125 @@ export default function DataTable({
         onDeleteView={onDeleteView}
       />
       <div className='table-wrapper'>
-        <div className='table-scroll-container'>
-            <table>
-            <thead>
-              {table.getHeaderGroups().map(headerGroup => (
-                <tr key={headerGroup.id}>
-                  <th className="row-number-header">#</th>
-                  {headerGroup.headers.map(header => (
-                    <th key={header.id} className='column-names'>
-                      {flexRender(header.column.columnDef.header, header.getContext())}
-                    </th>
-                  ))}
-                  <th className='add-col-header'>
-                    <button
-                      ref={addColBtnRef}
-                      onClick={addNewCol}
-                      disabled={isCreatingColumn}
-                      className="add-col-button"
-                      style={{ 
-                        opacity: isCreatingColumn ? 0.6 : 1,
-                        cursor: isCreatingColumn ? 'not-allowed' : 'pointer'
-                      }}
-                    >
-                      {isCreatingColumn ? '...' : '+'}
-                    </button>  
-                  </th>
-                </tr>
-              ))} 
-            </thead>
-            <tbody>
-              <tr style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
-                <td>
-                  <div ref={parentRef} style={{ height: '100%', position: 'relative' }}>
-                    {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                      const rows = table.getCoreRowModel().rows;
-                      const row = rows[virtualRow.index];
-                      if (!row) return null;
-
-                      const isHighlighted = isRowHighlighted(virtualRow.index);
-
-                      return (
-                        <div
-                          key={row.id}
-                          className={`virtual-row ${isHighlighted ? 'search-row-highlight' : ''}`}
-                          style={{
-                            position: 'absolute',
-                            top: `${virtualRow.start}px`,
-                            left: 0,
-                            width: '100%',
-                            height: `${virtualRow.size}px`,
-                          }}
-                        >
-                          <div className={`row-number ${isHighlighted ? 'search-row-highlight' : ''}`}>
-                            {virtualRow.index + 1}
-                          </div>
-                          {row.getVisibleCells().map((cell, cellIndex) => (
-                            <div 
-                              key={cell.id} 
-                              className={`record ${cellIndex === 0 ? 'first-column' : ''} ${isHighlighted ? 'search-row-highlight' : ''}`}
-                            >
-                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    })}  
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <div onClick={addNewRow} className='add-row-button' style={{ width: `${totalTableWidth}px`}}>
-            +
+        {shouldShowLoading ? (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '100vh',
+            width: '100%',
+          }}>
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '16px',
+            }}>
+              <div style={{
+                width: '40px',
+                height: '40px',
+                border: '4px solid #f3f3f3',
+                borderTop: '4px solid #3b82f6',
+                borderRadius: '50%',
+                animation: 'spin 1s linear infinite',
+              }} />
+              <style jsx>{`
+                @keyframes spin {
+                  0% { transform: rotate(0deg); }
+                  100% { transform: rotate(360deg); }
+                }
+              `}</style>
+              <p style={{
+                color: '#666',
+                fontSize: '14px',
+                fontWeight: 500,
+              }}>
+                Loading table...
+              </p>
+            </div>
           </div>
-        </div>
-        <div className='number-of-rows'>
-          {totalCount ? totalCount.toLocaleString() : tableData.length.toLocaleString()} Records
-          {isFetchingNextPage && " (Loading...)"}
-        </div>
+        ) : (
+        <>
+          <div className='table-scroll-container'>
+              <table>
+              <thead>
+                {table.getHeaderGroups().map(headerGroup => (
+                  <tr key={headerGroup.id}>
+                    <th className="row-number-header">#</th>
+                    {headerGroup.headers.map(header => (
+                      <th key={header.id} className='column-names'>
+                        {flexRender(header.column.columnDef.header, header.getContext())}
+                      </th>
+                    ))}
+                    <th className='add-col-header'>
+                      <button
+                        ref={addColBtnRef}
+                        onClick={addNewCol}
+                        disabled={isCreatingColumn}
+                        className="add-col-button"
+                        style={{ 
+                          opacity: isCreatingColumn ? 0.6 : 1,
+                          cursor: isCreatingColumn ? 'not-allowed' : 'pointer'
+                        }}
+                      >
+                        {isCreatingColumn ? '...' : '+'}
+                      </button>  
+                    </th>
+                  </tr>
+                ))} 
+              </thead>
+              <tbody>
+                <tr style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
+                  <td>
+                    <div ref={parentRef} style={{ height: '100%', position: 'relative' }}>
+                      {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                        const rows = table.getCoreRowModel().rows;
+                        const row = rows[virtualRow.index];
+                        if (!row) return null;
+
+                        const isHighlighted = isRowHighlighted(virtualRow.index);
+
+                        return (
+                          <div
+                            key={row.id}
+                            className={`virtual-row ${isHighlighted ? 'search-row-highlight' : ''}`}
+                            style={{
+                              position: 'absolute',
+                              top: `${virtualRow.start}px`,
+                              left: 0,
+                              width: '100%',
+                              height: `${virtualRow.size}px`,
+                            }}
+                          >
+                            <div className={`row-number ${isHighlighted ? 'search-row-highlight' : ''}`}>
+                              {virtualRow.index + 1}
+                            </div>
+                            {row.getVisibleCells().map((cell, cellIndex) => (
+                              <div 
+                                key={cell.id} 
+                                className={`record ${cellIndex === 0 ? 'first-column' : ''} ${isHighlighted ? 'search-row-highlight' : ''}`}
+                              >
+                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })}  
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div onClick={addNewRow} className='add-row-button' style={{ width: `${totalTableWidth}px`}}>
+              +
+            </div>
+          </div>
+          <div className='number-of-rows'>
+            {totalCount ? totalCount.toLocaleString() : tableData.length.toLocaleString()} Records
+            {isFetchingNextPage && " (Loading...)"}
+          </div>
+        </>
+        )}
         <ContextMenuRecord
           visible={contextMenu?.visible ?? false}
           x={contextMenu?.x ?? 0}

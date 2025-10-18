@@ -63,17 +63,16 @@ export default function HomePageClient({ session }: { session: Session | null })
     });
 
     if (response.ok) {
-      const newBase = await response.json() as CreateBaseResponse;
-      console.log('Database created: ', newBase);
-      setNewBaseName('Untitled Base');
-      setShowCreateModal(false);
-      window.location.href = `/${newBase.id}`;
-      await refetchBases();
-    }
+        const newBase = await response.json() as CreateBaseResponse;
+        console.log('Database created: ', newBase);
+        setNewBaseName('Untitled Base');
+        setShowCreateModal(false);
+        window.location.href = `/${newBase.id}`;
+        refetchBases().catch(console.error);
+      }
     } catch (error) {
       console.error("Error creating database:", error);
-    } finally {
-      setIsCreating(false)
+      setIsCreating(false);
     }
   };
 
@@ -142,7 +141,8 @@ export default function HomePageClient({ session }: { session: Session | null })
                   ))
                 ) : (
                   <div className="no-bases-message">
-                    <p>No bases yet. Create your first base to get started!</p>
+                    <p className='no-bases-header'>You haven't opened anything recently</p>
+                    <p className='no-bases-subtitle'>Apps that you have recently opened will appear here</p>
                   </div>
                 )}
               </div>

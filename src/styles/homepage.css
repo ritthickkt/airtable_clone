@@ -315,6 +315,31 @@
   background-color: #f8f9fa;
 }
 
+.no-bases-message {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  align-self: center;
+  flex-direction: column;
+  min-height: 600px;
+  grid-column: 1 / -1; /* Span all grid columns */
+}
+
+.no-bases-header {
+  font-weight: 500;
+  font-size: 24px;
+  margin-bottom: 7px;
+  font-family: BlinkMacSystemFont;
+}
+
+
+.no-bases-subtitle {
+  font-size: 15px;
+  color: #656565;
+  margin-bottom: 7px;
+  font-family: BlinkMacSystemFont;
+}
+
 .main-home-content {
   width: 100%;
 }

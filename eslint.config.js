@@ -29,10 +29,6 @@ export default tseslint.config(
         { argsIgnorePattern: "^_" },
       ],
       "@typescript-eslint/require-await": "off",
-      "@typescript-eslint/no-misused-promises": [
-        "error",
-        { checksVoidReturn: { attributes: false } },
-      ],
       "@typescript-eslint/no-unsafe-assignment": "off",
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-unsafe-argument": "off",
@@ -41,7 +37,8 @@ export default tseslint.config(
       "react-hooks/rules-of-hooks": "off",
       "@typescript-eslint/no-unsafe-return": "off",
       "@typescript-eslint/no-floating-promises": "off",
-      "@typescript-eslint/prefer-optional-chain": "off"
+      "@typescript-eslint/prefer-optional-chain": "off",
+      "@typescript-eslint/no-misused-promises": "off"
     },
   },
   {

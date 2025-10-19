@@ -23,14 +23,14 @@
   width: 300px;
   padding: 10px;
   display: flex;
-  gap: 10px;
+  border-right: 1px solid #E5E5E5;
   background-color: white;
   flex-direction: column;
-  border-right: 2px solid #E5E5E5;
   height: 100%;
   overflow: hidden;
   flex-shrink: 0;
 }
+
 
 .base-sidebar {
   width: 280px;
@@ -38,11 +38,6 @@
   border-right: 1px solid #e9ecef;
   padding: 16px;
   overflow-y: auto;
-}
-
-/* Sidebar Sections */
-.sidebar-section {
-  margin-bottom: 24px;
 }
 
 .table-header {
@@ -70,12 +65,17 @@
 /* Sidebar Buttons */
 .sidebar-buttons {
   height: 35px;
-  border-radius: 5px;
+  border-radius: 7px;
+  width: 275px;
   text-align: left;
-  padding-left: 15px;
+  padding: 15px;
+  display: flex;
+  justify-content: left;
+  align-items: center;
   font-size: 13px;
-  color: rgba(29, 31, 37, 1);
+  color:rgba(29, 31, 37, 1);
 }
+
 
 .sidebar-buttons-search {
   display: flex;
@@ -83,7 +83,6 @@
   height: 35px;
   border-radius: 5px;
   align-items: center;
-  gap: 5px;
   text-align: left;
   padding-left: 15px;
   font-size: 13px;
@@ -122,10 +121,29 @@
   font-size: 14px;
 }
 
-.view-item.active {
-  background-color: #e7f3ff;
-  color: #2563eb;
+.sidebar-buttons-find {
+  height: 35px;
+  border-radius: 7px;
+  width: 245px;
+  text-align: left;
+  padding: 5px;
+  display: flex;
+  justify-content: left;
+  align-items: center;
+  font-size: 14px;
+  color:rgba(29, 31, 37, 1);
 }
+
+.sidebar-buttons-find:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.sidebar-buttons-find::placeholder {
+  color: #777777; /* Change to your desired color */
+  opacity: 1;     /* Optional: ensures full opacity */
+}
+
 
 .create-view-btn {
   width: 100%;

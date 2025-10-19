@@ -1,7 +1,9 @@
 import Image from 'next/image';
 import search from '../assets/search.svg';
 import { useState, useRef, useEffect } from 'react';
+import '../../styles/SideBar.css'
 import { cursorTo } from 'readline';
+import { MdGridView, MdCalendarToday, MdViewModule, MdViewKanban, MdTimeline, MdList, MdGantt } from 'react-icons/md';
 
 interface View {
   id: string;
@@ -15,6 +17,8 @@ interface SideBarProps {
   onViewSelect?: (viewId: string | null ) => void;
   onCreateView?: () => void;
   onDeleteView?: (viewId: string) => void;
+  x: number;
+  y: number;
 }
 
 export default function Sidebar({
@@ -23,6 +27,8 @@ export default function Sidebar({
   onViewSelect,
   onCreateView,
   onDeleteView,
+  x,
+  y,
 }: SideBarProps) {
   const [showCreateMenu, setShowCreateMenu] = useState(false);
   const [viewSearchTerm, setViewSearchTerm] = useState('');
@@ -69,53 +75,195 @@ export default function Sidebar({
             cursor: 'pointer',
           }}
         >
-          + Create New..
+          + Create New...
         </button>
         {showCreateMenu && (
-          <div
-            ref={dropdownRef}
-            style={{
-              position: 'absolute',
-              top: '40px',
-              left: '0',
-              backgroundColor: 'white',
-              borderRadius: '8px',
-              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-              padding: '8px',
-              zIndex: 1000,
-              minWidth: '200px',
-            }}
-          >
-            <button
-              onClick={(e) => {
-                console.log('📊 Grid View clicked!'); // Add this first
-                console.log('📊 Event:', e); // Add this
-                onCreateView?.();
-                console.log('view clicked');
-                setShowCreateMenu(false);
-              }}
-              onMouseDown={() => console.log('📊 Mouse down on Grid View')} // Add this
-              onMouseUp={() => console.log('📊 Mouse up on Grid View')} // Add this
+          <>
+            <div
+              ref={dropdownRef}
               style={{
-                width: '100%',
-                padding: '8px 12px',
-                border: 'none',
-                borderRadius: '4px',
-                backgroundColor: 'transparent',
-                textAlign: 'left',
-                cursor: 'pointer',
+                position: 'fixed',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'flex-start',
                 fontSize: '13px',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#f5f5f5';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'transparent';
+                top: y+140,
+                left: x+357,
+                backgroundColor: 'white',
+                borderRadius: '8px',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                padding: '13px',
+                zIndex: 1000,
+                minWidth: '300px',
               }}
             >
-              📊 Grid View
-            </button>
-          </div>
+              <button
+                onClick={(e) => {
+                  onCreateView?.();
+                  setShowCreateMenu(false);
+                }}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: 'none',
+                  borderRadius: '4px',
+                  backgroundColor: 'transparent',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#f5f5f5';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+              >
+                <MdGridView style={{ marginRight: '8px' }} />
+                Grid View
+              </button>
+              <button
+                style={{
+                  display: 'flex',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: 'none',
+                  borderRadius: '4px',
+                  backgroundColor: 'transparent',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#f5f5f5';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+              >
+                <MdCalendarToday style={{ marginRight: '8px' }}/>
+                Calendar
+              </button>
+              <button
+                style={{
+                  display: 'flex',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: 'none',
+                  borderRadius: '4px',
+                  backgroundColor: 'transparent',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#f5f5f5';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+              >
+                <MdViewModule style={{ marginRight: '8px' }}/>
+                Gallery
+              </button>
+              <button
+                style={{
+                  display: 'flex',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: 'none',
+                  borderRadius: '4px',
+                  backgroundColor: 'transparent',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#f5f5f5';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+              >
+                <MdViewKanban style={{ marginRight: '8px' }}/>
+                Kanban
+              </button>
+              <button
+                style={{
+                  display: 'flex',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: 'none',
+                  borderRadius: '4px',
+                  backgroundColor: 'transparent',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#f5f5f5';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+              >
+                <MdTimeline style={{ marginRight: '8px' }}/>
+                Timeline
+              </button>
+              <button
+                style={{
+                  display: 'flex',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: 'none',
+                  borderRadius: '4px',
+                  backgroundColor: 'transparent',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#f5f5f5';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+              >
+                <MdList style={{ marginRight: '8px'}}/>
+                List
+              </button>
+              <button
+                style={{
+                  display: 'flex',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: 'none',
+                  borderRadius: '4px',
+                  backgroundColor: 'transparent',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#f5f5f5';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+              >
+                <MdList style={{ marginRight: '8px' }}/>
+                Gantt
+              </button>
+            </div>
+          </>
         )}
       </div>
 
@@ -141,7 +289,7 @@ export default function Sidebar({
             fontWeight: !currentViewId ? 600 : 400,
           }}
         >
-          Grid View (All Records)
+          Grid View
         </button>
 
         {filteredViews.map((view) => (

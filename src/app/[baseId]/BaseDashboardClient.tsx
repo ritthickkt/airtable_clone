@@ -812,6 +812,8 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
                 onViewSelect={handleViewSelect}
                 onCreateView={handleCreateView}
                 onDeleteView={handleDeleteView}
+                x={viewModalPosition.x}
+                y={viewModalPosition.y}
               />
               {/* Loading overlay */}
               {(sortingLoading || filteringLoading) && (

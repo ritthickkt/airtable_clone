@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   createColumnHelper,
@@ -61,6 +61,8 @@ interface DataTableProps {
   onViewSelect?: (viewId: string | null) => void;
   onCreateView?: () => void;
   onDeleteView?: (viewId: string) => void;
+  x: number;
+  y: number;
 }
 
 export default function DataTable({ 
@@ -86,6 +88,8 @@ export default function DataTable({
     onViewSelect,
     onCreateView,
     onDeleteView,
+    x,
+    y,
   }: DataTableProps) {
   
   const [isCreatingRecord, setIsCreatingRecord] = useState(false);
@@ -335,12 +339,12 @@ export default function DataTable({
       })
     ) ?? [];
     
-    const localTempRecords = localData.filter(row => 
-      (row.id.startsWith('temp-') || row.id.startsWith('temp-bulk-')) && 
+    // include all local rows that are not present in the server pages yet
+    const localOnlyRecords = localData.filter(row => 
       !paginatedRecords.some(dbRow => dbRow.id === row.id)
     );
     
-    return [...paginatedRecords, ...localTempRecords];
+    return [...paginatedRecords, ...localOnlyRecords];
   }, [paginatedData, tablesData, currentTable?.id]);
 
   const handleDeleteRow = useCallback(() => {
@@ -607,68 +611,76 @@ export default function DataTable({
     });
   }, [currentTable, createRecordMutation, isCreatingRecord, currentSort, currentFilters, refetch]);
 
-  const add100kRows = useCallback(async () => {
+   const add100kRows = useCallback(async () => {
     if (!currentTable || isCreatingRecord) return;
-    
+
     setIsCreatingRecord(true);
-    setBulkProgress({ isAdding: true, added: 0, total: 100000 });
-    
+    const totalRecords = 100000;
+    setBulkProgress({ isAdding: true, added: 0, total: totalRecords });
+
     try {
-      const emptyData: Record<string, string> = {};
+      // prepare empty template for each record (will be shallow-copied per item)
+      const emptyDataTemplate: Record<string, string> = {};
       currentTable.columns?.forEach(col => {
         const fieldKey = col.name.toLowerCase().replace(/\s+/g, '');
-        emptyData[fieldKey] = '';
+        emptyDataTemplate[fieldKey] = '';
       });
 
-      const dbBatchSize = 1000;
-      const totalRecords = 100000;
-      
-      const syncToDatabase = async () => {
-        const totalDBBatches = Math.ceil(totalRecords / dbBatchSize);
-        let dbRecordsCreated = 0;
-        
-        for (let batchIndex = 0; batchIndex < totalDBBatches; batchIndex++) {
-          try {
-            const batchData = Array(dbBatchSize).fill(emptyData);
-            
-            const batchResult = await createBulkRecordsMutation.mutateAsync({
-              tableId: currentTable.id,
-              records: batchData,
-            });
+      // CONFIG: tune these to your backend capacity
+      const dbBatchSize = 2000;   // size per request (reduce if server times out)
+      const concurrency = 4;      // number of parallel requests
 
-            dbRecordsCreated += batchResult.count;
+      let nextStart = 0;
+      let createdSoFar = 0;
 
-            setBulkProgress(prev => prev ? {
-              ...prev,
-              added: dbRecordsCreated
-            } : null);
+      // small helper to yield to the event loop to keep UI responsive
+      const yieldNow = () => new Promise(res => setTimeout(res, 0));
 
-            console.log(`📊 Database batch ${batchIndex + 1}/${totalDBBatches} completed (${dbRecordsCreated}/${totalRecords})`);
-            
-          } catch (error) {
-            console.error(`❌ Database batch ${batchIndex} failed:`, error);
-            throw error;
-          }
-          
-          await new Promise(resolve => setTimeout(resolve, 10));
+      const worker = async () => {
+        while (true) {
+          const start = nextStart;
+          nextStart += dbBatchSize;
+          if (start >= totalRecords) break;
+
+          const size = Math.min(dbBatchSize, totalRecords - start);
+
+          // build payload for this batch without creating the entire 100k array at once
+          const batchPayload = Array.from({ length: size }, () => ({ ...emptyDataTemplate }));
+
+          // send batch (mutateAsync returns once the request finishes)
+          const result = await createBulkRecordsMutation.mutateAsync({
+            tableId: currentTable.id,
+            records: batchPayload,
+          });
+
+          createdSoFar += (result?.count ?? size);
+
+          // update progress once per completed batch
+          setBulkProgress(prev => prev ? { ...prev, added: createdSoFar } : prev);
+
+          // yield briefly so the UI thread can update and avoid long blocking runs
+          await yieldNow();
         }
-        
-        console.log('✅ Database sync completed!');
       };
 
-      await syncToDatabase();
-      refetch();
-      console.log('✅ All operations completed successfully');
-        
+      // start workers in parallel (limited concurrency)
+      await Promise.all(Array.from({ length: concurrency }, () => worker()));
+
+      // finished uploading: refresh server state once
+      await refetch();
+
+      // don't add/remove 100k placeholders in tablesData — server results are authoritative
+      console.log('✅ All 100k rows created');
+
+      // ✅ After all batches finish:
+      await refetch();         // refresh first page
+      fetchNextPage();         // start fetching more pages if available
     } catch (error) {
       console.error('Failed to add 100k rows:', error);
     } finally {
       setIsCreatingRecord(false);
       set100kRowsPressed(false);
-      
-      setTimeout(() => {
-        setBulkProgress(null);
-      }, 2000);
+      setTimeout(() => setBulkProgress(null), 1500);
     }
   }, [currentTable, isCreatingRecord, set100kRowsPressed, createBulkRecordsMutation, refetch]);
 
@@ -889,11 +901,30 @@ export default function DataTable({
   , [visibleColumns.length]);
 
   const rowVirtualizer = useVirtualizer({
-    count: totalCount ?? tableData.length,
+    count: tableData.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 30,
     overscan: 5,
   });
+
+  // ✅ Auto-load more rows when scrolling near the bottom
+  useEffect(() => {
+    const virtualItems = rowVirtualizer.getVirtualItems();
+    if (!virtualItems.length) return;
+
+    const lastItem1 = virtualItems[virtualItems.length - 1];
+    const nearBottom = lastItem1.index >= tableData.length - 10; // last ~10 rows
+
+    if (nearBottom && hasNextPage && !isFetchingNextPage) {
+      fetchNextPage(); // automatically fetch next batch
+    }
+  }, [
+    rowVirtualizer.getVirtualItems(),
+    tableData.length,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  ]);
 
   // All useEffect hooks at the end
   React.useEffect(() => {
@@ -972,6 +1003,8 @@ export default function DataTable({
         onViewSelect={onViewSelect}
         onCreateView={onCreateView}
         onDeleteView={onDeleteView}
+        x={x}
+        y={y}
       />
       <div className='table-wrapper'>
         {shouldShowLoading ? (
@@ -1088,8 +1121,8 @@ export default function DataTable({
             </div>
           </div>
           <div className='number-of-rows'>
-            {totalCount ? totalCount.toLocaleString() : tableData.length.toLocaleString()} Records
-            {isFetchingNextPage && " (Loading...)"}
+            {tableData.length.toLocaleString()} Records
+            {hasNextPage && " (scroll to load more)"} 
           </div>
         </>
         )}

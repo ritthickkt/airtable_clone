@@ -41,12 +41,17 @@ export default function SearchOverlay({
   y
 }: SearchOverlayProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [isTyping, setIsTyping] = useState(false);
 
   useEffect(() => {
-    if (visible && inputRef.current) {
-      inputRef.current.focus();
+    if (!searchTerm) {
+      setIsTyping(false);
+      return;
     }
-  }, [visible]);
+    setIsTyping(true);
+    const timeout = setTimeout(() => setIsTyping(false), 600); // 600ms after last keystroke
+    return () => clearTimeout(timeout);
+  }, [searchTerm]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -80,15 +85,14 @@ export default function SearchOverlay({
     <div className="search-overlay" onClick={onClose}>
       <div 
         className="search-container" 
-        style={{ left: x, top: y }}
+        style={{ left: x+97, top: y }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="search-input-container">
-          <Image src={Search} alt="Search" className="search-icon" />
           <input
             ref={inputRef}
             type="text"
-            placeholder="Search in table..."
+            placeholder="Find in view"
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}
             className="search-input"
@@ -100,22 +104,6 @@ export default function SearchOverlay({
               </span>
             )}
             <button
-              className="search-nav-btn"
-              onClick={onNavigatePrev}
-              disabled={searchResults.length === 0}
-              title="Previous (Shift+Enter)"
-            >
-              ↑
-            </button>
-            <button
-              className="search-nav-btn"
-              onClick={onNavigateNext}
-              disabled={searchResults.length === 0}
-              title="Next (Enter)"
-            >
-              ↓
-            </button>
-            <button
               className="search-close-btn"
               onClick={onClose}
               title="Close (Esc)"
@@ -125,19 +113,37 @@ export default function SearchOverlay({
           </div>
         </div>
 
-        {searchTerm && searchResults.length > 0 && (
-          <div className="search-results">
-            <div className="search-results-header">
-              Found {searchResults.length} result{searchResults.length !== 1 ? 's' : ''}
+        {searchTerm ? (
+          isTyping ? (
+            <div className="search-results">
+              <div className="search-results-header">
+                Found {searchResults.length} result{searchResults.length !== 1 ? 's' : ''}
+              </div>
             </div>
-          </div>
-        )}
-
-        {searchTerm && searchResults.length === 0 && (
-          <div className="search-no-results">
-            No results found for "{searchTerm}"
-          </div>
-        )}
+          ) : (
+            searchResults.length > 0 ? (
+              <div className="search-results">
+                <div className="search-results-header">
+                  Found {searchResults.length} result{searchResults.length !== 1 ? 's' : ''}
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className='below-search-field'>
+                  <div>
+                    Use advanced search options in the
+                  </div>
+                  <div className='search-extensions'>
+                    search extension
+                  </div>          
+                </div>
+                <div className="search-no-results">
+                  Found no fields and no cells
+                </div>
+              </>
+            )
+          )
+        ) : null}
       </div>
     </div>
   );

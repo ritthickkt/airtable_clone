@@ -51,9 +51,8 @@
 .search-container {
   position: absolute;
   background: white;
-  border-radius: 8px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-  width: 400px;
+  width: 320px;
+  max-height: 90vw;
   max-height: 70vh;
   overflow: hidden;
   display: flex;
@@ -64,9 +63,19 @@
 .search-input-container {
   display: flex;
   align-items: center;
-  padding: 16px;
+  padding-left: 8px;
+  padding-right: 8px;
   border-bottom: 1px solid #e9ecef;
   gap: 12px;
+}
+
+.search-extensions {
+  color: #0D52AC;
+}
+
+.below-search-field {
+  padding: 10px;
+  font-size: 12px;
 }
 
 .search-icon {
@@ -102,7 +111,6 @@
 
 .search-nav-btn, .search-close-btn {
   background: none;
-  border: 1px solid #d1d5db;
   border-radius: 4px;
   width: 28px;
   height: 28px;

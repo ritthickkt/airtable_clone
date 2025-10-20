@@ -45,7 +45,7 @@ export default function TableTabs({
 
   const handleBuildFromScratch = () => {
     setShowMenu(false);
-    setTableName(`Table ${(base.tables?.length || 0) + 1}`);
+    setTableName(`Table ${(base.tables?.length ?? 0) + 1}`);
     setShowNameDialog(true);
   };
 

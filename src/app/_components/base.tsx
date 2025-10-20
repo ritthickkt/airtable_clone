@@ -18,7 +18,38 @@ export default function Base({ id, name, description, color, onBaseDeleted }: Ba
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const deleteBaseMutation = api.base.deleteBase.useMutation();
+  const utils = api.useUtils();
+  const deleteBaseMutation = api.base.deleteBase.useMutation({
+    onMutate: async ({ baseId }) => {
+      // Cancel outgoing refetches
+      await utils.base.getAll.cancel();
+
+      // Snapshot the previous value
+      const previousBases = utils.base.getAll.getData();
+
+      // Optimistically update to remove the base
+      utils.base.getAll.setData(undefined, (old) => 
+        old?.filter((base) => base.id !== baseId)
+      );
+
+      // Call the callback immediately
+      onBaseDeleted?.();
+
+      // Return context with snapshotted value
+      return { previousBases };
+    },
+    onError: (err, variables, context) => {
+      // Rollback on error
+      if (context?.previousBases) {
+        utils.base.getAll.setData(undefined, context.previousBases);
+      }
+      console.error('Failed to delete base:', err);
+    },
+    onSettled: () => {
+      // Refetch after mutation settles
+      void utils.base.getAll.invalidate();
+    },
+  });
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -43,18 +74,11 @@ export default function Base({ id, name, description, color, onBaseDeleted }: Ba
       await deleteBaseMutation.mutateAsync({
         baseId: id,
       });
-      
-      // Call optional callback
-      onBaseDeleted?.();
-      
-      // Optional: Show success message
-      console.log('Base deleted successfully');
-      
     } catch (error) {
-      console.error('Failed to delete base:', error);
-      // Optional: Show error message to user
+      // Error already handled in onError callback
     }
   };
+
 
   const handleMenuItemClick = (action: string, e?: React.MouseEvent) => {
     if (e) {
@@ -74,7 +98,7 @@ export default function Base({ id, name, description, color, onBaseDeleted }: Ba
 
   return (
     <>
-    <div className="base-card" onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
+    <div className="base-card" onMouseEnter={() => setHover(true)} onMouseLeave={() => {setHover(false); setShowDropdown(false)}}>
       <div className="base-icon" style={{ backgroundColor: color || '#DC3545'}}>
         {name ? name.slice(0, 2).toUpperCase() : "??"}
       </div>
@@ -94,28 +118,28 @@ export default function Base({ id, name, description, color, onBaseDeleted }: Ba
               {showDropdown && (
                 <div className='dropdown-menu'>
                   <div className='dropdown-item' onClick={() => handleMenuItemClick('rename')}>
-                    <span className='dropdown-icon'>✏️</span>
+                    <span className='dropdown-icon'></span>
                     <span>Rename</span>
                   </div>
                   <div className='dropdown-item' onClick={() => handleMenuItemClick('duplicate')}>
-                    <span className='dropdown-icon'>📋</span>
+                    <span className='dropdown-icon'></span>
                     <span>Duplicate</span>
                   </div>
                   <div className='dropdown-item' onClick={() => handleMenuItemClick('move')}>
-                    <span className='dropdown-icon'>➡️</span>
+                    <span className='dropdown-icon'></span>
                     <span>Move</span>
                   </div>
                   <div className='dropdown-item' onClick={() => handleMenuItemClick('workspace')}>
-                    <span className='dropdown-icon'>👥</span>
+                    <span className='dropdown-icon'></span>
                     <span>Go to workspace</span>
                   </div>
                   <div className='dropdown-item' onClick={() => handleMenuItemClick('customize')}>
-                    <span className='dropdown-icon'>🎨</span>
+                    <span className='dropdown-icon'></span>
                     <span>Customize appearance</span>
                   </div>
                   <div className='dropdown-separator'></div>
                   <div className='dropdown-item danger' onClick={(e) => handleMenuItemClick('delete', e)}>
-                    <span className='dropdown-icon'>🗑️</span>
+                    <span className='dropdown-icon'></span>
                     <span>Delete</span>
                   </div>
                 </div>

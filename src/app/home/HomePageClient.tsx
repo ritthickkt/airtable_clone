@@ -6,7 +6,7 @@ import { api } from "ritthickclone/trpc/react";
 import Image from "next/image";
 import colorlogo from "../assets/airtable-color.png";
 import '../../styles/homepage.css';
-import Base from '../_components/base';
+import Base from '../_components/Base';
 import WhiteBase from '../_components/white-base';
 
 import type {
@@ -133,9 +133,6 @@ export default function HomePageClient({ session }: { session: Session | null })
                         name={base.name} 
                         description={formatTimeAgo(new Date(base.updatedAt))}
                         color={base.color ?? 'black'} 
-                        onBaseDeleted={() => {
-                          window.location.reload();
-                        }}
                       />
                     </div>
                   ))

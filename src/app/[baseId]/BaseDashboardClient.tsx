@@ -603,31 +603,33 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
 
   const handleCreateTable = () => {
     const now = new Date();
+    const tableCount = base.tables?.length ?? 0;
+
     const optimisticTable = {
       id: `temp-table-${Date.now()}`,
-      name: 'Untitled Table',
+      name: `Table ${tableCount + 1}`,
       baseId: base.id,
       columns: [
-        {
-          id: `temp-col-${Date.now()}-1`,
-          name: 'Name',
-          type: 'text',
-          position: 0,
-          tableId: `temp-table-${Date.now()}`,
-          options: {},
-          createdAt: now,
-          updatedAt: now,
-        },
-        {
-          id: `temp-col-${Date.now()}-2`,
-          name: 'Notes',
-          type: 'text',
-          position: 1,
-          tableId: `temp-table-${Date.now()}`,
-          options: {},
-          createdAt: now,
-          updatedAt: now,
-        },
+      {
+        id: `temp-col-${Date.now()}-1`,
+        name: 'Name',
+        type: 'text',
+        position: 0,
+        tableId: `temp-table-${Date.now()}`,
+        options: {},
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: `temp-col-${Date.now()}-2`,
+        name: 'Notes',
+        type: 'text',
+        position: 1,
+        tableId: `temp-table-${Date.now()}`,
+        options: {},
+        createdAt: now,
+        updatedAt: now,
+      },
       ],
       records: [],
       createdAt: now,

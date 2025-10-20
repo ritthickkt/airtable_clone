@@ -15,6 +15,7 @@ import ContextMenuRecord from './ContextMenuRecord';
 import type { TableRow, Table } from '../../types';
 import ColumnConfiguration from '../_components/ColumnConfiguration';
 import ColumnContextMenu from './ColumnContextMenu';
+import { faker } from '@faker-js/faker';
 import React from 'react';
 import { isInstanceOfRegisteredClass } from 'node_modules/superjson/dist/transformer';
 
@@ -131,6 +132,9 @@ export default function DataTable({
   const deleteRecordMutation = api.base.deleteRecord.useMutation();
   const deleteColumnMutation = api.base.deleteColumn.useMutation();
   const createBulkRecordsMutation = api.base.createBulkRecords.useMutation();
+
+  const [pendingRecords, setPendingRecords] = useState<Set<string>>(new Set());
+  const [virtualRecordCount, setVirtualRecordCount] = useState(0);
 
   const { 
     data: paginatedData, 
@@ -611,7 +615,80 @@ export default function DataTable({
     });
   }, [currentTable, createRecordMutation, isCreatingRecord, currentSort, currentFilters, refetch]);
 
-   const add100kRows = useCallback(async () => {
+  // const add100kRows = useCallback(async () => {
+  //   if (!currentTable || isCreatingRecord) return;
+
+  //   setIsCreatingRecord(true);
+  //   const totalRecords = 100000;
+  //   setBulkProgress({ isAdding: true, added: 0, total: totalRecords });
+
+  //   try {
+  //     // prepare empty template for each record (will be shallow-copied per item)
+  //     const emptyDataTemplate: Record<string, string> = {};
+  //     currentTable.columns?.forEach(col => {
+  //       const fieldKey = col.name.toLowerCase().replace(/\s+/g, '');
+  //       emptyDataTemplate[fieldKey] = '';
+  //     });
+
+  //     // CONFIG: tune these to your backend capacity
+  //     const dbBatchSize = 2000;   // size per request (reduce if server times out)
+  //     const concurrency = 4;      // number of parallel requests
+
+  //     let nextStart = 0;
+  //     let createdSoFar = 0;
+
+  //     // small helper to yield to the event loop to keep UI responsive
+  //     const yieldNow = () => new Promise(res => setTimeout(res, 0));
+
+  //     const worker = async () => {
+  //       while (true) {
+  //         const start = nextStart;
+  //         nextStart += dbBatchSize;
+  //         if (start >= totalRecords) break;
+
+  //         const size = Math.min(dbBatchSize, totalRecords - start);
+
+  //         // build payload for this batch without creating the entire 100k array at once
+  //         const batchPayload = Array.from({ length: size }, () => ({ ...emptyDataTemplate }));
+
+  //         // send batch (mutateAsync returns once the request finishes)
+  //         const result = await createBulkRecordsMutation.mutateAsync({
+  //           tableId: currentTable.id,
+  //           records: batchPayload,
+  //         });
+
+  //         createdSoFar += (result?.count ?? size);
+
+  //         // update progress once per completed batch
+  //         setBulkProgress(prev => prev ? { ...prev, added: createdSoFar } : prev);
+
+  //         // yield briefly so the UI thread can update and avoid long blocking runs
+  //         await yieldNow();
+  //       }
+  //     };
+
+  //     // start workers in parallel (limited concurrency)
+  //     await Promise.all(Array.from({ length: concurrency }, () => worker()));
+
+  //     // finished uploading: refresh server state once
+  //     await refetch();
+
+  //     // don't add/remove 100k placeholders in tablesData — server results are authoritative
+  //     console.log('✅ All 100k rows created');
+
+  //     // ✅ After all batches finish:
+  //     await refetch();         // refresh first page
+  //     fetchNextPage();         // start fetching more pages if available
+  //   } catch (error) {
+  //     console.error('Failed to add 100k rows:', error);
+  //   } finally {
+  //     setIsCreatingRecord(false);
+  //     set100kRowsPressed(false);
+  //     setTimeout(() => setBulkProgress(null), 1500);
+  //   }
+  // }, [currentTable, isCreatingRecord, set100kRowsPressed, createBulkRecordsMutation, refetch]);
+
+  const add100kRows = useCallback(async () => {
     if (!currentTable || isCreatingRecord) return;
 
     setIsCreatingRecord(true);
@@ -619,22 +696,30 @@ export default function DataTable({
     setBulkProgress({ isAdding: true, added: 0, total: totalRecords });
 
     try {
-      // prepare empty template for each record (will be shallow-copied per item)
-      const emptyDataTemplate: Record<string, string> = {};
-      currentTable.columns?.forEach(col => {
-        const fieldKey = col.name.toLowerCase().replace(/\s+/g, '');
-        emptyDataTemplate[fieldKey] = '';
-      });
+      // Prepare column keys and types
+      const columns = currentTable.columns ?? [];
+      const colDefs = columns.map(col => ({
+        key: col.name.toLowerCase().replace(/\s+/g, ''),
+        type: col.type,
+      }));
 
       // CONFIG: tune these to your backend capacity
-      const dbBatchSize = 2000;   // size per request (reduce if server times out)
-      const concurrency = 4;      // number of parallel requests
+      const dbBatchSize = 2000;
+      const concurrency = 4;
 
       let nextStart = 0;
       let createdSoFar = 0;
 
-      // small helper to yield to the event loop to keep UI responsive
       const yieldNow = () => new Promise(res => setTimeout(res, 0));
+
+      // Helper to generate faker data per column type
+      function fakerValue(type: string) {
+        switch (type) {
+          case 'text': return faker.person.fullName();
+          case 'number': return faker.number.int({ min: 1, max: 10000 }).toString();
+          default: return faker.lorem.words(3);
+        }
+      }
 
       const worker = async () => {
         while (true) {
@@ -644,37 +729,31 @@ export default function DataTable({
 
           const size = Math.min(dbBatchSize, totalRecords - start);
 
-          // build payload for this batch without creating the entire 100k array at once
-          const batchPayload = Array.from({ length: size }, () => ({ ...emptyDataTemplate }));
+          // Generate batch with faker data
+          const batchPayload = Array.from({ length: size }, () => {
+            const row: Record<string, string> = {};
+            colDefs.forEach(col => {
+              row[col.key] = fakerValue(col.type);
+            });
+            return row;
+          });
 
-          // send batch (mutateAsync returns once the request finishes)
           const result = await createBulkRecordsMutation.mutateAsync({
             tableId: currentTable.id,
             records: batchPayload,
           });
 
           createdSoFar += (result?.count ?? size);
-
-          // update progress once per completed batch
           setBulkProgress(prev => prev ? { ...prev, added: createdSoFar } : prev);
-
-          // yield briefly so the UI thread can update and avoid long blocking runs
           await yieldNow();
         }
       };
 
-      // start workers in parallel (limited concurrency)
       await Promise.all(Array.from({ length: concurrency }, () => worker()));
-
-      // finished uploading: refresh server state once
       await refetch();
-
-      // don't add/remove 100k placeholders in tablesData — server results are authoritative
       console.log('✅ All 100k rows created');
-
-      // ✅ After all batches finish:
-      await refetch();         // refresh first page
-      fetchNextPage();         // start fetching more pages if available
+      await refetch();
+      fetchNextPage();
     } catch (error) {
       console.error('Failed to add 100k rows:', error);
     } finally {

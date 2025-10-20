@@ -138,7 +138,7 @@ export default function HomePageClient({ session }: { session: Session | null })
                   ))
                 ) : (
                   <div className="no-bases-message">
-                    <p className='no-bases-header'>You haven't opened anything recently</p>
+                    <p className='no-bases-header'>You haven&apos;t opened anything recently</p>
                     <p className='no-bases-subtitle'>Apps that you have recently opened will appear here</p>
                   </div>
                 )}

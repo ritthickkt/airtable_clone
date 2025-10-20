@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
 import { findConfigFile } from "typescript";
+import { parseFilterConfig, parseSortConfig } from "ritthickclone/types";
 
 export const baseRouter = createTRPCRouter({
   // Get all bases for a user
@@ -30,10 +31,10 @@ export const baseRouter = createTRPCRouter({
   getById: protectedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      return ctx.db.base.findUnique({
+      const base = await ctx.db.base.findUnique({
         where: {
           id: input.id,
-          createdById: ctx.session.user.id, // Ensure user owns the base
+          createdById: ctx.session.user.id,
         },
         include: {
           tables: {
@@ -48,6 +49,20 @@ export const baseRouter = createTRPCRouter({
           },
         },
       });
+
+      if (!base) {
+        return null;
+      }
+
+      // Transform the data to parse JSON fields into proper types
+      return {
+        ...base,
+        tables: base.tables.map(table => ({
+          ...table,
+          sortConfig: parseSortConfig(table.sortConfig),
+          filterConfig: parseFilterConfig(table.filterConfig),
+        })),
+      };
     }),
 
   // Update base name
@@ -635,3 +650,4 @@ export const baseRouter = createTRPCRouter({
       });
     }),
 });
+

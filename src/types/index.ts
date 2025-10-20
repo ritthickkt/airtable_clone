@@ -13,6 +13,18 @@ export interface Base {
   tables?: Table[];
 }
 
+export type SortConfig = Array<{ columnId: string; direction: 'asc' | 'desc' }>;
+
+export type FilterCondition = {
+  id: string;
+  columnId: string;
+  columnName: string;
+  columnType: string;
+  operator: string;
+  value: string;
+};
+
+export type FilterConfig = Array<FilterCondition>;
 
 export interface Table {
   id: string;
@@ -23,15 +35,8 @@ export interface Table {
   views?: View[];
   createdAt: Date;
   updatedAt: Date;
-  sortConfig?: Array<{ columnId: string; direction: 'asc' | 'desc' }> | null;
-  filterConfig?: Array<{
-    id: string;
-    columnId: string;
-    columnName: string;
-    columnType: string;
-    operator: string;
-    value: string;
-  }> | null;
+  sortConfig?: SortConfig | null;
+  filterConfig?: FilterConfig | null;
 }
 
 export interface Column {
@@ -47,10 +52,10 @@ export interface Column {
 
 export interface Record {
   id: string;
-  createdAt: Date;      // Add missing fields from database
-  updatedAt: Date;      // Add missing fields from database
-  tableId: string;      // Add missing fields from database
-  data: JsonValue;      // Change from 'any' to match database
+  createdAt: Date;
+  updatedAt: Date;
+  tableId: string;
+  data: JsonValue;
 }
 
 export interface ColumnOptions {
@@ -107,14 +112,7 @@ export interface View {
   config: {
     hiddenColumns: string[];
     sort: Array<{ columnId: string; direction: 'asc' | 'desc' }>;
-    filters: Array<{
-      id: string;
-      columnId: string;
-      columnName: string;
-      columnType: string;
-      operator: string;
-      value: string;
-    }>;
+    filters: FilterConfig;
     searchTerm?: string;
   };
   createdAt: Date;
@@ -126,3 +124,39 @@ export type BaseType = Base;
 export type TableType = Table;
 export type ColumnType = Column;
 export type RecordType = Record;
+
+export function parseSortConfig(value: unknown): SortConfig | null {
+  if (!value || typeof value !== 'object') return null;
+  if (!Array.isArray(value)) return null;
+  
+  return value.every(
+    (item) =>
+      typeof item === 'object' &&
+      item !== null &&
+      'columnId' in item &&
+      'direction' in item &&
+      typeof item.columnId === 'string' &&
+      (item.direction === 'asc' || item.direction === 'desc')
+  )
+    ? (value as SortConfig)
+    : null;
+}
+
+export function parseFilterConfig(value: unknown): FilterConfig | null {
+  if (!value || typeof value !== 'object') return null;
+  if (!Array.isArray(value)) return null;
+  
+  const isValid = value.every(
+    (item) =>
+      typeof item === 'object' &&
+      item !== null &&
+      'id' in item &&
+      'columnId' in item &&
+      'columnName' in item &&
+      'columnType' in item &&
+      'operator' in item &&
+      'value' in item
+  );
+  
+  return isValid ? (value as FilterConfig) : null;
+}

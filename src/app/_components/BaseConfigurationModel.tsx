@@ -19,7 +19,7 @@ interface BaseConfigModalProps {
   setBaseName: (name: string) => void;
   isEditing: boolean;
   setIsEditing: (editing: boolean) => void;
-  handleNameSave: () => void;
+  handleNameSave: (name: string) => void;
 }
 
 export default function BaseConfigModal({ 
@@ -28,7 +28,7 @@ export default function BaseConfigModal({
   setBaseName, 
   isEditing, 
   setIsEditing, 
-  handleNameSave 
+  handleNameSave,
 }: BaseConfigModalProps) {
   const [isBaseNameEditing, setIsBaseNameEditing] = useState(false);
   const [isTempBaseName, setIsTempBaseName] = useState(baseName);
@@ -46,7 +46,7 @@ export default function BaseConfigModal({
         setIsBaseNameEditing(false);
         if (isBaseNameEditing && isTempBaseName !== baseName) {
           setBaseName(isTempBaseName);
-          handleNameSave();
+          handleNameSave(isTempBaseName);
         }
       }
     };

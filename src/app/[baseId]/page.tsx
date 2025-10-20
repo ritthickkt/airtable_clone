@@ -17,8 +17,6 @@ export default async function BasePage({ params }: PageProps) {
   }
 
   const { baseId } = await params;
-
-  // Fetch the specific base
   const base = await api.base.getById({ id: baseId });
   
   if (!base) {

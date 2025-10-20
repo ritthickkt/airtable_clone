@@ -978,22 +978,24 @@ export default function DataTable({
 
     // ✅ Auto-load more rows when scrolling near the bottom
     useEffect(() => {
-      const virtualItems = rowVirtualizer.getVirtualItems();
-      if (!virtualItems.length) return;
+        const virtualItems = rowVirtualizer.getVirtualItems();
+        if (!virtualItems.length) return;
 
-      const lastItem1 = virtualItems[virtualItems.length - 1];
-      const nearBottom = lastItem1.index >= tableData.length - 10; // last ~10 rows
+        const lastItem1 = virtualItems[virtualItems.length - 1];
+        if (!lastItem1) return;
+        
+        const nearBottom = lastItem1.index >= tableData.length - 10; // last ~10 rows
 
-      if (nearBottom && hasNextPage && !isFetchingNextPage) {
-        fetchNextPage(); // automatically fetch next batch
-      }
-    }, [
-      rowVirtualizer.getVirtualItems(),
-      tableData.length,
-      hasNextPage,
-      isFetchingNextPage,
-      fetchNextPage,
-  ]);
+        if (nearBottom && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage(); // automatically fetch next batch
+        }
+      }, [
+        rowVirtualizer.getVirtualItems(),
+        tableData.length,
+        hasNextPage,
+        isFetchingNextPage,
+        fetchNextPage,
+    ]);
 
   // All useEffect hooks at the end
   React.useEffect(() => {

@@ -266,12 +266,12 @@ export default function TableControls({
           <button 
             ref={sortBtnRef}
             type="button" 
-            className="control-btn"
+            className="control-btn-sort"
             onClick={handleSortClick}
             disabled={sortingLoading || filteringLoading}
             style={{
-              border: currentSort.length > 0 ? `2px solid ${baseColor ?? '#2563eb'}` : undefined,
-              backgroundColor: currentSort.length > 0 ? `${baseColor ?? '#2563eb'}20` : undefined,
+              backgroundColor: currentSort.length > 0 ? `#FFE0CC` : undefined,
+              color: currentSort.length > 0 ? 'black' : undefined,
               opacity: sortingLoading ? 0.6 : 1,
               cursor: (sortingLoading || filteringLoading) ? 'not-allowed' : 'pointer'
             }}

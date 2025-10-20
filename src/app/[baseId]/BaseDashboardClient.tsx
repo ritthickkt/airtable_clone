@@ -719,11 +719,12 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
     },
   });
 
-  const handleNameSave = () => {
-    if (baseName.trim() && baseName !== (base.name ?? '')) {
+  const handleNameSave = (name?: string) => {
+    const nameToSave = name ?? baseName;
+    if (nameToSave.trim() && nameToSave !== (base.name ?? '')) {
       updateBaseName.mutate({
         id: base.id,
-        name: baseName.trim(),
+        name: nameToSave.trim(),
       });
     } else {
       setIsEditing(false);

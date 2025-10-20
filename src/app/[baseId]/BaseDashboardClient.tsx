@@ -486,68 +486,68 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
   }, [currentTable?.id, updateTableSortMutation, refetch, currentFilters]);
 
   const handleSearch = useCallback((term: string) => {
-  setSearchTerm(term);
-  
-  if (!term.trim() || !currentTable) {
-    setSearchResults([]);
-    setCurrentSearchIndex(0);
-    return;
-  }
-
-  const results: SearchResult[] = [];
-  const normalizedTerm = term.toLowerCase();
-
-  // Search in column headers
-  currentTable.columns?.forEach(column => {
-    if (column.name.toLowerCase().includes(normalizedTerm)) {
-      results.push({
-        rowId: 'header',
-        rowIndex: -1,
-        columnId: column.id,
-        columnName: column.name,
-        value: column.name,
-        isColumnHeader: true
-      });
+    setSearchTerm(term);
+    
+    if (!term.trim() || !currentTable) {
+      setSearchResults([]);
+      setCurrentSearchIndex(0);
+      return;
     }
-  });
 
-  // Get table data from the query result or table records
-  const tableData = tableWithSortedRecords?.records?.map((record) => {
-    const data = record.data as Record<string, unknown> || {};
-    return {
-      id: record.id,
-      ...data,
-    } as Record<string, unknown> & { id: string }; // Add proper typing here
-  }) ?? currentTable.records?.map((record) => {
-    const data = record.data as Record<string, unknown> || {};
-    return {
-      id: record.id,
-      ...data,
-    } as Record<string, unknown> & { id: string }; // Add proper typing here
-  }) ?? [];
+    const results: SearchResult[] = [];
+    const normalizedTerm = term.toLowerCase();
 
-  // Search in table data
-  tableData.forEach((row, rowIndex) => {
+      // Search in column headers
     currentTable.columns?.forEach(column => {
-      const fieldKey = column.name.toLowerCase().replace(/\s+/g, '');
-      // Now row is properly typed as Record<string, unknown> & { id: string }
-      const cellValue = (row[fieldKey] as string | undefined)?.toString() ?? '';
-      
-      if (cellValue.toLowerCase().includes(normalizedTerm)) {
-        results.push({
-          rowId: row.id,
-          rowIndex,
-          columnId: column.id,
-          columnName: column.name,
-          value: cellValue
-        });
-      }
+        if (column.name.toLowerCase().includes(normalizedTerm)) {
+          results.push({
+            rowId: 'header',
+            rowIndex: -1,
+            columnId: column.id,
+            columnName: column.name,
+            value: column.name,
+            isColumnHeader: true
+          });
+        }
     });
-  });
 
-  setSearchResults(results);
-  setCurrentSearchIndex(0);
-}, [currentTable, tableWithSortedRecords]);
+    // Get table data from the query result or table records
+    const tableData = tableWithSortedRecords?.records?.map((record) => {
+      const data = record.data as Record<string, unknown> || {};
+      return {
+        id: record.id,
+        ...data,
+      } as Record<string, unknown> & { id: string }; // Add proper typing here
+    }) ?? currentTable.records?.map((record) => {
+      const data = record.data as Record<string, unknown> || {};
+      return {
+        id: record.id,
+        ...data,
+      } as Record<string, unknown> & { id: string }; // Add proper typing here
+    }) ?? [];
+
+    // Search in table data
+    tableData.forEach((row, rowIndex) => {
+      currentTable.columns?.forEach(column => {
+        const fieldKey = column.name.toLowerCase().replace(/\s+/g, '');
+        // Now row is properly typed as Record<string, unknown> & { id: string }
+        const cellValue = (row[fieldKey] as string | undefined)?.toString() ?? '';
+        
+        if (cellValue.toLowerCase().includes(normalizedTerm)) {
+          results.push({
+            rowId: row.id,
+            rowIndex,
+            columnId: column.id,
+            columnName: column.name,
+            value: cellValue
+          });
+        }
+      });
+    });
+
+    setSearchResults(results);
+    setCurrentSearchIndex(0);
+  }, [currentTable, tableWithSortedRecords]);
 
   const handleSearchNavigate = useCallback((direction: 'next' | 'prev') => {
     if (searchResults.length === 0) return;
@@ -870,14 +870,6 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
           isEditing={isEditing}
           setIsEditing={setIsEditing}
           handleNameSave={handleNameSave}
-        />
-
-        <ViewCreationModal
-          isOpen={showViewCreationModal}
-          onClose={() => setShowViewCreationModal(false)}
-          onCreateView={handleViewCreation}
-          x={viewModalPosition.x}
-          y={viewModalPosition.y}
         />
       </div>
     </div>

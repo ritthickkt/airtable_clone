@@ -63,7 +63,6 @@ export default function HiddenFieldsDropdown({
             className="field-search-input"
           />
         </div>
-        
         <div className="fields-list">
           {allColumns.map((column) => {
             const isHidden = hiddenColumns.includes(column.id);

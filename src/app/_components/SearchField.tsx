@@ -82,10 +82,10 @@ export default function SearchOverlay({
   if (!visible) return null;
 
   return (
-    <div className="search-overlay" onClick={onClose}>
+    <div className="search-overlay">
       <div 
         className="search-container" 
-        style={{ left: x+97, top: y }}
+        style={{ top: y }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="search-input-container">
@@ -105,7 +105,7 @@ export default function SearchOverlay({
             )}
             <button
               className="search-close-btn"
-              onClick={onClose}
+              onClick={() => { onClose(); onSearchChange(''); }}
               title="Close (Esc)"
             >
               ✕
@@ -114,36 +114,29 @@ export default function SearchOverlay({
         </div>
 
         {searchTerm ? (
-          isTyping ? (
-            <div className="search-results">
+          searchResults.length === 0 ? (
+            <div className="below-search-field">
+              <div className="search-no-results">
+                Found no fields and no cells
+              </div>
+            </div>
+          ) : (
+            <div className="below-search-field">
               <div className="search-results-header">
                 Found {searchResults.length} result{searchResults.length !== 1 ? 's' : ''}
               </div>
             </div>
-          ) : (
-            searchResults.length > 0 ? (
-              <div className="search-results">
-                <div className="search-results-header">
-                  Found {searchResults.length} result{searchResults.length !== 1 ? 's' : ''}
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className='below-search-field'>
-                  <div>
-                    Use advanced search options in the
-                  </div>
-                  <div className='search-extensions'>
-                    search extension
-                  </div>          
-                </div>
-                <div className="search-no-results">
-                  Found no fields and no cells
-                </div>
-              </>
-            )
           )
-        ) : null}
+        ) : (
+          <div className='below-search-field'>
+            <div>
+              Use advanced search options in the
+            </div>
+            <div className='search-extensions'>
+              search extension
+            </div>          
+          </div>
+        )}
       </div>
     </div>
   );

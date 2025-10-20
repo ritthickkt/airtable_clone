@@ -207,28 +207,28 @@ export default function DataTable({
     return currentResult && currentResult.columnId === columnId && currentResult.isColumnHeader;
   }, [searchTerm, searchResults, currentSearchIndex]);
 
-  const highlightSearchTermWithCurrent = useCallback((text: string, searchTerm: string, columnId: string, rowIndex: number) => {
-    if (!searchTerm.trim()) return text;
+  // const highlightSearchTermWithCurrent = useCallback((text: string, searchTerm: string, columnId: string, rowIndex: number) => {
+  //   if (!searchTerm.trim()) return text;
     
-    const currentResult = searchResults[currentSearchIndex];
-    const isCurrentMatch = currentResult && 
-      currentResult.columnId === columnId && 
-      currentResult.rowIndex === rowIndex;
+  //   const currentResult = searchResults[currentSearchIndex];
+  //   const isCurrentMatch = currentResult && 
+  //     currentResult.columnId === columnId && 
+  //     currentResult.rowIndex === rowIndex;
     
-    const regex = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-    const parts = text.toString().split(regex);
+  //   const regex = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+  //   const parts = text.toString().split(regex);
     
-    return parts.map((part, index) => 
-      regex.test(part) ? (
-        <span 
-          key={index} 
-          className={`search-highlight ${isCurrentMatch ? 'search-highlight-current' : ''}`}
-        >
-          {part}
-        </span>
-      ) : part
-    );
-  }, [searchResults, currentSearchIndex]);
+  //   return parts.map((part, index) => 
+  //     regex.test(part) ? (
+  //       <span 
+  //         key={index} 
+  //         className={`search-highlight ${isCurrentMatch ? 'search-highlight-current' : ''}`}
+  //       >
+  //         {part}
+  //       </span>
+  //     ) : part
+  //   );
+  // }, [searchResults, currentSearchIndex]);
 
   const handleHideColumn = useCallback((columnId: string) => {
     onHideColumn(columnId);
@@ -712,13 +712,34 @@ export default function DataTable({
           col.name.toLowerCase().replace(/\s+/g, '') === column.columnDef.accessorKey
         );
 
-        const shouldHighlight = searchTerm && value && 
-          value.toString().toLowerCase().includes(searchTerm.toLowerCase());
+        const isCellHighlighted = searchResults.some(
+          result =>
+            result.rowIndex === index &&
+            result.columnId === column.id &&
+            !result.isColumnHeader
+        );
+
+        const isCurrentCellHighlighted = (() => {
+          const currentResult = searchResults[currentSearchIndex];
+          return (
+            currentResult &&
+            currentResult.rowIndex === index &&
+            currentResult.columnId === column.id &&
+            !currentResult.isColumnHeader
+          );
+        })();
 
         return (
-          <div 
-            data-row-index={index} 
+          <div
+            data-row-index={index}
             data-column-index={columnIndex}
+            className={
+              isCurrentCellHighlighted
+                ? 'search-row-highlight-current'
+                : isCellHighlighted
+                ? 'search-row-highlight'
+                : ''
+            }
             style={{
               width: '100%',
               height: '100%',
@@ -729,48 +750,17 @@ export default function DataTable({
               position: 'relative',
             }}
           >
-            {shouldHighlight ? (
-              <div
-                style={{ 
-                  width: '100%', 
-                  height: '100%',
-                  border: 'none',
-                  background: 'transparent', 
-                  padding: '0 12px',
-                  fontSize: '13px',
-                  fontFamily: 'inherit',
-                  outline: 'none',
-                  boxSizing: 'border-box',
-                  margin: 0,
-                  borderRadius: 3,
-                  display: 'flex',
-                  alignItems: 'center',
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  pointerEvents: 'none',
-                  zIndex: 1,
-                }}
-              >
-                {highlightSearchTermWithCurrent(
-                  value.toString(), 
-                  searchTerm, 
-                  columnData?.id ?? '', 
-                  index
-                )}
-              </div>
-            ) : null}
             <input
               value={value as string || ''}
               onChange={onChange}
               onBlur={onBlur}
               onKeyDown={e => handleKeyDown(e, index, columnIndex)}
-              onContextMenu={(e) => handleCellRightClick(e, index)}
-              style={{ 
-                width: '100%', 
+              onContextMenu={e => handleCellRightClick(e, index)}
+              style={{
+                width: '100%',
                 height: '100%',
                 border: 'none',
-                background: shouldHighlight ? 'transparent' : 'transparent', 
+                background: 'transparent',
                 padding: '0 12px',
                 fontSize: '13px',
                 fontFamily: 'inherit',
@@ -778,7 +768,7 @@ export default function DataTable({
                 boxSizing: 'border-box',
                 margin: 0,
                 borderRadius: 3,
-                color: shouldHighlight ? 'transparent' : 'inherit',
+                color: 'inherit',
                 position: 'relative',
                 zIndex: 0,
               }}
@@ -786,7 +776,7 @@ export default function DataTable({
           </div>
         );
       },
-    }), [handleCellRightClick, handleKeyDown, searchTerm, currentTable?.columns, highlightSearchTermWithCurrent]
+    }), [handleCellRightClick, handleKeyDown, searchTerm, currentTable?.columns] // highlightSearchTermWithCurrent
   );
 
   const columns = useMemo(() => {
@@ -810,8 +800,8 @@ export default function DataTable({
               onContextMenu={(e) => handleColumnRightClick(e, col.id, col.name, col.type)}
             >
               <span className="column-icon">{getColumnIcon(col.type)}</span>
-              <span title={col.name}>
-                {highlightSearchTermWithCurrent(col.name, searchTerm, col.id, -1)}
+              <span>
+                {col.name}
               </span>
             </div>
           ),
@@ -875,7 +865,7 @@ export default function DataTable({
           })
         });
       });
-  }, [currentTable?.columns, getColumnIcon, handleColumnRightClick, hiddenColumns, searchTerm, isColumnHighlighted, isCurrentColumnHighlighted, highlightSearchTermWithCurrent, handleCellRightClick]);
+  }, [currentTable?.columns, getColumnIcon, handleColumnRightClick, hiddenColumns, searchTerm, isColumnHighlighted, isCurrentColumnHighlighted, handleCellRightClick]); // highlightSearchTermWithCurrent
 
   const table = useReactTable({
     data: tableData,
@@ -897,33 +887,33 @@ export default function DataTable({
   , [currentTable?.columns, hiddenColumns]);
 
   const totalTableWidth = useMemo(() => 
-    40 + (visibleColumns.length * 200)
-  , [visibleColumns.length]);
+      100 + (visibleColumns.length * 200)
+    , [visibleColumns.length]);
 
-  const rowVirtualizer = useVirtualizer({
-    count: tableData.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 30,
-    overscan: 5,
-  });
+    const rowVirtualizer = useVirtualizer({
+      count: tableData.length,
+      getScrollElement: () => parentRef.current,
+      estimateSize: () => 30,
+      overscan: 5,
+    });
 
-  // ✅ Auto-load more rows when scrolling near the bottom
-  useEffect(() => {
-    const virtualItems = rowVirtualizer.getVirtualItems();
-    if (!virtualItems.length) return;
+    // ✅ Auto-load more rows when scrolling near the bottom
+    useEffect(() => {
+      const virtualItems = rowVirtualizer.getVirtualItems();
+      if (!virtualItems.length) return;
 
-    const lastItem1 = virtualItems[virtualItems.length - 1];
-    const nearBottom = lastItem1.index >= tableData.length - 10; // last ~10 rows
+      const lastItem1 = virtualItems[virtualItems.length - 1];
+      const nearBottom = lastItem1.index >= tableData.length - 10; // last ~10 rows
 
-    if (nearBottom && hasNextPage && !isFetchingNextPage) {
-      fetchNextPage(); // automatically fetch next batch
-    }
-  }, [
-    rowVirtualizer.getVirtualItems(),
-    tableData.length,
-    hasNextPage,
-    isFetchingNextPage,
-    fetchNextPage,
+      if (nearBottom && hasNextPage && !isFetchingNextPage) {
+        fetchNextPage(); // automatically fetch next batch
+      }
+    }, [
+      rowVirtualizer.getVirtualItems(),
+      tableData.length,
+      hasNextPage,
+      isFetchingNextPage,
+      fetchNextPage,
   ]);
 
   // All useEffect hooks at the end
@@ -995,6 +985,15 @@ export default function DataTable({
     }
   }, [rowVirtualizer.getVirtualItems(), tableData.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
+  const [selectedRows, setSelectedRows] = useState<string[]>([]);
+
+  const handleSelectAllRows = () => {
+    const allRowIds = tableData.map(row => row.id);
+    setSelectedRows(allRowIds);
+  };
+
+  const [hoveredRowIndex, setHoveredRowIndex] = useState<number | null>(null);
+
   return (
     <div className='table-main-content'>
       <SideBar
@@ -1051,9 +1050,23 @@ export default function DataTable({
               <thead>
                 {table.getHeaderGroups().map(headerGroup => (
                   <tr key={headerGroup.id}>
-                    <th className="row-number-header">#</th>
+                    <th className="row-number-header">
+                      <div
+                        className='all-rows-select'
+                        onClick={handleSelectAllRows}
+                        style={{ cursor: 'pointer' }}
+                      >
+                      </div>
+                    </th>
                     {headerGroup.headers.map(header => (
-                      <th key={header.id} className='column-names'>
+                      <th
+                        key={header.id}
+                        className={`column-names ${
+                          isColumnHighlighted(header.column.id) ? 'search-column-highlight' : ''
+                        } ${
+                          isCurrentColumnHighlighted(header.column.id) ? 'search-column-highlight-current' : ''
+                        }`}
+                      >
                         {flexRender(header.column.columnDef.header, header.getContext())}
                       </th>
                     ))}
@@ -1088,7 +1101,7 @@ export default function DataTable({
                         return (
                           <div
                             key={row.id}
-                            className={`virtual-row ${isHighlighted ? 'search-row-highlight' : ''}`}
+                            className={`virtual-row ${selectedRows.includes(row.id) ? 'row-selected' : ''}`}
                             style={{
                               position: 'absolute',
                               top: `${virtualRow.start}px`,
@@ -1096,14 +1109,18 @@ export default function DataTable({
                               width: '100%',
                               height: `${virtualRow.size}px`,
                             }}
+                            onMouseEnter={() => setHoveredRowIndex(virtualRow.index)}
+                            onMouseLeave={() => setHoveredRowIndex(null)}
                           >
                             <div className={`row-number ${isHighlighted ? 'search-row-highlight' : ''}`}>
-                              {virtualRow.index + 1}
+                              {hoveredRowIndex === virtualRow.index
+                              ? <div className='all-rows-select' style={{ cursor: 'pointer' }}></div>
+                              : virtualRow.index + 1}
                             </div>
                             {row.getVisibleCells().map((cell, cellIndex) => (
                               <div 
                                 key={cell.id} 
-                                className={`record ${cellIndex === 0 ? 'first-column' : ''} ${isHighlighted ? 'search-row-highlight' : ''}`}
+                                className={`record ${cellIndex === 0 ? 'first-column' : ''}`}
                               >
                                 {flexRender(cell.column.columnDef.cell, cell.getContext())}
                               </div>
@@ -1117,7 +1134,7 @@ export default function DataTable({
               </tbody>
             </table>
             <div onClick={addNewRow} className='add-row-button' style={{ width: `${totalTableWidth}px`}}>
-              +
+              <span className='add-row-icon-button'>+</span>
             </div>
           </div>
           <div className='number-of-rows'>

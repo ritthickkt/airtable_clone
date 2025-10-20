@@ -36,8 +36,12 @@
   padding-left: 14px;
   color: #6c757d;
   font-weight: 100; 
-  min-width: 40px;
+  min-width: 100px;
   background-color: white;
+}
+
+.add-row-icon-button {
+  margin-left: 30px;
 }
 
 .add-row-button:hover {
@@ -917,23 +921,34 @@
   overflow: hidden;
 }
 
-.row-number-header {
-  width: 39px;
-  min-width: 39.5px;
-  height: 35px;         
-  background-color: white;
+/* thead {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: white;
+} */
+
+/* th, .column-names {
   border-bottom: 1px solid #E5E5E5;
-  color: #6c757d;
-  padding: 0;
-  text-align: center;   
-  vertical-align: middle; 
+  border-right: 1px solid #E5E5E5;
+  font-weight: 500;
+  padding-left: 12px;
+  color: #374151;
+  background-color: white;
+  min-width: 200px;
+  max-width: 200px;
+  height: 35px;
+  vertical-align: middle;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   box-sizing: border-box;
-}
+} */
 
 .column-names {
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: 100;
   border-bottom: 1px solid #E5E5E5;
   border-right: 1px solid #E5E5E5;
   align-items: center;
@@ -974,28 +989,11 @@
 td {
   padding: 0;
   border-right: 1px solid #e1e5e9;
+  /* background-color: 2px solid black; */
   height: 20px;
   vertical-align: middle;
   position: relative;
 }
-
-
-/* Row Number
-.row-number {
-  width: 40px;
-  min-width: 40px;
-  max-width: 40px;
-  height: 40px;
-  background-color: #f7f9fc;
-  color: #6c757d;
-  vertical-align: middle;
-  padding: 0;
-  box-sizing: border-box;
-  text-align: center;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-} */
 
 /* Input Styles */
 .cell-input {
@@ -1025,33 +1023,6 @@ td {
   cursor: pointer;
 }
 
-/* Attachment Styles */
-.attachment-cell {
-  display: flex;
-  align-items: center;
-  padding: 4px 12px;
-  height: 32px;
-}
-
-.attachment-button {
-  background: #f3f4f6;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  padding: 4px 8px;
-  font-size: 12px;
-  cursor: pointer;
-  color: #374151;
-}
-
-.attachment-button:hover {
-  background: #e5e7eb;
-}
-
-.attachment-count {
-  margin-left: 8px;
-  font-size: 12px;
-  color: #6b7280;
-}
 
 /* Add row button */
 .add-row-btn {
@@ -1160,8 +1131,9 @@ td {
   background-color: #f8fafc !important;
 }
 
-.entire-row:hover {
-  background-color: #f8fafc !important;
+.virtual-row .row-number .row-selected {
+  background: #e6f7ff !important;   /* Light blue */
+  border: 2px solid #3b82f6;        /* Blue border */
 }
 
 .virtual-row {
@@ -1205,11 +1177,6 @@ td {
   transition: background-color 0.35s ease;
 }
 
-/* Add a subtle glow effect during sorting */
-.virtual-row.sorting-animation {
-  box-shadow: 0 1px 4px rgba(59, 130, 246, 0.1);
-}
-
 /* Smooth transitions for row content */
 .record {
   transition: background-color 0.15s ease;
@@ -1223,11 +1190,11 @@ td {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  min-width: 40px;
-  max-width: 40px;
+  width: 100px;
+  min-width: 100px;
+  max-width: 100px;
   height: 30px;
-  border-bottom: 1px solid #e1e5e9;
+  border-bottom: 1px solid #E5E5E5;
   background-color: white;
   color: #6c757d;
   font-size: 12px;
@@ -1236,16 +1203,41 @@ td {
   flex-shrink: 0; /* Prevent shrinking */
 }
 
+.row-number-header {
+  width: 100px;
+  min-width: 100px;
+  height: 35px;    
+  background-color: white;
+  border-bottom: 1px solid #E5E5E5;
+  border-right: none;
+  color: #6c757d;
+  padding: 0;
+  text-align: center;   
+  vertical-align: middle; 
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.all-rows-select {
+  width: 20px;
+  border: 1px solid #E5E5E5;
+  border-radius: 5px;
+  height: 20px;
+}
+
 .virtual-row .record {
   display: flex;
   align-items: center;
-  width: 200px; /* Match your column-names width */
+  width: 200px; 
   height: 30px;
-  border-right: 1px solid #e1e5e9;
-  border-bottom: 1px solid #e1e5e9;
+  border-right: 1px solid #E5E5E5;
+  border-bottom: 1px solid #E5E5E5;
   background-color: white;
   box-sizing: border-box;
-  flex-shrink: 0; /* Prevent shrinking */
+  flex-shrink: 0; 
+  cursor: default;
 }
 
 
@@ -1260,10 +1252,12 @@ td {
   font-family: inherit;
   outline: none;
   box-sizing: border-box;
+  cursor: default;
 }
 
 .virtual-row .record input:focus {
   background-color: #fff;
   box-shadow: inset 0 0 0 2px #3b82f6;
+  cursor: text;
 }
 

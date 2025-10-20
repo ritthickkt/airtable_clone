@@ -11,7 +11,6 @@
   background-color: #FFB020 !important;
   color: #000 !important;
   font-weight: 600 !important;
-  box-shadow: 0 0 0 2px #FF8C00 !important;
 }
 
 /* Row highlighting - light background for any matches */
@@ -22,7 +21,6 @@
 /* Current row highlighting - brighter background */
 .search-row-highlight-current {
   background-color: #FFE4A3 !important;
-  border-left: 3px solid #FF8C00 !important;
 }
 
 /* Column highlighting - light background for any matches */
@@ -33,10 +31,9 @@
 /* Current column highlighting - brighter background */
 .search-column-highlight-current {
   background-color: #FFE4A3 !important;
-  border-bottom: 3px solid #FF8C00 !important;
 }
 
-/* Rest of existing CSS... */
+
 .search-overlay {
   position: fixed;
   top: 0;
@@ -51,9 +48,9 @@
 .search-container {
   position: absolute;
   background: white;
-  width: 320px;
-  max-height: 90vw;
-  max-height: 70vh;
+  width: 264px;
+  right: 0;
+  max-height: 80vh;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -66,6 +63,7 @@
   padding-left: 8px;
   padding-right: 8px;
   border-bottom: 1px solid #e9ecef;
+  border-left: 1px solid #e9ecef;
   gap: 12px;
 }
 
@@ -88,7 +86,8 @@
   flex: 1;
   border: none;
   outline: none;
-  font-size: 16px;
+  font-size: 14px;
+  font-weight: 500px;
   padding: 8px 0;
   background: transparent;
 }
@@ -145,11 +144,8 @@
 }
 
 .search-results-header {
-  padding: 12px 16px;
-  background: #f8f9fa;
-  font-size: 14px;
+  font-size: 12px;
   color: #6b7280;
-  border-bottom: 1px solid #e9ecef;
 }
 
 .search-results-list {
@@ -203,8 +199,7 @@
 }
 
 .search-no-results {
-  padding: 24px 16px;
-  text-align: center;
+  text-align: left;
   color: #6b7280;
-  font-size: 14px;
+  font-size: 12px;
 }

@@ -214,10 +214,18 @@ export default function TableControls({
             className="control-btn" 
             onClick={handleHideFieldsClick}
           >
-            <Image className='table-control-icons' src={HideFields} alt='HideFields'/> 
-            Hide fields
-            {hiddenColumns.length > 0 && (
-              <span className="hidden-count-badge">{hiddenColumns.length}</span>
+            {hiddenColumns.length > 0 ? (
+              <>
+                <div className='hidden-count-badge'>
+                  <Image className='table-control-icons' src={HideFields} alt='HideFields'/> 
+                  <span>{hiddenColumns.length} hidden field{hiddenColumns.length > 1 ? 's' : ''}</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <Image className='table-control-icons' src={HideFields} alt='HideFields'/> 
+                <span>Hide Fields</span>
+              </>
             )}
           </button>
           <button 
@@ -302,15 +310,8 @@ export default function TableControls({
             type="button" 
             className="control-btn"
             onClick={handleSearchClick}
-            style={{
-              border: searchTerm ? `2px solid ${baseColor ?? '#2563eb'}` : undefined,
-              backgroundColor: searchTerm ? `${baseColor ?? '#2563eb'}20` : undefined,
-            }}
           >
             <Image className='table-control-icons-search' src={Search} alt='Search'/>
-            {searchTerm && searchResults.length > 0 && (
-              <span className="search-count-badge">{searchResults.length}</span>
-            )}
           </button>
         </div>
       </div>

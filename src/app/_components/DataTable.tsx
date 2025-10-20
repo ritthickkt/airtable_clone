@@ -211,28 +211,28 @@ export default function DataTable({
     return currentResult && currentResult.columnId === columnId && currentResult.isColumnHeader;
   }, [searchTerm, searchResults, currentSearchIndex]);
 
-  // const highlightSearchTermWithCurrent = useCallback((text: string, searchTerm: string, columnId: string, rowIndex: number) => {
-  //   if (!searchTerm.trim()) return text;
+  const highlightSearchTermWithCurrent = useCallback((text: string, searchTerm: string, columnId: string, rowIndex: number) => {
+    if (!searchTerm.trim()) return text;
     
-  //   const currentResult = searchResults[currentSearchIndex];
-  //   const isCurrentMatch = currentResult && 
-  //     currentResult.columnId === columnId && 
-  //     currentResult.rowIndex === rowIndex;
+    const currentResult = searchResults[currentSearchIndex];
+    const isCurrentMatch = currentResult && 
+      currentResult.columnId === columnId && 
+      currentResult.rowIndex === rowIndex;
     
-  //   const regex = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-  //   const parts = text.toString().split(regex);
+    const regex = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    const parts = text.toString().split(regex);
     
-  //   return parts.map((part, index) => 
-  //     regex.test(part) ? (
-  //       <span 
-  //         key={index} 
-  //         className={`search-highlight ${isCurrentMatch ? 'search-highlight-current' : ''}`}
-  //       >
-  //         {part}
-  //       </span>
-  //     ) : part
-  //   );
-  // }, [searchResults, currentSearchIndex]);
+    return parts.map((part, index) => 
+      regex.test(part) ? (
+        <span 
+          key={index} 
+          className={`search-highlight ${isCurrentMatch ? 'search-highlight-current' : ''}`}
+        >
+          {part}
+        </span>
+      ) : part
+    );
+  }, [searchResults, currentSearchIndex]);
 
   const handleHideColumn = useCallback((columnId: string) => {
     onHideColumn(columnId);
@@ -787,9 +787,9 @@ export default function DataTable({
           setValue(initialValue);
         }, [initialValue]);
 
-        const columnData = currentTable?.columns?.find(col => 
-          col.name.toLowerCase().replace(/\s+/g, '') === column.columnDef.accessorKey
-        );
+        // const columnData = currentTable?.columns?.find(col => 
+        //   col.name.toLowerCase().replace(/\s+/g, '') === column.columnDef.accessorKey
+        // );
 
         const isCellHighlighted = searchResults.some(
           result =>
@@ -807,6 +807,10 @@ export default function DataTable({
             !currentResult.isColumnHeader
           );
         })();
+
+        const displayValue = searchTerm && (value as string)
+        ? highlightSearchTermWithCurrent(value as string, searchTerm, column.id, index)
+        : (value as string || '');
 
         return (
           <div
@@ -839,7 +843,7 @@ export default function DataTable({
                 width: '100%',
                 height: '100%',
                 border: 'none',
-                background: 'transparent',
+                backgroundColor: isCurrentCellHighlighted ? '#FFE4A3' : isCellHighlighted ? '#FFF4CC' : 'transparent',
                 padding: '0 12px',
                 fontSize: '13px',
                 fontFamily: 'inherit',
@@ -855,7 +859,7 @@ export default function DataTable({
           </div>
         );
       },
-    }), [handleCellRightClick, handleKeyDown, searchTerm, currentTable?.columns] // highlightSearchTermWithCurrent
+    }), [handleCellRightClick, handleKeyDown, searchTerm, searchResults, currentSearchIndex, highlightSearchTermWithCurrent, currentTable?.columns] // highlightSearchTermWithCurrent
   );
 
   const columns = useMemo(() => {

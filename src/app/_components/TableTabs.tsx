@@ -18,24 +18,48 @@ export default function TableTabs({
   handleCreateTable, 
   createTableMutation = { isPending: false }
 }: TableTabsProps) {
-  const [addTable, setAddTable] = useState(false);
-  const popupRef = useRef<HTMLDivElement>(null);
+  const [showMenu, setShowMenu] = useState(false);
+  const [showNameDialog, setShowNameDialog] = useState(false);
+  const [tableName, setTableName] = useState('');
+  const menuRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (popupRef.current && !popupRef.current.contains(event.target as Node)) {
-        setAddTable(false);
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowMenu(false);
+      }
+      if (dialogRef.current && !dialogRef.current.contains(event.target as Node)) {
+        setShowNameDialog(false);
       }
     };
 
-    if (addTable) {
+    if (showMenu || showNameDialog) {
       document.addEventListener('mousedown', handleClickOutside);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [addTable]);
+  }, [showMenu, showNameDialog]);
+
+  const handleBuildFromScratch = () => {
+    setShowMenu(false);
+    setTableName(`Table ${(base.tables?.length || 0) + 1}`);
+    setShowNameDialog(true);
+  };
+
+  const handleSaveTable = () => {
+    // Call your create table mutation with the table name
+    handleCreateTable();
+    setShowNameDialog(false);
+    setTableName('');
+  };
+
+  const handleCancel = () => {
+    setShowNameDialog(false);
+    setTableName('');
+  };
 
   // Returns a lighter shade of the base color (expects hex format)
   function lighterShadeofBaseColor(hex: string, percent = 0.5) {
@@ -68,15 +92,46 @@ export default function TableTabs({
             {table.name}
           </span>
         ))}
-        <button className="add-tab-btn" onClick={handleCreateTable} disabled={createTableMutation.isPending}>
-          + Add or Import
-        </button>
-        {addTable && (
-          <div ref={popupRef} className="addTableConfig">
-            <div className='baseEditBlock'><button type="button">+</button> Appearance</div>
-            <div className='baseEditBlock'><button type="button">+</button> Base guide</div>
-          </div>
-        )}
+        <div style={{ position: 'relative', display: 'inline-block' }}>
+          <button 
+            className="add-tab-btn" 
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowMenu(!showMenu);
+            }} 
+            disabled={createTableMutation.isPending}
+          >
+            + Add or Import
+          </button>
+          {showMenu && (
+            <div ref={menuRef} className="add-table-menu">
+              <div className='blanktableconfig-title'>Add a blank table</div>
+              <div className='blanktableconfig-add-table-button' onClick={handleBuildFromScratch}>
+                <div className='blanktableconfig-add-table-button-word'>Start from scratch</div>
+              </div>
+            </div>
+          )}
+          {showNameDialog && (
+            <div ref={dialogRef} className="table-name-dialog">
+              <input
+                type="text"
+                value={tableName}
+                onChange={(e) => setTableName(e.target.value)}
+                placeholder="Table name"
+                autoFocus
+                className="table-name-input"
+              />
+              <div className="dialog-actions">
+                <button onClick={handleCancel} className="cancel-btn">
+                  Cancel
+                </button>
+                <button onClick={handleSaveTable} className="save-btn">
+                  Save
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

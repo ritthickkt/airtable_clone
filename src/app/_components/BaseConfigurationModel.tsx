@@ -195,7 +195,7 @@ export default function BaseConfigModal({
             style={{
               marginRight: 8,
               transition: "transform 0.2s",
-              transform: appearanceOpen ? "rotate(360deg)" : "rotate(270deg)"
+              transform: guideOpen ? "rotate(360deg)" : "rotate(270deg)"
             }}
           />
           Base guide

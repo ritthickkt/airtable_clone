@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import Search from '../assets/search.svg';
+import CustomDropdown from './CustomDropdown';
 import '../../styles/sortcontextmenu.css';
 
 interface SortDropdownProps {
@@ -146,32 +147,7 @@ export default function SortDropdown({
                     <div className="sort-field-header">
                       <span className="sort-field-icon">{getColumnIcon(column.type)}</span>
                       <span className="sort-field-name">{column.name}</span>
-                      {/* {currentColumnSort && (
-                        <button
-                          className="sort-remove-column-button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onRemoveSort(column.id);
-                          }}
-                          title={`Remove sort from ${column.name}`}
-                        >
-                          ✕
-                        </button>
-                      )} */}
                     </div>
-                    {/* <div className="sort-options">
-                      {sortOptions.map((option) => (
-                        <button
-                          key={option.direction}
-                          className={`sort-option ${
-                            currentColumnSort?.direction === option.direction ? 'active' : ''
-                          }`}
-                          onClick={() => onSort(column.id, option.direction)}
-                        >
-                          {option.label}
-                        </button>
-                      ))}
-                    </div> */}
                   </div>
                 );
               })}
@@ -190,29 +166,43 @@ export default function SortDropdown({
                 </div>
                 {currentSort.map((sort, idx) => {
                   const col = allColumns.find(c => c.id === sort.columnId);
-                  const sortOptions = getSortOptions(col?.type ?? 'text');
+                  const sortOptions = getSortOptions(col?.type ?? 'text').map(opt => ({
+                    value: opt.direction,
+                    label: opt.label
+                  }));
+                  const columnOptions = allColumns.map(column => ({
+                    value: column.id,
+                    label: column.name,
+                    icon: getColumnIcon(column.type)
+                  }));
+                  
                   return (
                     <div key={sort.columnId} className="sort-row">
                       {/* Column dropdown */}
-                      <select
+                      <CustomDropdown
                         value={sort.columnId}
-                        onChange={e => onSort(e.target.value, sort.direction)}
-                        className="sort-column-select"
-                      >
-                        {allColumns.map(col => (
-                          <option key={col.id} value={col.id}>{col.name}</option>
-                        ))}
-                      </select>
+                        options={columnOptions}
+                        onChange={value => {
+                          // Ensure we have a valid direction before calling onSort
+                          const direction = sort.direction || 'asc';
+                          if (value !== sort.columnId) {
+                            onRemoveSort(sort.columnId);
+                            onSort(value, direction);
+                          }
+                        }}
+                        className="sort-column-dropdown"
+                      />
                       {/* Direction dropdown */}
-                      <select
+                      <CustomDropdown
                         value={sort.direction}
-                        onChange={e => onSort(sort.columnId, e.target.value as 'asc' | 'desc')}
-                        className="sort-direction-select"
-                      >
-                        {sortOptions.map(opt => (
-                          <option key={opt.direction} value={opt.direction}>{opt.label}</option>
-                        ))}
-                      </select>
+                        options={sortOptions}
+                        onChange={value => {
+                          // Ensure value is valid before calling onSort
+                          const direction = (value as 'asc' | 'desc') || 'asc';
+                          onSort(sort.columnId, direction);
+                        }}
+                        className="sort-direction-dropdown"
+                      />
                       {/* Remove button */}
                       <button
                         className="sort-remove-btn"

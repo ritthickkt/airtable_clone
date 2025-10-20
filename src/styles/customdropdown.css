@@ -1,0 +1,76 @@
+/* ...existing code... */
+
+/* Custom Dropdown Styles */
+.custom-dropdown-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: white;
+  cursor: pointer;
+  font-size: 13px;
+  min-width: 150px;
+  transition: all 0.2s;
+}
+
+.custom-dropdown-button:hover {
+  border-color: #aaa;
+  background-color: #f9f9f9;
+}
+
+.custom-dropdown-value {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  text-align: left;
+}
+
+.custom-dropdown-icon {
+  font-size: 14px;
+}
+
+.custom-dropdown-arrow {
+  font-size: 10px;
+  color: #666;
+  margin-left: 8px;
+}
+
+.custom-dropdown-menu {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  max-height: 300px;
+  overflow-y: auto;
+  min-width: 200px;
+}
+
+.custom-dropdown-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background-color 0.15s;
+}
+
+.custom-dropdown-option:hover {
+  background-color: #f5f5f5;
+}
+
+.custom-dropdown-option.active {
+  background-color: #e8f4ff;
+  color: #0066cc;
+}
+
+.custom-dropdown-option-icon {
+  font-size: 14px;
+  width: 20px;
+  text-align: center;
+}
+
+/* ...existing code... */

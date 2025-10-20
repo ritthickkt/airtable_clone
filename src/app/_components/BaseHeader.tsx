@@ -53,7 +53,8 @@ export default function BaseHeader({
                 onClick={() => setActiveTab(tab)}
                 style={activeTab === tab ? {
                   borderBottomColor: base.color ?? '#3b82f6',
-                  color: 'black'
+                  color: 'black',
+                  height: '100%',
                 } : {}}
               >
                 {tab}

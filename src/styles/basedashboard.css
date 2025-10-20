@@ -18,6 +18,7 @@
   background: white;
   height: 60px;
   flex-shrink: 0;
+  margin-bottom: 0;
 }
 
 .main-of-the-main-content {
@@ -26,6 +27,7 @@
   flex: 1;
   height: 100vh;
   overflow: hidden;
+  gap: 0;
 }
 
 .add-row-button {
@@ -96,8 +98,8 @@
   display: flex;
   width: 100%;
   flex-direction: column;
-  height: 100vh; /* Add this */
-  overflow: hidden; /* Add this */
+  height: 100vh;
+  overflow: hidden; 
 }
 
 
@@ -243,7 +245,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 62px;
+  height: 100%;
   width: fit-content;
   flex-shrink: 0;
 }
@@ -251,11 +253,13 @@
 .nav-tabs {
   display: flex;
   gap: 0;
+  height: 100%;
 }
 
 .nav-tab {
   padding: 12px 10px;
   background: none;
+  height: 100%;
   cursor: pointer;
   font-size: 14px;
   border-bottom: 3px solid transparent;
@@ -1271,6 +1275,7 @@ td {
   font-size: 12px;
   background-color: white;
   padding-left: 12px;
+  border-top: 1px solid #E5E5E5;
   font-family: inherit;
   font-weight: 300;
 }

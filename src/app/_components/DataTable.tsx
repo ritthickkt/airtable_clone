@@ -62,8 +62,6 @@ interface DataTableProps {
   onViewSelect?: (viewId: string | null) => void;
   onCreateView?: () => void;
   onDeleteView?: (viewId: string) => void;
-  x: number;
-  y: number;
 }
 
 export default function DataTable({ 
@@ -89,8 +87,6 @@ export default function DataTable({
     onViewSelect,
     onCreateView,
     onDeleteView,
-    x,
-    y,
   }: DataTableProps) {
   
   const [isCreatingRecord, setIsCreatingRecord] = useState(false);
@@ -1087,8 +1083,6 @@ export default function DataTable({
         onViewSelect={onViewSelect}
         onCreateView={onCreateView}
         onDeleteView={onDeleteView}
-        x={x}
-        y={y}
       />
       <div className='table-wrapper'>
         {shouldShowLoading ? (

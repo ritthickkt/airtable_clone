@@ -920,6 +920,10 @@
   position: relative;
 }
 
+th {
+  font-weight: normal; /* Override default bold */
+}
+
 .bell-icon:hover {
   border-color: #495057;
   color: #495057;
@@ -957,6 +961,7 @@
   color: #374151;
   background-color: white;
   width: 200px;
+  font-size: 12px;
   min-width: 200px;
   max-width: 200px;     
   height: 35px;         

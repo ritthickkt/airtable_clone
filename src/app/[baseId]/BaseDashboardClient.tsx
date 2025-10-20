@@ -141,19 +141,21 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
   }, [currentTableIndex]);
 
   const handleCreateView = useCallback(() => {
-    console.log('🔍 handleCreateView called'); // Add this
     const sidebar = document.querySelector('.left-side-bar');
-    console.log('📍 Sidebar element:', sidebar); // Add this
     if (sidebar) {
       const rect = sidebar.getBoundingClientRect();
-      console.log('📍 Position:', { x: rect.right + 20, y: rect.top + 100 }); // Add this
       setViewModalPosition({
-        x: rect.right + 20,
-        y: rect.top + 100,
+        x: rect.right, // 10px to the right of sidebar
+        y: rect.top,
+      });
+    } else {
+      // Fallback position if sidebar not found
+      setViewModalPosition({
+        x: 250, // Approximate sidebar width
+        y: 150,
       });
     }
     setShowViewCreationModal(true);
-    console.log('✅ Modal should open now'); // Add this
   }, []);
 
   const handleViewCreation = useCallback(async (name: string) => {
@@ -805,8 +807,6 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
                 onUpdateFilter={handleUpdateFilter}
                 onRemoveFilter={handleRemoveFilter}
                 onClearAllFilters={handleClearAllFilters}
-                // sortingLoading={sortingLoading}
-                // filteringLoading={filteringLoading}
                 searchTerm={searchTerm}
                 searchResults={searchResults}
                 currentSearchIndex={currentSearchIndex}
@@ -815,8 +815,6 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
                 onViewSelect={handleViewSelect}
                 onCreateView={handleCreateView}
                 onDeleteView={handleDeleteView}
-                x={viewModalPosition.x}
-                y={viewModalPosition.y}
               />
               {/* Loading overlay */}
               {(sortingLoading || filteringLoading) && (
@@ -873,6 +871,13 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
           isEditing={isEditing}
           setIsEditing={setIsEditing}
           handleNameSave={handleNameSave}
+        />
+        <ViewCreationModal
+          isOpen={showViewCreationModal}
+          onClose={() => setShowViewCreationModal(false)}
+          onCreateView={handleViewCreation}
+          x={viewModalPosition.x}
+          y={viewModalPosition.y}
         />
       </div>
     </div>

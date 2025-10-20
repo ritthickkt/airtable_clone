@@ -17,10 +17,8 @@ interface SideBarProps {
   views?: View[];
   currentViewId?: string | null;
   onViewSelect?: (viewId: string | null ) => void;
-  onCreateView?: (name: string) => void;
+  onCreateView?: () => void;
   onDeleteView?: (viewId: string) => void;
-  x: number;
-  y: number;
 }
 
 export default function Sidebar({
@@ -29,8 +27,6 @@ export default function Sidebar({
   onViewSelect,
   onCreateView,
   onDeleteView,
-  x,
-  y,
 }: SideBarProps) {
   const [showCreateMenu, setShowCreateMenu] = useState(false);
   const [viewSearchTerm, setViewSearchTerm] = useState('');
@@ -118,7 +114,10 @@ export default function Sidebar({
               >
                 <button
                   onClick={(e) => {
-                    setShowViewMenu(true)
+                    // Call the parent's handler instead of local state
+                    if (onCreateView) {
+                      onCreateView();
+                    }
                     setShowCreateMenu(false);
                   }}
                   style={{
@@ -354,16 +353,6 @@ export default function Sidebar({
           ))}
         </div>
       </div>
-      <ViewCreationModal
-        isOpen={showViewMenu}
-        onClose={() => setShowViewMenu(false)}
-        onCreateView={(name) => {
-          onCreateView?.(name);
-          setShowViewMenu(false);
-        }}
-        x={viewMenuPosition.x}
-        y={viewMenuPosition.y}
-      />
     </>
   );
 }

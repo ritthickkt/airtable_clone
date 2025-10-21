@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { api } from "ritthickclone/trpc/react";
 import React from 'react';
 import BaseHeader from '../_components/BaseHeader';
@@ -44,7 +45,6 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
   const [activeTab, setActiveTab] = useState('Data');
   const [baseName, setBaseName] = useState(initialBase.name ?? 'Untitled Base');
   const [isEditing, setIsEditing] = useState(false);
-  const [currentTableIndex, setCurrentTableIndex] = useState(0);
   const [add100kRowsPressed, set100kRowsPressed] = useState(false);
   const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set());
   const [currentSort, setCurrentSort] = useState<Array<{ columnId: string; direction: 'asc' | 'desc' }>>([]);
@@ -58,6 +58,12 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
   const [showViewCreationModal, setShowViewCreationModal] = useState(false);
   const [viewModalPosition, setViewModalPosition] = useState({ x: 0, y: 0});
   const [base, setBase] = useState(initialBase);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const initialTableIndex = parseInt(searchParams.get('tableIndex') ?? '0', 10);
+  const [currentTableIndex, setCurrentTableIndex] = useState(initialTableIndex);
 
   if (base && (!base.tables || base.tables.length === 0)) {
     return (
@@ -227,16 +233,16 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
   }, [currentViewId, hiddenColumns, currentSort, currentFilters, searchTerm, handleUpdateCurrentView]);
 
 
-  const { data: tableWithSortedRecords, refetch } = api.base.getTableRecords.useQuery(
-    {
-      tableId: currentTable?.id ?? '',
-      sortConfig: currentSort,
-      filterConfig: currentFilters,
-    },
-    {
-      enabled: !!currentTable?.id,
-    }
-  );
+  // const { data: tableWithSortedRecords, refetch, isLoading: tableDataLoading } = api.base.getTableRecords.useQuery(
+  //   {
+  //     tableId: currentTable?.id ?? '',
+  //     sortConfig: currentSort,
+  //     filterConfig: currentFilters,
+  //   },
+  //   {
+  //     enabled: !!currentTable?.id,
+  //   }
+  // );
 
    React.useEffect(() => {
     if (currentTable) {
@@ -268,9 +274,7 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
         filterConfig: newFilters,
       }, {
         onSuccess: () => {
-          refetch().finally(() => {
-            setFilteringLoading(false);
-          });
+          setFilteringLoading(false);
         },
         onError: () => {
           setFilteringLoading(false);
@@ -279,7 +283,7 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
     } else {
       setFilteringLoading(false);
     }
-  }, [currentFilters, currentTable?.id, updateTableFiltersMutation, refetch]);
+  }, [currentFilters, currentTable?.id, updateTableFiltersMutation]);
 
   const handleUpdateFilter = useCallback((filterId: string, updates: Partial<FilterCondition>) => {
     setFilteringLoading(true);
@@ -294,9 +298,7 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
         filterConfig: newFilters,
       }, {
         onSuccess: () => {
-          refetch().finally(() => {
-            setFilteringLoading(false);
-          });
+          setFilteringLoading(false);
         },
         onError: () => {
           setFilteringLoading(false);
@@ -305,7 +307,7 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
     } else {
       setFilteringLoading(false);
     }
-  }, [currentFilters, currentTable?.id, updateTableFiltersMutation, refetch]);
+  }, [currentFilters, currentTable?.id, updateTableFiltersMutation]);
 
   const handleRemoveFilter = useCallback((filterId: string) => {
     setFilteringLoading(true);
@@ -318,9 +320,7 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
         filterConfig: newFilters,
       }, {
         onSuccess: () => {
-          refetch().finally(() => {
-            setFilteringLoading(false);
-          });
+          setFilteringLoading(false);
         },
         onError: () => {
           setFilteringLoading(false);
@@ -329,7 +329,7 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
     } else {
       setFilteringLoading(false);
     }
-  }, [currentFilters, currentTable?.id, updateTableFiltersMutation, refetch]);
+  }, [currentFilters, currentTable?.id, updateTableFiltersMutation]);
 
   const handleClearAllFilters = useCallback(() => {
     setFilteringLoading(true);
@@ -341,9 +341,7 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
         filterConfig: [],
       }, {
         onSuccess: () => {
-          refetch().finally(() => {
-            setFilteringLoading(false);
-          });
+          setFilteringLoading(false);
         },
         onError: () => {
           setFilteringLoading(false);
@@ -352,7 +350,7 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
     } else {
       setFilteringLoading(false);
     }
-  }, [currentTable?.id, updateTableFiltersMutation, refetch]);
+  }, [currentTable?.id, updateTableFiltersMutation]);
 
 
   const handleShowColumn = useCallback((columnId: string) => {
@@ -382,12 +380,13 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
     setSortingLoading(true);
     
     setCurrentSort(prevSort => {
-      const existingIndex = prevSort.findIndex(sort => sort.columnId === columnId);
-      
+      const existingIndex = prevSort.findIndex(s => s.columnId === columnId);
       let newSort;
-      if (existingIndex !== -1) {
-        newSort = [...prevSort];
-        newSort[existingIndex] = { columnId, direction };
+      
+      if (existingIndex >= 0) {
+        newSort = prevSort.map((s, i) => 
+          i === existingIndex ? { ...s, direction } : s
+        );
       } else {
         newSort = [...prevSort, { columnId, direction }];
       }
@@ -398,21 +397,18 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
           sortConfig: newSort,
         }, {
           onSuccess: () => {
-            refetch().finally(() => {
-              setSortingLoading(false);
-            });
+            // Only refetch after ADDING or CHANGING sort, not removing
+            setSortingLoading(false);
           },
           onError: () => {
             setSortingLoading(false);
           }
         });
-      } else {
-        setSortingLoading(false);
       }
       
       return newSort;
     });
-  }, [currentTable?.id, updateTableSortMutation, refetch]);
+  }, [currentTable?.id, updateTableSortMutation]);
 
   const handleClearSort = useCallback(() => {
     setSortingLoading(true);
@@ -424,9 +420,7 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
         sortConfig: [],
       }, {
         onSuccess: () => {
-          refetch().finally(() => {
-            setSortingLoading(false);
-          });
+          setSortingLoading(false);
         },
         onError: () => {
           setSortingLoading(false);
@@ -435,43 +429,52 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
     } else {
       setSortingLoading(false);
     }
-  }, [currentTable?.id, updateTableSortMutation, refetch]);
+  }, [currentTable?.id, updateTableSortMutation]);
+
+  const handleApplySort = useCallback((sortConfig: Array<{ columnId: string; direction: 'asc' | 'desc' }>) => {
+    setSortingLoading(true);
+    setCurrentSort(sortConfig);
+    
+    if (currentTable?.id) {
+      updateTableSortMutation.mutate({
+        tableId: currentTable.id,
+        sortConfig: sortConfig,
+      }, {
+        onSuccess: () => {
+          setSortingLoading(false);
+        },
+        onError: () => {
+          setSortingLoading(false);
+        }
+      });
+    } else {
+      setSortingLoading(false);
+    }
+  }, [currentTable?.id, updateTableSortMutation]);
 
   const handleRemoveColumnSort = useCallback((columnId: string) => {
-    setSortingLoading(true);
-    
+    // Simply remove from UI state without updating database
     setCurrentSort(prevSort => {
       const newSort = prevSort.filter(sort => sort.columnId !== columnId);
-      
-      if (currentTable?.id) {
-        updateTableSortMutation.mutate({
-          tableId: currentTable.id,
-          sortConfig: newSort,
-        }, {
-          onSuccess: () => {
-            if (newSort.length > 0 && currentFilters.length >= 0) {
-              refetch().finally(() => {
-                setSortingLoading(false);
-              });
-            } else if (currentFilters.length > 0) {
-              refetch().finally(() => {
-                setSortingLoading(false);
-              });
-            } else {
-              setSortingLoading(false);
-            }
-          },
-          onError: () => {
-            setSortingLoading(false);
-          }
-        });
-      } else {
-        setSortingLoading(false);
-      }
-      
       return newSort;
     });
-  }, [currentTable?.id, updateTableSortMutation, refetch, currentFilters]);
+  }, []);
+
+  const handleSetCurrentTableIndex = useCallback((index: number) => {
+    // Switch immediately without waiting
+    setCurrentTableIndex(index);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('tableIndex', index.toString());
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  }, [pathname, router, searchParams]);
+
+  // Update when URL changes
+  useEffect(() => {
+    const urlTableIndex = parseInt(searchParams.get('tableIndex') ?? '0', 10);
+    if (urlTableIndex !== currentTableIndex && base.tables?.[urlTableIndex]) {
+      setCurrentTableIndex(urlTableIndex);
+    }
+  }, [searchParams, base.tables, currentTableIndex]);
 
   const handleSearch = useCallback((term: string) => {
     setSearchTerm(term);
@@ -498,7 +501,7 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
         }
     });
 
-    const tableData = tableWithSortedRecords?.records?.map((record) => {
+    const tableData = currentTable.records?.map((record) => {
       const data = record.data as Record<string, unknown> || {};
       return {
         id: record.id,
@@ -531,7 +534,7 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
 
     setSearchResults(results);
     setCurrentSearchIndex(0);
-  }, [currentTable, tableWithSortedRecords]);
+  }, [currentTable]);
 
   const handleSearchNavigate = useCallback((direction: 'next' | 'prev') => {
     if (searchResults.length === 0) return;
@@ -731,7 +734,7 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
             <TableTabs 
               base={base}
               currentTableIndex={currentTableIndex}
-              setCurrentTableIndex={setCurrentTableIndex}
+              setCurrentTableIndex={handleSetCurrentTableIndex}
               handleCreateTable={handleCreateTable}
               createTableMutation={createTableMutation}
             />
@@ -766,6 +769,7 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
                 currentSearchIndex={currentSearchIndex}
                 onSearchNavigate={handleSearchNavigate}
                 onSearchSelect={handleSearchSelect}
+                onApplySort={handleApplySort}
               />
               
               <DataTable 

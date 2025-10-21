@@ -151,6 +151,9 @@ export default function DataTable({
       enabled: !!currentTable?.id,
       getNextPageParam: (lastPage) => lastPage.nextCursor,
       refetchOnWindowFocus: false,
+      // Add this to prevent auto-refetch when sortConfig changes
+      refetchOnMount: false,
+      staleTime: Infinity, // Data never goes stale
     }
   );
 
@@ -332,14 +335,20 @@ export default function DataTable({
     const paginatedRecords = paginatedData?.pages.flatMap(page => 
       page.records.map((record) => {
         const data = record.data as Record<string, unknown> || {};
-        return {
+        const recordRow = {
           id: record.id,
           ...data,
         } as TableRow;
+        
+        // Check if we have local changes for this record
+        const localVersion = localData.find(r => r.id === record.id);
+        
+        // Prefer local version if it exists (user might have made changes)
+        return localVersion || recordRow;
       })
     ) ?? [];
     
-    // include all local rows that are not present in the server pages yet
+    // Include local-only records (new records not yet confirmed by server)
     const localOnlyRecords = localData.filter(row => 
       !paginatedRecords.some(dbRow => dbRow.id === row.id)
     );
@@ -380,50 +389,85 @@ export default function DataTable({
   const updateData = useCallback((rowIndex: number, fieldKey: string, value: unknown) => {
     if (!currentTable?.id) return;
 
+    // Find the actual row by index from tableData (not tablesData)
+    const actualRow = tableData[rowIndex];
+    if (!actualRow) return;
+
+    // Don't update temp rows that haven't been created yet
+    if (actualRow.id.startsWith('temp-bulk-') || actualRow.id.startsWith('temp-')) {
+      return;
+    }
+
+    // Immediately update local state for responsiveness
     setTablesData(prev => {
       const currentData = prev[currentTable.id] ?? [];
-      const actualRow = currentData[rowIndex];
-      if (!actualRow) return prev;
       
       const updatedData = currentData.map((row) => {
         if (row.id === actualRow.id) {
-          const updatedRow = { ...row, [fieldKey]: value };
-          
-          if (!row.id.startsWith('temp-bulk-') && !row.id.startsWith('temp-')) {
-            updateCellMutation.mutate({
-              recordId: row.id,
-              fieldKey: fieldKey,
-              value: value as string,
-            }, {
-              onSuccess: () => {
-                const affectedBySort = currentSort.some(sort => {
-                  const column = currentTable.columns?.find(col => col.id === sort.columnId);
-                  return column && column.name.toLowerCase().replace(/\s+/g, '') === fieldKey;
-                });
-                
-                const affectedByFilter = currentFilters.some(filter => {
-                  const column = currentTable.columns?.find(col => col.id === filter.columnId);
-                  return column && column.name.toLowerCase().replace(/\s+/g, '') === fieldKey;
-                });
-                
-                if (affectedBySort || affectedByFilter) {
-                  refetch();
-                }
-              }
-            });
-          }
-
-          return updatedRow;
+          return { ...row, [fieldKey]: value };
         }
         return row;
       });
+
+      // If row doesn't exist in local state, add it
+      if (!currentData.find(r => r.id === actualRow.id)) {
+        updatedData.push({ ...actualRow, [fieldKey]: value });
+      }
 
       return {
         ...prev,
         [currentTable.id]: updatedData
       };
     });
-  }, [updateCellMutation, currentTable?.id, currentSort, currentFilters, refetch]);
+
+    // Debounce the server update
+    const updateKey = `${actualRow.id}-${fieldKey}`;
+    
+    // Clear any pending timeout for this cell
+    if ((window as any)[`updateTimeout_${updateKey}`]) {
+      clearTimeout((window as any)[`updateTimeout_${updateKey}`]);
+    }
+
+    // Set new timeout
+    (window as any)[`updateTimeout_${updateKey}`] = setTimeout(() => {
+      updateCellMutation.mutate({
+        recordId: actualRow.id,
+        fieldKey: fieldKey,
+        value: value as string,
+      }, {
+        onSuccess: () => {
+          console.log(`Cell updated: ${fieldKey} = ${value}`);
+          
+          // Check if this field affects sorting or filtering
+          const affectedBySort = currentSort.some(sort => {
+            const column = currentTable.columns?.find(col => col.id === sort.columnId);
+            return column && column.name.toLowerCase().replace(/\s+/g, '') === fieldKey;
+          });
+          
+          const affectedByFilter = currentFilters.some(filter => {
+            const column = currentTable.columns?.find(col => col.id === filter.columnId);
+            return column && column.name.toLowerCase().replace(/\s+/g, '') === fieldKey;
+          });
+          
+          // Only refetch if sorting/filtering is affected
+          if (affectedBySort || affectedByFilter) {
+            refetch();
+          }
+        },
+        onError: (error) => {
+          console.error('Failed to update cell:', error);
+          // Revert local state on error
+          setTablesData(prev => ({
+            ...prev,
+            [currentTable.id]: prev[currentTable.id]?.map(row => 
+              row.id === actualRow.id ? actualRow : row
+            ) ?? []
+          }));
+        }
+      });
+    }, 500); // 500ms debounce
+
+  }, [updateCellMutation, currentTable?.id, currentTable?.columns, currentSort, currentFilters, refetch, tableData]);
 
   const handleKeyDown = useCallback((event: React.KeyboardEvent, rowIndex: number, columnIndex: number) => {
     const maxRows = tableData.length;
@@ -497,6 +541,13 @@ export default function DataTable({
   const handleCreateColumn = useCallback((name: string, type: 'text' | 'number') => {
     if (!currentTable) return;
     
+    // ✅ Save current active element before mutation
+    const activeElement = document.activeElement as HTMLInputElement;
+    const wasEditing = activeElement && activeElement.tagName === 'INPUT';
+    const editingValue = wasEditing ? activeElement.value : null;
+    const editingRowIndex = wasEditing ? activeElement.closest('[data-row-index]')?.getAttribute('data-row-index') : null;
+    const editingColIndex = wasEditing ? activeElement.closest('[data-column-index]')?.getAttribute('data-column-index') : null;
+    
     const tempId = `temp-col-${Date.now()}`;
     const optimisticColumn = {
       id: tempId,
@@ -528,6 +579,23 @@ export default function DataTable({
           updatedAt: realColumn.updatedAt,
         };
         onColumnUpdate(currentTable.id, updatedColumn);
+        
+        // ✅ Restore focus after column is added
+        if (wasEditing && editingRowIndex && editingColIndex) {
+          setTimeout(() => {
+            const cell = document.querySelector(
+              `[data-row-index="${editingRowIndex}"][data-column-index="${editingColIndex}"] input`
+            ) as HTMLInputElement;
+            if (cell) {
+              cell.focus();
+              if (editingValue !== null) {
+                cell.value = editingValue;
+              }
+              cell.setSelectionRange(cell.value.length, cell.value.length);
+            }
+          }, 50);
+        }
+        
         console.log('Column created:', realColumn);
       },
       onError: () => {
@@ -578,6 +646,7 @@ export default function DataTable({
       ...emptyData,
     } as TableRow;
     
+    // Add to local state
     setTablesData(prev => ({
       ...prev,
       [currentTable.id]: [...(prev[currentTable.id] ?? []), optimisticRecord]
@@ -597,9 +666,10 @@ export default function DataTable({
           )
         }));
         
-        if (currentSort.length > 0 || currentFilters.length > 0) {
-          refetch();
-        }
+        // REMOVED: Don't refetch at all - let data stay in current order
+        // if (currentSort.length > 0 || currentFilters.length > 0) {
+        //   refetch();
+        // }
       },
       onError: () => {
         setTablesData(prev => ({
@@ -609,7 +679,7 @@ export default function DataTable({
       },
       onSettled: () => setIsCreatingRecord(false),
     });
-  }, [currentTable, createRecordMutation, isCreatingRecord, currentSort, currentFilters, refetch]);
+  }, [currentTable, createRecordMutation, isCreatingRecord]);
 
   // const add100kRows = useCallback(async () => {
   //   if (!currentTable || isCreatingRecord) return;
@@ -766,26 +836,36 @@ export default function DataTable({
       cell: ({ getValue, row: { index }, column, table }: any) => {
         const initialValue = getValue();
         const [value, setValue] = React.useState(initialValue);
+        const [isDirty, setIsDirty] = React.useState(false);
+        const prevValueRef = React.useRef(initialValue);
 
         const columnIndex = table.getAllColumns()
           .filter((col: any) => col.getIsVisible())
           .findIndex((col: any) => col.id === column.id);
 
         const onBlur = () => {
-          table.options.meta?.updateData(index, column.columnDef.accessorKey, value);
+          setIsDirty(false);
+          // Only update if value actually changed
+          if (value !== prevValueRef.current) {
+            table.options.meta?.updateData(index, column.columnDef.accessorKey, value);
+            prevValueRef.current = value;
+          }
         };
 
         const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
           setValue(e.target.value);
+          setIsDirty(true);
         };
 
+        // Only update from props if:
+        // 1. We're not actively editing (isDirty is false)
+        // 2. The value has actually changed
         React.useEffect(() => {
-          setValue(initialValue);
-        }, [initialValue]);
-
-        // const columnData = currentTable?.columns?.find(col => 
-        //   col.name.toLowerCase().replace(/\s+/g, '') === column.columnDef.accessorKey
-        // );
+          if (!isDirty && initialValue !== prevValueRef.current) {
+            setValue(initialValue);
+            prevValueRef.current = initialValue;
+          }
+        }, [initialValue, isDirty]);
 
         const isCellHighlighted = searchResults.some(
           result =>
@@ -855,7 +935,7 @@ export default function DataTable({
           </div>
         );
       },
-    }), [handleCellRightClick, handleKeyDown, searchTerm, searchResults, currentSearchIndex, highlightSearchTermWithCurrent, currentTable?.columns] // highlightSearchTermWithCurrent
+    }), [handleCellRightClick, handleKeyDown, searchTerm, searchResults, currentSearchIndex, highlightSearchTermWithCurrent]
   );
 
   const columns = useMemo(() => {
@@ -866,9 +946,11 @@ export default function DataTable({
       .filter(col => !hiddenColumns.has(col.id))
       .map((col, columnIndex) => {
         const fieldKey = col.name.toLowerCase().replace(/\s+/g, '');
+        const isSorted = currentSort.some(s => s.columnId === col.id);
 
         return columnHelper.accessor(fieldKey, {
           id: col.id,
+          enableResizing: false,
           header: () => (
             <div 
               className={`column-header-content ${
@@ -886,20 +968,32 @@ export default function DataTable({
           ),
           ...(col.type !== 'text' && {
             cell: ({ getValue, row: { index }, column, table }) => {
-              const value = getValue() as string || '';
+              const initialValue = getValue() as string || '';
+              const [numValue, setNumValue] = React.useState(initialValue);
+              const [isDirty, setIsDirty] = React.useState(false);
+              const prevValueRef = React.useRef(initialValue);
+              
+              React.useEffect(() => {
+                if (!isDirty && initialValue !== prevValueRef.current) {
+                  setNumValue(initialValue);
+                  prevValueRef.current = initialValue;
+                }
+              }, [initialValue, isDirty]);
+
+              const onFocus = () => {
+                setCurrentCell({ rowIndex: index, columnIndex });
+              };
+
+              const onBlur = () => {
+                setIsDirty(false);
+                if (numValue !== prevValueRef.current) {
+                  (table.options.meta as any)?.updateData(index, fieldKey, numValue);
+                  prevValueRef.current = numValue;
+                }
+              };
 
               switch (col.type) {
                 case 'number':
-                  const [numValue, setNumValue] = React.useState(value);
-                  
-                  React.useEffect(() => {
-                    setNumValue(value);
-                  }, [value]);
-
-                  const onFocus = () => {
-                    setCurrentCell({ rowIndex: index, columnIndex });
-                  };
-
                   return (
                     <div 
                       data-row-index={index} 
@@ -916,8 +1010,11 @@ export default function DataTable({
                       <input
                         type="number"
                         value={numValue}
-                        onChange={(e) => setNumValue(e.target.value)}
-                        onBlur={() => (table.options.meta as any)?.updateData(index, fieldKey, numValue)}
+                        onChange={(e) => {
+                          setNumValue(e.target.value);
+                          setIsDirty(true);
+                        }}
+                        onBlur={onBlur}
                         onFocus={onFocus}
                         onContextMenu={(e) => handleCellRightClick(e, index)}
                         style={{ 
@@ -944,7 +1041,18 @@ export default function DataTable({
           })
         });
       });
-  }, [currentTable?.columns, getColumnIcon, handleColumnRightClick, hiddenColumns, searchTerm, isColumnHighlighted, isCurrentColumnHighlighted, handleCellRightClick]); // highlightSearchTermWithCurrent
+  }, [
+    currentTable?.columns, 
+    getColumnIcon, 
+    handleColumnRightClick, 
+    hiddenColumns, 
+    searchTerm, 
+    isColumnHighlighted, 
+    isCurrentColumnHighlighted, 
+    handleCellRightClick,
+    tableData.length
+  ]);
+
 
   const table = useReactTable({
     data: tableData,
@@ -997,12 +1105,23 @@ export default function DataTable({
         fetchNextPage,
     ]);
 
-  // All useEffect hooks at the end
   React.useEffect(() => {
-    if (currentTable?.id && (currentSort.length > 0 || currentFilters.length > 0)) {
-      refetch();
-    }
-  }, [currentSort, currentFilters, currentTable?.id, refetch]);
+    return () => {
+      // Clear all pending update timeouts
+      Object.keys(window).forEach(key => {
+        if (key.startsWith('updateTimeout_')) {
+          clearTimeout((window as any)[key]);
+        }
+      });
+    };
+  }, []);
+
+  // All useEffect hooks at the end
+  // React.useEffect(() => {
+  //   if (currentTable?.id && (currentSort.length > 0 || currentFilters.length > 0)) {
+  //     refetch();
+  //   }
+  // }, [currentSort, currentFilters, currentTable?.id, refetch]);
 
   React.useEffect(() => {
     if (currentTable?.id && !tablesData[currentTable.id]) {

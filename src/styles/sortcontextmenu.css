@@ -295,3 +295,25 @@ hr {
   background: #2563eb;
   border-color: #2563eb;
 }
+
+.sort-apply-btn {
+  margin: 12px;
+  padding: 8px 16px;
+  background: #0D52AC;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  width: calc(100% - 24px);
+}
+
+.sort-apply-btn:hover {
+  background: #0a4389;
+}
+
+/* Highlight sorted columns */
+.column-sorted {
+  background-color: #FFF3D3 !important;
+}

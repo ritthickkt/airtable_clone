@@ -59,6 +59,7 @@ interface TableControlsProps {
   currentSearchIndex?: number;
   onSearchNavigate?: (direction: 'next' | 'prev') => void;
   onSearchSelect?: (index: number) => void;
+  onApplySort: (sortConfig: Array<{ columnId: string; direction: 'asc' | 'desc' }>) => void;
 }
 
 export default function TableControls({ 
@@ -87,6 +88,7 @@ export default function TableControls({
   currentSearchIndex = 0,
   onSearchNavigate,
   onSearchSelect,
+  onApplySort
 }: TableControlsProps) {
   const [showHiddenFieldsDropdown, setShowHiddenFieldsDropdown] = useState(false);
   const [showSortDropdown, setShowSortDropdown] = useState(false);
@@ -270,8 +272,6 @@ export default function TableControls({
             onClick={handleSortClick}
             disabled={sortingLoading || filteringLoading}
             style={{
-              backgroundColor: currentSort.length > 0 ? `#FFE0CC` : undefined,
-              color: currentSort.length > 0 ? 'black' : undefined,
               opacity: sortingLoading ? 0.6 : 1,
               cursor: (sortingLoading || filteringLoading) ? 'not-allowed' : 'pointer'
             }}
@@ -292,7 +292,7 @@ export default function TableControls({
             ) : (
               <>
                 <Image className='table-control-icons' src={Sort} alt='Sort'/> 
-                {currentSort.length > 0 ? `Sorted by ${currentSort.length} field${currentSort.length > 1 ? 's' : ''}` : 'Sort'}
+                Sort
               </>
             )}
           </button>
@@ -339,6 +339,7 @@ export default function TableControls({
         onClearSort={onClearSort}
         onRemoveSort={onRemoveColumnSort}
         onCancel={() => setShowSortDropdown(false)}
+        onApplySort={onApplySort}
       />
 
       <SearchOverlay

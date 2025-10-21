@@ -16,6 +16,7 @@ interface SortDropdownProps {
   onClearSort: () => void;
   onRemoveSort: (columnId: string) => void;
   onCancel: () => void;
+  onApplySort: (sortConfig: Array<{ columnId: string; direction: 'asc' | 'desc' }>) => void;
 }
 
 export default function SortDropdown({
@@ -27,29 +28,26 @@ export default function SortDropdown({
   onSort,
   onClearSort,
   onRemoveSort,
-  onCancel
+  onCancel,
+  onApplySort
 }: SortDropdownProps) {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedColumnId, setSelectedColumnId] = useState<string | null>(null);
-  const [addingSort, setAddingSort] = useState(false);
-  const [newSortColumnId, setNewSortColumnId] = useState<string | null>(null);
-  const [newSortDirection, setNewSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [pendingSort, setPendingSort] = useState<Array<{ columnId: string; direction: 'asc' | 'desc' }>>(currentSort);
   const [showFieldDropdown, setShowFieldDropdown] = useState(false);
   const [fieldDropdownPosition, setFieldDropdownPosition] = useState<{ left: number, top: number }>({ left: 0, top: 0 });
   const fieldDropdownRef = useRef<HTMLDivElement>(null);
-  const [autoSort, setAutoSort] = useState(true);
 
   const addSortBtnRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!visible) {
-      setSelectedColumnId(null);
-      setAddingSort(false);
-      setNewSortColumnId(null);
-      setNewSortDirection('asc');
       setShowFieldDropdown(false);
     }
   }, [visible]);
+
+  useEffect(() => {
+    setPendingSort(currentSort);
+  }, [currentSort]);
 
   useEffect(() => {
     if (!showFieldDropdown) return;
@@ -80,13 +78,37 @@ export default function SortDropdown({
     }
   };
 
+  const handleAddSort = (columnId: string) => {
+    setPendingSort(prev => [...prev, { columnId, direction: 'asc' }]);
+    setShowFieldDropdown(false);
+  };
+
+  const handleUpdateSort = (columnId: string, direction: 'asc' | 'desc') => {
+    setPendingSort(prev => 
+      prev.map(s => s.columnId === columnId ? { ...s, direction } : s)
+    );
+  };
+
+  const handleChangeColumn = (oldColumnId: string, newColumnId: string) => {
+    setPendingSort(prev => 
+      prev.map(s => s.columnId === oldColumnId ? { columnId: newColumnId, direction: s.direction } : s)
+    );
+  };
+
+  const handleRemoveSort = (columnId: string) => {
+    setPendingSort(prev => prev.filter(s => s.columnId !== columnId));
+  };
+
+  const handleApplySort = () => {
+    onApplySort(pendingSort);
+    onCancel();
+  };
+
   if (!visible) return null;
 
   const filteredColumns = allColumns.filter(column =>
     column.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
-
-  const selectedColumn = allColumns.find(col => col.id === selectedColumnId);
 
   const getColumnIcon = (type: string) => {
     switch (type) {
@@ -121,10 +143,10 @@ export default function SortDropdown({
         style={{ left: x, top: y }}
         onClick={handleMenuClick}
       >
-        {currentSort.length === 0 ? (
+        {pendingSort.length === 0 ? (
           <>
             <div className="sort-dropdown-header">
-            <h3>Sort by</h3>
+              <h3>Sort by</h3>
             </div>
 
             <div className="sort-search-container">
@@ -138,126 +160,75 @@ export default function SortDropdown({
               />
             </div>
             <div className="sort-fields-list">
-              {filteredColumns.map((column) => {
-                const sortOptions = getSortOptions(column.type);
-                const currentColumnSort = currentSort.find(s => s.columnId === column.id);
-
-                return (
-                  <div key={column.id} className="sort-field-item" onClick={() => {setSelectedColumnId(column.id); onSort(column.id, 'asc');}}>
-                    <div className="sort-field-header">
-                      <span className="sort-field-icon">{getColumnIcon(column.type)}</span>
-                      <span className="sort-field-name">{column.name}</span>
-                    </div>
+              {filteredColumns.map((column) => (
+                <div 
+                  key={column.id} 
+                  className="sort-field-item" 
+                  onClick={() => handleAddSort(column.id)}
+                >
+                  <div className="sort-field-header">
+                    <span className="sort-field-icon">{getColumnIcon(column.type)}</span>
+                    <span className="sort-field-name">{column.name}</span>
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
           </>
         ) : (
           <>
-            <div className="sort-dropdown-overlay" onClick={onCancel}>
-              <div
-                className="sort-dropdown"
-                style={{ left: x, top: y }}
-                onClick={e => e.stopPropagation()}
-              >
-                <div className="sort-dropdown-header">
-                  <h3>Sort by</h3>
-                </div>
-                {currentSort.map((sort, idx) => {
-                  const col = allColumns.find(c => c.id === sort.columnId);
-                  const sortOptions = getSortOptions(col?.type ?? 'text').map(opt => ({
-                    value: opt.direction,
-                    label: opt.label
-                  }));
-                  const columnOptions = allColumns.map(column => ({
-                    value: column.id,
-                    label: column.name,
-                    icon: getColumnIcon(column.type)
-                  }));
-                  
-                  return (
-                    <div key={sort.columnId} className="sort-row">
-                      {/* Column dropdown */}
-                      <CustomDropdown
-                        value={sort.columnId}
-                        options={columnOptions}
-                        onChange={value => {
-                          // Ensure we have a valid direction before calling onSort
-                          const direction = sort.direction || 'asc';
-                          if (value !== sort.columnId) {
-                            onRemoveSort(sort.columnId);
-                            onSort(value, direction);
-                          }
-                        }}
-                        className="sort-column-dropdown"
-                      />
-                      {/* Direction dropdown */}
-                      <CustomDropdown
-                        value={sort.direction}
-                        options={sortOptions}
-                        onChange={value => {
-                          // Ensure value is valid before calling onSort
-                          const direction = (value as 'asc' | 'desc') || 'asc';
-                          onSort(sort.columnId, direction);
-                        }}
-                        className="sort-direction-dropdown"
-                      />
-                      {/* Remove button */}
-                      <button
-                        className="sort-remove-btn"
-                        onClick={() => {onRemoveSort(sort.columnId); onCancel();}}
-                        title="Remove sort"
-                      >✕</button>
-                    </div>
-                  );
-                })}
-                {/* Add another sort */}
-                {addingSort ? (
-                  <div className="sort-row">
-                    <select
-                      value={newSortColumnId ?? ''}
-                      onChange={e => setNewSortColumnId(e.target.value)}
-                      className="sort-column-select"
-                    >
-                      <option value="" disabled>Select field</option>
-                      {allColumns
-                        .filter(col => !currentSort.some(s => s.columnId === col.id))
-                        .map(col => (
-                          <option key={col.id} value={col.id}>{col.name}</option>
-                        ))}
-                    </select>
-                    <select
-                      value={newSortDirection}
-                      onChange={e => setNewSortDirection(e.target.value as 'asc' | 'desc')}
-                      className="sort-direction-select"
-                    >
-                      <option value="asc">A → Z</option>
-                      <option value="desc">Z → A</option>
-                    </select>
-                    <button
-                      className="sort-add-btn"
-                      onClick={() => {
-                        if (newSortColumnId) {
-                          onSort(newSortColumnId, newSortDirection);
-                          setAddingSort(false);
-                          setNewSortColumnId(null);
-                          setNewSortDirection('asc');
-                        }
-                      }}
-                    >Add</button>
-                  </div>
-                ) : (
-                  <>
-                  <button
-                    ref={addSortBtnRef}
-                    className="sort-add-another-btn"
-                    onClick={handleAddSortClick}
-                  >+ <div></div>Add another sort</button>
-                </>
-              )}
-              </div>
+            <div className="sort-dropdown-header">
+              <h3>Sort by</h3>
             </div>
+            {pendingSort.map((sort) => {
+              const col = allColumns.find(c => c.id === sort.columnId);
+              const sortOptions = getSortOptions(col?.type ?? 'text').map(opt => ({
+                value: opt.direction,
+                label: opt.label
+              }));
+              const columnOptions = allColumns.map(column => ({
+                value: column.id,
+                label: column.name,
+                icon: getColumnIcon(column.type)
+              }));
+              
+              return (
+                <div key={sort.columnId} className="sort-row">
+                  <CustomDropdown
+                    value={sort.columnId}
+                    options={columnOptions}
+                    onChange={value => handleChangeColumn(sort.columnId, value)}
+                    className="sort-column-dropdown"
+                  />
+                  <CustomDropdown
+                    value={sort.direction}
+                    options={sortOptions}
+                    onChange={value => handleUpdateSort(sort.columnId, value as 'asc' | 'desc')}
+                    className="sort-direction-dropdown"
+                  />
+                  <button
+                    className="sort-remove-btn"
+                    onClick={() => handleRemoveSort(sort.columnId)}
+                    title="Remove this sort"
+                  >✕</button>
+                </div>
+              );
+            })}
+            
+            <button
+              ref={addSortBtnRef}
+              className="sort-add-another-btn"
+              onClick={handleAddSortClick}
+            >
+              + <div></div>Add another sort
+            </button>
+
+            {/* Sort Button */}
+            <button
+              className="sort-apply-btn"
+              onClick={handleApplySort}
+            >
+              Sort
+            </button>
           </>
         )}
       </div>
@@ -273,15 +244,12 @@ export default function SortDropdown({
           }}
         >
           {allColumns
-            .filter(col => !currentSort.some(s => s.columnId === col.id))
+            .filter(col => !pendingSort.some(s => s.columnId === col.id))
             .map(col => (
               <div
                 key={col.id}
                 className="custom-field-dropdown-item"
-                onClick={() => {
-                  onSort(col.id, 'asc');
-                  setShowFieldDropdown(false);
-                }}
+                onClick={() => handleAddSort(col.id)}
               >
                 {col.name}
               </div>

@@ -83,6 +83,8 @@ interface DataTableProps {
   isFetchingRecords: boolean;
   refetch: () => Promise<any>;
   totalCount?: number;
+  tablesData: Record<string, TableRow[]>;
+  onTablesDataChange: (data: Record<string, TableRow[]>) => void; 
 }
 
 export default function DataTable({ 
@@ -116,12 +118,13 @@ export default function DataTable({
     isFetchingRecords,
     refetch,
     totalCount,
+    tablesData,
+    onTablesDataChange,
   }: DataTableProps) {
   
   const [isCreatingRecord, setIsCreatingRecord] = useState(false);
   const [isCreatingColumn, setIsCreatingColumn] = useState(false);
   const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
-  const [tablesData, setTablesData] = useState<Record<string, TableRow[]>>({});
   const [currentCell, setCurrentCell] = useState<{rowIndex: number; columnIndex: number} | null>(null);
   const [colConfigPosition, setColConfigPosition] = useState<{ top: number; left: number } | null>(null);
   const [contextMenu, setContextMenu] = useState<{
@@ -187,32 +190,99 @@ export default function DataTable({
     );
   }, []);
 
+  const tableData = useMemo(() => {
+    const localData = tablesData[currentTable?.id ?? ''] ?? [];
+    
+    const paginatedRecords = paginatedData?.pages.flatMap(page => 
+      page.records.map((record) => {
+        const data = record.data as Record<string, unknown> || {};
+        const recordRow = {
+          id: record.id,
+          ...data,
+        } as TableRow;
+        
+        const localVersion = localData.find(r => r.id === record.id);
+        return localVersion || recordRow;
+      })
+    ) ?? [];
+    
+    const localOnlyRecords = localData.filter(row => 
+      !paginatedRecords.some(dbRow => dbRow.id === row.id)
+    );
+    
+    const allRecords = [...paginatedRecords, ...localOnlyRecords];
+    
+    // Filter records based on search term
+    if (searchTerm.trim() && searchResults.length > 0) {
+      const rowResults = searchResults.filter(result => !result.isColumnHeader);
+      
+      if (rowResults.length > 0) {
+        const recordIdsWithMatches = new Set(
+          rowResults.map(result => result.rowId)
+        );
+        
+        return allRecords.filter(row => recordIdsWithMatches.has(row.id));
+      }
+    }
+    
+    return allRecords;
+  }, [paginatedData, tablesData, currentTable?.id, searchTerm, searchResults]);
+
+  const adjustedSearchResults = useMemo(() => {
+    if (!searchTerm.trim() || searchResults.length === 0) {
+      return searchResults;
+    }
+
+    // Create a map of rowId to new index in filtered tableData
+  const rowIdToNewIndex = new Map<string, number>();
+    tableData.forEach((row, index) => {
+      rowIdToNewIndex.set(row.id, index);
+    });
+
+    // Update search results with new indices
+    return searchResults.map(result => {
+      if (result.isColumnHeader) {
+        return result;
+      }
+      
+      const newIndex = rowIdToNewIndex.get(result.rowId);
+      return {
+        ...result,
+        rowIndex: newIndex ?? result.rowIndex
+      };
+    }).filter(result => {
+      // Remove results for rows that are no longer visible
+      if (result.isColumnHeader) return true;
+      return rowIdToNewIndex.has(result.rowId);
+    });
+  }, [searchResults, searchTerm, tableData]);
+
   const isRowHighlighted = useCallback((rowIndex: number) => {
-    if (!searchTerm || searchResults.length === 0) return false;
-    return searchResults.some(result => result.rowIndex === rowIndex && !result.isColumnHeader);
-  }, [searchTerm, searchResults]);
+    if (!searchTerm || adjustedSearchResults.length === 0) return false;
+    return adjustedSearchResults.some(result => result.rowIndex === rowIndex && !result.isColumnHeader);
+  }, [searchTerm, adjustedSearchResults]);
 
   const isColumnHighlighted = useCallback((columnId: string) => {
-    if (!searchTerm || searchResults.length === 0) return false;
-    return searchResults.some(result => result.columnId === columnId && result.isColumnHeader);
-  }, [searchTerm, searchResults]);
+    if (!searchTerm || adjustedSearchResults.length === 0) return false;
+    return adjustedSearchResults.some(result => result.columnId === columnId && result.isColumnHeader);
+  }, [searchTerm, adjustedSearchResults]);
 
   const isCurrentRowHighlighted = useCallback((rowIndex: number) => {
-    if (!searchTerm || searchResults.length === 0) return false;
-    const currentResult = searchResults[currentSearchIndex];
+    if (!searchTerm || adjustedSearchResults.length === 0) return false;
+    const currentResult = adjustedSearchResults[currentSearchIndex];
     return currentResult && currentResult.rowIndex === rowIndex && !currentResult.isColumnHeader;
-  }, [searchTerm, searchResults, currentSearchIndex]);
+  }, [searchTerm, adjustedSearchResults, currentSearchIndex]);
 
   const isCurrentColumnHighlighted = useCallback((columnId: string) => {
-    if (!searchTerm || searchResults.length === 0) return false;
-    const currentResult = searchResults[currentSearchIndex];
+    if (!searchTerm || adjustedSearchResults.length === 0) return false;
+    const currentResult = adjustedSearchResults[currentSearchIndex];
     return currentResult && currentResult.columnId === columnId && currentResult.isColumnHeader;
-  }, [searchTerm, searchResults, currentSearchIndex]);
+  }, [searchTerm, adjustedSearchResults, currentSearchIndex]);
 
   const highlightSearchTermWithCurrent = useCallback((text: string, searchTerm: string, columnId: string, rowIndex: number) => {
     if (!searchTerm.trim()) return text;
     
-    const currentResult = searchResults[currentSearchIndex];
+    const currentResult = adjustedSearchResults[currentSearchIndex];
     const isCurrentMatch = currentResult && 
       currentResult.columnId === columnId && 
       currentResult.rowIndex === rowIndex;
@@ -230,7 +300,7 @@ export default function DataTable({
         </span>
       ) : part
     );
-  }, [searchResults, currentSearchIndex]);
+  }, [adjustedSearchResults, currentSearchIndex]);
 
   const handleHideColumn = useCallback((columnId: string) => {
     onHideColumn(columnId);
@@ -279,7 +349,7 @@ export default function DataTable({
     onColumnRemove(currentTable.id, columnContextMenu.columnId);
 
     const fieldKey = columnToDelete.name.toLowerCase().replace(/\s+/g, '');
-    setTablesData(prev => ({
+    onTablesDataChange(prev => ({
       ...prev,
       [currentTable.id]: (prev[currentTable.id] ?? []).map(row => {
         const { [fieldKey]: removedField, ...restRow } = row;
@@ -328,40 +398,13 @@ export default function DataTable({
     });
   }, []);
 
-  const tableData = useMemo(() => {
-    const localData = tablesData[currentTable?.id ?? ''] ?? [];
-    
-    const paginatedRecords = paginatedData?.pages.flatMap(page => 
-      page.records.map((record) => {
-        const data = record.data as Record<string, unknown> || {};
-        const recordRow = {
-          id: record.id,
-          ...data,
-        } as TableRow;
-        
-        // Check if we have local changes for this record
-        const localVersion = localData.find(r => r.id === record.id);
-        
-        // Prefer local version if it exists (user might have made changes)
-        return localVersion || recordRow;
-      })
-    ) ?? [];
-    
-    // Include local-only records (new records not yet confirmed by server)
-    const localOnlyRecords = localData.filter(row => 
-      !paginatedRecords.some(dbRow => dbRow.id === row.id)
-    );
-    
-    return [...paginatedRecords, ...localOnlyRecords];
-  }, [paginatedData, tablesData, currentTable?.id]);
-
   const handleDeleteRow = useCallback(() => {
     if (!contextMenu || !currentTable?.id) return;
 
     const rowToDelete = tableData[contextMenu.rowIndex];
     if (!rowToDelete) return;
 
-    setTablesData(prev => ({
+    onTablesDataChange(prev => ({
       ...prev,
       [currentTable.id]: prev[currentTable.id]?.filter(row => row.id !== rowToDelete.id) ?? []
     }));
@@ -375,7 +418,7 @@ export default function DataTable({
         }
       },
       onError: () => {
-        setTablesData(prev => ({
+        onTablesDataChange(prev => ({
           ...prev,
           [currentTable.id]: [...(prev[currentTable.id] ?? []), rowToDelete]
         }));
@@ -395,7 +438,7 @@ export default function DataTable({
       return;
     }
 
-    setTablesData(prev => {
+    onTablesDataChange(prev => {
       const currentData = prev[currentTable.id] ?? [];
       
       const updatedData = currentData.map((row) => {
@@ -445,7 +488,7 @@ export default function DataTable({
         },
         onError: (error) => {
           console.error('Failed to update cell:', error);
-          setTablesData(prev => ({
+          onTablesDataChange(prev => ({
             ...prev,
             [currentTable.id]: prev[currentTable.id]?.map(row => 
               row.id === actualRow.id ? actualRow : row
@@ -635,7 +678,7 @@ export default function DataTable({
     } as TableRow;
     
     // Add to local state
-    setTablesData(prev => ({
+    onTablesDataChange(prev => ({
       ...prev,
       [currentTable.id]: [...(prev[currentTable.id] ?? []), optimisticRecord]
     }));
@@ -645,7 +688,7 @@ export default function DataTable({
       data: emptyData,
     }, {
       onSuccess: (realRecord) => {
-        setTablesData(prev => ({
+        onTablesDataChange(prev => ({
           ...prev,
           [currentTable.id]: (prev[currentTable.id] ?? []).map(row => 
             row.id === optimisticRecord.id 
@@ -660,7 +703,7 @@ export default function DataTable({
         // }
       },
       onError: () => {
-        setTablesData(prev => ({
+        onTablesDataChange(prev => ({
           ...prev,
           [currentTable.id]: (prev[currentTable.id] ?? []).filter(row => row.id !== optimisticRecord.id)
         }));
@@ -826,134 +869,144 @@ export default function DataTable({
   // All useMemo hooks
 
   const CellInput = React.memo(({ 
-    value: initialValue, 
-    index, 
-    columnId,
-    columnIndex,
-    onUpdate,
-    onKeyDown,
-    onContextMenu,
-    searchTerm,
-    highlightFunction,
-    isCurrentCellHighlighted,
-    isCellHighlighted 
-  }: any) => {
-    const [value, setValue] = React.useState(initialValue);
-    const [isDirty, setIsDirty] = React.useState(false);
-    const prevValueRef = React.useRef(initialValue);
+  value: initialValue, 
+  index, 
+  columnId,
+  columnIndex,
+  onUpdate,
+  onKeyDown,
+  onContextMenu,
+  searchTerm,
+  highlightFunction,
+  isCurrentCellHighlighted,
+  isCellHighlighted,
+  rowId // Add rowId prop
+}: any) => {
+  const [value, setValue] = React.useState(initialValue);
+  const [isDirty, setIsDirty] = React.useState(false);
+  const prevValueRef = React.useRef(initialValue);
+  const prevRowIdRef = React.useRef(rowId); // Track rowId changes
 
-    const onBlur = () => {
+  const onBlur = () => {
+    setIsDirty(false);
+    if (value !== prevValueRef.current) {
+      onUpdate(index, columnId, value);
+      prevValueRef.current = value;
+    }
+  };
+
+  const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setValue(e.target.value);
+    setIsDirty(true);
+  };
+
+  // Reset state if we're rendering a completely different row
+  React.useEffect(() => {
+    if (prevRowIdRef.current !== rowId) {
+      setValue(initialValue);
       setIsDirty(false);
-      if (value !== prevValueRef.current) {
-        onUpdate(index, columnId, value);
-        prevValueRef.current = value;
+      prevValueRef.current = initialValue;
+      prevRowIdRef.current = rowId;
+    } else if (!isDirty && initialValue !== prevValueRef.current) {
+      setValue(initialValue);
+      prevValueRef.current = initialValue;
+    }
+  }, [initialValue, isDirty, rowId]);
+
+  return (
+    <div
+      data-row-index={index}
+      data-column-index={columnIndex}
+      className={
+        isCurrentCellHighlighted
+          ? 'search-row-highlight-current'
+          : isCellHighlighted
+          ? 'search-row-highlight'
+          : ''
       }
-    };
-
-    const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      setValue(e.target.value);
-      setIsDirty(true);
-    };
-
-    React.useEffect(() => {
-      if (!isDirty && initialValue !== prevValueRef.current) {
-        setValue(initialValue);
-        prevValueRef.current = initialValue;
-      }
-    }, [initialValue, isDirty]);
-
-    return (
-      <div
-        data-row-index={index}
-        data-column-index={columnIndex}
-        className={
-          isCurrentCellHighlighted
-            ? 'search-row-highlight-current'
-            : isCellHighlighted
-            ? 'search-row-highlight'
-            : ''
-        }
+      style={{
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        alignItems: 'center',
+      }}
+    >
+      <input
+        value={value as string || ''}
+        onChange={onChange}
+        onBlur={onBlur}
+        onKeyDown={e => onKeyDown(e, index, columnIndex)}
+        onContextMenu={e => onContextMenu(e, index)}
         style={{
           width: '100%',
           height: '100%',
-          display: 'flex',
-          alignItems: 'center',
+          border: 'none',
+          backgroundColor: isCurrentCellHighlighted ? '#FFE4A3' : isCellHighlighted ? '#FFF4CC' : 'transparent',
+          padding: '0 12px',
+          fontSize: '13px',
+          fontFamily: 'inherit',
+          outline: 'none',
+          boxSizing: 'border-box',
         }}
-      >
-        <input
-          value={value as string || ''}
-          onChange={onChange}
-          onBlur={onBlur}
-          onKeyDown={e => onKeyDown(e, index, columnIndex)}
-          onContextMenu={e => onContextMenu(e, index)}
-          style={{
-            width: '100%',
-            height: '100%',
-            border: 'none',
-            backgroundColor: isCurrentCellHighlighted ? '#FFE4A3' : isCellHighlighted ? '#FFF4CC' : 'transparent',
-            padding: '0 12px',
-            fontSize: '13px',
-            fontFamily: 'inherit',
-            outline: 'none',
-            boxSizing: 'border-box',
-          }}
-        />
-      </div>
-    );
-  }, (prevProps, nextProps) => {
-    return (
-      prevProps.value === nextProps.value &&
-      prevProps.isCurrentCellHighlighted === nextProps.isCurrentCellHighlighted &&
-      prevProps.isCellHighlighted === nextProps.isCellHighlighted &&
-      prevProps.searchTerm === nextProps.searchTerm
-    );
-  });
-
-  CellInput.displayName = 'CellInput';
-
-  const defaultColumn = useMemo(
-    () => ({
-      cell: ({ getValue, row: { index }, column, table }: any) => {
-        const initialValue = getValue();
-        const columnIndex = table.getAllColumns()
-          .filter((col: any) => col.getIsVisible())
-          .findIndex((col: any) => col.id === column.id);
-
-        const isCellHighlighted = searchResults.some(
-          result =>
-            result.rowIndex === index &&
-            result.columnId === column.id &&
-            !result.isColumnHeader
-        );
-
-        const isCurrentCellHighlighted = (() => {
-          const currentResult = searchResults[currentSearchIndex];
-          return (
-            currentResult &&
-            currentResult.rowIndex === index &&
-            currentResult.columnId === column.id &&
-            !currentResult.isColumnHeader
-          );
-        })();
-
-        return (
-          <CellInput
-            value={initialValue}
-            index={index}
-            columnId={column.columnDef.accessorKey}
-            columnIndex={columnIndex}
-            onUpdate={table.options.meta?.updateData}
-            onKeyDown={handleKeyDown}
-            onContextMenu={handleCellRightClick}
-            searchTerm={searchTerm}
-            highlightFunction={highlightSearchTermWithCurrent}
-            isCurrentCellHighlighted={isCurrentCellHighlighted}
-            isCellHighlighted={isCellHighlighted}
-          />
-        );
-      },
-    }), [handleCellRightClick, handleKeyDown, searchTerm, searchResults, currentSearchIndex]
+      />
+    </div>
   );
+}, (prevProps, nextProps) => {
+  return (
+    prevProps.value === nextProps.value &&
+    prevProps.rowId === nextProps.rowId &&
+    prevProps.isCurrentCellHighlighted === nextProps.isCurrentCellHighlighted &&
+    prevProps.isCellHighlighted === nextProps.isCellHighlighted &&
+    prevProps.searchTerm === nextProps.searchTerm
+  );
+});
+
+CellInput.displayName = 'CellInput';
+
+const defaultColumn = useMemo(
+  () => ({
+    cell: ({ getValue, row: { index, original }, column, table }: any) => {
+      const initialValue = getValue();
+      const columnIndex = table.getAllColumns()
+        .filter((col: any) => col.getIsVisible())
+        .findIndex((col: any) => col.id === column.id);
+
+      const isCellHighlighted = adjustedSearchResults.some(
+        result =>
+          result.rowIndex === index &&
+          result.columnId === column.id &&
+          !result.isColumnHeader
+      );
+
+      const isCurrentCellHighlighted = (() => {
+        const currentResult = adjustedSearchResults[currentSearchIndex];
+        return (
+          currentResult &&
+          currentResult.rowIndex === index &&
+          currentResult.columnId === column.id &&
+          !currentResult.isColumnHeader
+        );
+      })();
+
+      return (
+        <CellInput
+          value={initialValue}
+          index={index}
+          rowId={original.id}
+          columnId={column.columnDef.accessorKey}
+          columnIndex={columnIndex}
+          onUpdate={table.options.meta?.updateData}
+          onKeyDown={handleKeyDown}
+          onContextMenu={handleCellRightClick}
+          searchTerm={searchTerm}
+          highlightFunction={highlightSearchTermWithCurrent}
+          isCurrentCellHighlighted={isCurrentCellHighlighted}
+          isCellHighlighted={isCellHighlighted}
+        />
+      );
+    },
+  }), [handleCellRightClick, handleKeyDown, searchTerm, adjustedSearchResults, currentSearchIndex]
+);
 
   // const defaultColumn = useMemo(
   //   () => ({
@@ -1260,7 +1313,7 @@ export default function DataTable({
         } as TableRow;
       }) ?? [];
 
-      setTablesData(prev => ({
+      onTablesDataChange(prev => ({
         ...prev,
         [currentTable.id]: initialData
       }));
@@ -1435,7 +1488,7 @@ export default function DataTable({
                     position: 'absolute',
                     top: `${virtualRow.start}px`,
                     left: 0,
-                    width: '100%',
+                    width: `${totalTableWidth}px`,
                     height: `${virtualRow.size}px`,
                     display: 'flex',
                   }}

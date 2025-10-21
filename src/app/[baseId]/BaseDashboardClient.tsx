@@ -54,6 +54,7 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
   const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
   const [sortingLoading, setSortingLoading] = useState(false);
   const [filteringLoading, setFilteringLoading] = useState(false);
+  const [tablesData, setTablesData] = useState<Record<string, any[]>>({});
   const [currentViewId, setCurrentViewId] = useState<string | null>(null);
   const [showViewCreationModal, setShowViewCreationModal] = useState(false);
   const [viewModalPosition, setViewModalPosition] = useState({ x: 0, y: 0});
@@ -537,18 +538,32 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
       }
     });
 
-    // Use paginatedData instead of currentTable.records
-    const tableData = paginatedData?.pages.flatMap(page => 
+    // ✅ Get the SAME data that DataTable uses (including local changes)
+    const localData = tablesData[currentTable.id] ?? [];
+    
+    const paginatedRecords = paginatedData?.pages.flatMap(page => 
       page.records.map((record) => {
         const data = record.data as Record<string, unknown> || {};
-        return {
+        const recordRow = {
           id: record.id,
           ...data,
-        } as Record<string, unknown> & { id: string };
+        };
+        
+        // ✅ Prefer local version if it exists (same logic as DataTable)
+        const localVersion = localData.find(r => r.id === record.id);
+        return localVersion || recordRow;
       })
     ) ?? [];
+    
+    // ✅ Include local-only records (new records not yet saved)
+    const localOnlyRecords = localData.filter(row => 
+      !paginatedRecords.some(dbRow => dbRow.id === row.id)
+    );
+    
+    const allRecords = [...paginatedRecords, ...localOnlyRecords];
 
-    tableData.forEach((row, rowIndex) => {
+    // ✅ Search through all records (with local changes)
+    allRecords.forEach((row, rowIndex) => {
       currentTable.columns?.forEach(column => {
         const fieldKey = column.name.toLowerCase().replace(/\s+/g, '');
         const cellValue = (row[fieldKey] as string | undefined)?.toString() ?? '';
@@ -567,7 +582,7 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
 
     setSearchResults(results);
     setCurrentSearchIndex(0);
-  }, [currentTable, paginatedData]);
+  }, [currentTable, paginatedData, tablesData]);
 
   const handleSearchNavigate = useCallback((direction: 'next' | 'prev') => {
     if (searchResults.length === 0) return;
@@ -841,6 +856,8 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
                 isFetchingRecords={isFetchingRecords}
                 refetch={refetch}
                 totalCount={totalCount}
+                tablesData={tablesData} // ✅ Pass tablesData
+                onTablesDataChange={setTablesData} // ✅ Pass setter
               />
               {/* Loading overlay */}
               {(sortingLoading || filteringLoading) && (

@@ -388,11 +388,9 @@ export default function DataTable({
   const updateData = useCallback((rowIndex: number, fieldKey: string, value: unknown) => {
     if (!currentTable?.id) return;
 
-    // Find the actual row by index from tableData (not tablesData)
     const actualRow = tableData[rowIndex];
     if (!actualRow) return;
 
-    // Don't update temp rows that haven't been created yet
     if (actualRow.id.startsWith('temp-bulk-') || actualRow.id.startsWith('temp-')) {
       return;
     }
@@ -423,7 +421,7 @@ export default function DataTable({
       clearTimeout((window as any)[`updateTimeout_${updateKey}`]);
     }
 
-    // Set new timeout
+    // Increased from 500ms to 1000ms for better batching
     (window as any)[`updateTimeout_${updateKey}`] = setTimeout(() => {
       updateCellMutation.mutate({
         recordId: actualRow.id,
@@ -455,7 +453,7 @@ export default function DataTable({
           }));
         }
       });
-    }, 500);
+    }, 1000); // Increased debounce time
 
   }, [updateCellMutation, currentTable?.id, currentTable?.columns, currentSort, currentFilters, refetch, tableData]);
 
@@ -752,23 +750,21 @@ export default function DataTable({
     setBulkProgress({ isAdding: true, added: 0, total: totalRecords });
 
     try {
-      // Prepare column keys and types
       const columns = currentTable.columns ?? [];
       const colDefs = columns.map(col => ({
         key: col.name.toLowerCase().replace(/\s+/g, ''),
         type: col.type,
       }));
 
-      // CONFIG: tune these to your backend capacity
       const dbBatchSize = 2000;
       const concurrency = 4;
 
       let nextStart = 0;
       let createdSoFar = 0;
+      let lastProgressUpdate = 0;
 
       const yieldNow = () => new Promise(res => setTimeout(res, 0));
 
-      // Helper to generate faker data per column type
       function fakerValue(type: string) {
         switch (type) {
           case 'text': return faker.person.fullName();
@@ -785,7 +781,6 @@ export default function DataTable({
 
           const size = Math.min(dbBatchSize, totalRecords - start);
 
-          // Generate batch with faker data
           const batchPayload = Array.from({ length: size }, () => {
             const row: Record<string, string> = {};
             colDefs.forEach(col => {
@@ -800,15 +795,24 @@ export default function DataTable({
           });
 
           createdSoFar += (result?.count ?? size);
-          setBulkProgress(prev => prev ? { ...prev, added: createdSoFar } : prev);
+          
+          // Only update progress every 5000 records to reduce re-renders
+          if (createdSoFar - lastProgressUpdate >= 5000 || createdSoFar === totalRecords) {
+            setBulkProgress(prev => prev ? { ...prev, added: createdSoFar } : prev);
+            lastProgressUpdate = createdSoFar;
+          }
+          
           await yieldNow();
         }
       };
 
       await Promise.all(Array.from({ length: concurrency }, () => worker()));
+      
+      // Final progress update
+      setBulkProgress(prev => prev ? { ...prev, added: totalRecords } : prev);
+      
       await refetch();
       console.log('✅ All 100k rows created');
-      await refetch();
       fetchNextPage();
     } catch (error) {
       console.error('Failed to add 100k rows:', error);
@@ -817,45 +821,103 @@ export default function DataTable({
       set100kRowsPressed(false);
       setTimeout(() => setBulkProgress(null), 1500);
     }
-  }, [currentTable, isCreatingRecord, set100kRowsPressed, createBulkRecordsMutation, refetch]);
+  }, [currentTable, isCreatingRecord, set100kRowsPressed, createBulkRecordsMutation, refetch, fetchNextPage]);
 
   // All useMemo hooks
+
+  const CellInput = React.memo(({ 
+    value: initialValue, 
+    index, 
+    columnId,
+    columnIndex,
+    onUpdate,
+    onKeyDown,
+    onContextMenu,
+    searchTerm,
+    highlightFunction,
+    isCurrentCellHighlighted,
+    isCellHighlighted 
+  }: any) => {
+    const [value, setValue] = React.useState(initialValue);
+    const [isDirty, setIsDirty] = React.useState(false);
+    const prevValueRef = React.useRef(initialValue);
+
+    const onBlur = () => {
+      setIsDirty(false);
+      if (value !== prevValueRef.current) {
+        onUpdate(index, columnId, value);
+        prevValueRef.current = value;
+      }
+    };
+
+    const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      setValue(e.target.value);
+      setIsDirty(true);
+    };
+
+    React.useEffect(() => {
+      if (!isDirty && initialValue !== prevValueRef.current) {
+        setValue(initialValue);
+        prevValueRef.current = initialValue;
+      }
+    }, [initialValue, isDirty]);
+
+    return (
+      <div
+        data-row-index={index}
+        data-column-index={columnIndex}
+        className={
+          isCurrentCellHighlighted
+            ? 'search-row-highlight-current'
+            : isCellHighlighted
+            ? 'search-row-highlight'
+            : ''
+        }
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          alignItems: 'center',
+        }}
+      >
+        <input
+          value={value as string || ''}
+          onChange={onChange}
+          onBlur={onBlur}
+          onKeyDown={e => onKeyDown(e, index, columnIndex)}
+          onContextMenu={e => onContextMenu(e, index)}
+          style={{
+            width: '100%',
+            height: '100%',
+            border: 'none',
+            backgroundColor: isCurrentCellHighlighted ? '#FFE4A3' : isCellHighlighted ? '#FFF4CC' : 'transparent',
+            padding: '0 12px',
+            fontSize: '13px',
+            fontFamily: 'inherit',
+            outline: 'none',
+            boxSizing: 'border-box',
+          }}
+        />
+      </div>
+    );
+  }, (prevProps, nextProps) => {
+    return (
+      prevProps.value === nextProps.value &&
+      prevProps.isCurrentCellHighlighted === nextProps.isCurrentCellHighlighted &&
+      prevProps.isCellHighlighted === nextProps.isCellHighlighted &&
+      prevProps.searchTerm === nextProps.searchTerm
+    );
+  });
+
+  CellInput.displayName = 'CellInput';
 
   const defaultColumn = useMemo(
     () => ({
       cell: ({ getValue, row: { index }, column, table }: any) => {
         const initialValue = getValue();
-        const [value, setValue] = React.useState(initialValue);
-        const [isDirty, setIsDirty] = React.useState(false);
-        const prevValueRef = React.useRef(initialValue);
-
         const columnIndex = table.getAllColumns()
           .filter((col: any) => col.getIsVisible())
           .findIndex((col: any) => col.id === column.id);
-
-        const onBlur = () => {
-          setIsDirty(false);
-          // Only update if value actually changed
-          if (value !== prevValueRef.current) {
-            table.options.meta?.updateData(index, column.columnDef.accessorKey, value);
-            prevValueRef.current = value;
-          }
-        };
-
-        const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-          setValue(e.target.value);
-          setIsDirty(true);
-        };
-
-        // Only update from props if:
-        // 1. We're not actively editing (isDirty is false)
-        // 2. The value has actually changed
-        React.useEffect(() => {
-          if (!isDirty && initialValue !== prevValueRef.current) {
-            setValue(initialValue);
-            prevValueRef.current = initialValue;
-          }
-        }, [initialValue, isDirty]);
 
         const isCellHighlighted = searchResults.some(
           result =>
@@ -874,59 +936,131 @@ export default function DataTable({
           );
         })();
 
-        const displayValue = searchTerm && (value as string)
-        ? highlightSearchTermWithCurrent(value as string, searchTerm, column.id, index)
-        : (value as string || '');
-
         return (
-          <div
-            data-row-index={index}
-            data-column-index={columnIndex}
-            className={
-              isCurrentCellHighlighted
-                ? 'search-row-highlight-current'
-                : isCellHighlighted
-                ? 'search-row-highlight'
-                : ''
-            }
-            style={{
-              width: '100%',
-              height: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              margin: 0,
-              padding: 0,
-              position: 'relative',
-            }}
-          >
-            <input
-              value={value as string || ''}
-              onChange={onChange}
-              onBlur={onBlur}
-              onKeyDown={e => handleKeyDown(e, index, columnIndex)}
-              onContextMenu={e => handleCellRightClick(e, index)}
-              style={{
-                width: '100%',
-                height: '100%',
-                border: 'none',
-                backgroundColor: isCurrentCellHighlighted ? '#FFE4A3' : isCellHighlighted ? '#FFF4CC' : 'transparent',
-                padding: '0 12px',
-                fontSize: '13px',
-                fontFamily: 'inherit',
-                outline: 'none',
-                boxSizing: 'border-box',
-                margin: 0,
-                borderRadius: 3,
-                color: 'inherit',
-                position: 'relative',
-                zIndex: 0,
-              }}
-            />
-          </div>
+          <CellInput
+            value={initialValue}
+            index={index}
+            columnId={column.columnDef.accessorKey}
+            columnIndex={columnIndex}
+            onUpdate={table.options.meta?.updateData}
+            onKeyDown={handleKeyDown}
+            onContextMenu={handleCellRightClick}
+            searchTerm={searchTerm}
+            highlightFunction={highlightSearchTermWithCurrent}
+            isCurrentCellHighlighted={isCurrentCellHighlighted}
+            isCellHighlighted={isCellHighlighted}
+          />
         );
       },
-    }), [handleCellRightClick, handleKeyDown, searchTerm, searchResults, currentSearchIndex, highlightSearchTermWithCurrent]
+    }), [handleCellRightClick, handleKeyDown, searchTerm, searchResults, currentSearchIndex]
   );
+
+  // const defaultColumn = useMemo(
+  //   () => ({
+  //     cell: ({ getValue, row: { index }, column, table }: any) => {
+  //       const initialValue = getValue();
+  //       const [value, setValue] = React.useState(initialValue);
+  //       const [isDirty, setIsDirty] = React.useState(false);
+  //       const prevValueRef = React.useRef(initialValue);
+
+  //       const columnIndex = table.getAllColumns()
+  //         .filter((col: any) => col.getIsVisible())
+  //         .findIndex((col: any) => col.id === column.id);
+
+  //       const onBlur = () => {
+  //         setIsDirty(false);
+  //         // Only update if value actually changed
+  //         if (value !== prevValueRef.current) {
+  //           table.options.meta?.updateData(index, column.columnDef.accessorKey, value);
+  //           prevValueRef.current = value;
+  //         }
+  //       };
+
+  //       const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  //         setValue(e.target.value);
+  //         setIsDirty(true);
+  //       };
+
+  //       // Only update from props if:
+  //       // 1. We're not actively editing (isDirty is false)
+  //       // 2. The value has actually changed
+  //       React.useEffect(() => {
+  //         if (!isDirty && initialValue !== prevValueRef.current) {
+  //           setValue(initialValue);
+  //           prevValueRef.current = initialValue;
+  //         }
+  //       }, [initialValue, isDirty]);
+
+  //       const isCellHighlighted = searchResults.some(
+  //         result =>
+  //           result.rowIndex === index &&
+  //           result.columnId === column.id &&
+  //           !result.isColumnHeader
+  //       );
+
+  //       const isCurrentCellHighlighted = (() => {
+  //         const currentResult = searchResults[currentSearchIndex];
+  //         return (
+  //           currentResult &&
+  //           currentResult.rowIndex === index &&
+  //           currentResult.columnId === column.id &&
+  //           !currentResult.isColumnHeader
+  //         );
+  //       })();
+
+  //       const displayValue = searchTerm && (value as string)
+  //       ? highlightSearchTermWithCurrent(value as string, searchTerm, column.id, index)
+  //       : (value as string || '');
+
+  //       return (
+  //         <div
+  //           data-row-index={index}
+  //           data-column-index={columnIndex}
+  //           className={
+  //             isCurrentCellHighlighted
+  //               ? 'search-row-highlight-current'
+  //               : isCellHighlighted
+  //               ? 'search-row-highlight'
+  //               : ''
+  //           }
+  //           style={{
+  //             width: '100%',
+  //             height: '100%',
+  //             display: 'flex',
+  //             alignItems: 'center',
+  //             margin: 0,
+  //             padding: 0,
+  //             position: 'relative',
+  //           }}
+  //         >
+  //           <input
+  //             value={value as string || ''}
+  //             onChange={onChange}
+  //             onBlur={onBlur}
+  //             onKeyDown={e => handleKeyDown(e, index, columnIndex)}
+  //             onContextMenu={e => handleCellRightClick(e, index)}
+  //             style={{
+  //               width: '100%',
+  //               height: '100%',
+  //               border: 'none',
+  //               backgroundColor: isCurrentCellHighlighted ? '#FFE4A3' : isCellHighlighted ? '#FFF4CC' : 'transparent',
+  //               padding: '0 12px',
+  //               fontSize: '13px',
+  //               fontFamily: 'inherit',
+  //               outline: 'none',
+  //               boxSizing: 'border-box',
+  //               margin: 0,
+  //               borderRadius: 3,
+  //               color: 'inherit',
+  //               position: 'relative',
+  //               zIndex: 0,
+  //             }}
+  //           />
+  //         </div>
+  //       );
+  //     },
+  //   }), [handleCellRightClick, handleKeyDown, searchTerm, searchResults, currentSearchIndex, highlightSearchTermWithCurrent]
+  // );
 
   const columns = useMemo(() => {
     if (!currentTable?.columns) return [];
@@ -1067,33 +1201,36 @@ export default function DataTable({
       100 + (visibleColumns.length * 200)
     , [visibleColumns.length]);
 
-    const rowVirtualizer = useVirtualizer({
-      count: tableData.length,
-      getScrollElement: () => parentRef.current,
-      estimateSize: () => 30,
-      overscan: 5,
-    });
+  const rowVirtualizer = useVirtualizer({
+    count: tableData.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 30,
+    overscan: 10,
+    measureElement: typeof window !== 'undefined' && navigator.userAgent.indexOf('Firefox') === -1
+      ? (element) => element?.getBoundingClientRect().height
+      : undefined, 
+  });
 
-    // ✅ Auto-load more rows when scrolling near the bottom
-    useEffect(() => {
-        const virtualItems = rowVirtualizer.getVirtualItems();
-        if (!virtualItems.length) return;
+  // ✅ Auto-load more rows when scrolling near the bottom
+  useEffect(() => {
+      const virtualItems = rowVirtualizer.getVirtualItems();
+      if (!virtualItems.length) return;
 
-        const lastItem1 = virtualItems[virtualItems.length - 1];
-        if (!lastItem1) return;
-        
-        const nearBottom = lastItem1.index >= tableData.length - 10; // last ~10 rows
+      const lastItem1 = virtualItems[virtualItems.length - 1];
+      if (!lastItem1) return;
+      
+      const nearBottom = lastItem1.index >= tableData.length - 10; // last ~10 rows
 
-        if (nearBottom && hasNextPage && !isFetchingNextPage) {
-          fetchNextPage(); // automatically fetch next batch
-        }
-      }, [
-        rowVirtualizer.getVirtualItems(),
-        tableData.length,
-        hasNextPage,
-        isFetchingNextPage,
-        fetchNextPage,
-    ]);
+      if (nearBottom && hasNextPage && !isFetchingNextPage) {
+        fetchNextPage(); // automatically fetch next batch
+      }
+    }, [
+      rowVirtualizer.getVirtualItems(),
+      tableData.length,
+      hasNextPage,
+      isFetchingNextPage,
+      fetchNextPage,
+  ]);
 
   React.useEffect(() => {
     return () => {
@@ -1185,152 +1322,154 @@ export default function DataTable({
   const [hoveredRowIndex, setHoveredRowIndex] = useState<number | null>(null);
 
   return (
-    <div className='table-main-content'>
-      <SideBar
-        views={views}
-        currentViewId={currentViewId}
-        onViewSelect={onViewSelect}
-        onCreateView={onCreateView}
-        onDeleteView={onDeleteView}
-      />
-      <div className='table-wrapper'>
-        {shouldShowLoading ? (
+  <div className='table-main-content'>
+    <SideBar
+      views={views}
+      currentViewId={currentViewId}
+      onViewSelect={onViewSelect}
+      onCreateView={onCreateView}
+      onDeleteView={onDeleteView}
+    />
+    <div className='table-wrapper'>
+      {shouldShowLoading ? (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100vh',
+          width: '100%',
+        }}>
           <div style={{
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
-            justifyContent: 'center',
-            height: '100vh',
-            width: '100%',
+            gap: '16px',
           }}>
             <div style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: '16px',
+              width: '40px',
+              height: '40px',
+              border: '4px solid #f3f3f3',
+              borderTop: '4px solid #3b82f6',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite',
+            }} />
+            <style jsx>{`
+              @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+              }
+            `}</style>
+            <p style={{
+              color: '#666',
+              fontSize: '14px',
+              fontWeight: 500,
             }}>
-              <div style={{
-                width: '40px',
-                height: '40px',
-                border: '4px solid #f3f3f3',
-                borderTop: '4px solid #3b82f6',
-                borderRadius: '50%',
-                animation: 'spin 1s linear infinite',
-              }} />
-              <style jsx>{`
-                @keyframes spin {
-                  0% { transform: rotate(0deg); }
-                  100% { transform: rotate(360deg); }
-                }
-              `}</style>
-              <p style={{
-                color: '#666',
-                fontSize: '14px',
-                fontWeight: 500,
-              }}>
-                Loading table...
-              </p>
-            </div>
+              Loading table...
+            </p>
           </div>
-        ) : (
-        <>
-          <div className='table-scroll-container'>
-              <table>
-              <thead>
-                {table.getHeaderGroups().map(headerGroup => (
-                  <tr key={headerGroup.id}>
-                    <th className="row-number-header">
-                      <div
-                        className='all-rows-select'
-                        onClick={handleSelectAllRows}
-                        style={{ cursor: 'pointer' }}
-                      >
-                      </div>
-                    </th>
-                    {headerGroup.headers.map(header => (
-                      <th
-                        key={header.id}
-                        className={`column-names ${
-                          isColumnHighlighted(header.column.id) ? 'search-column-highlight' : ''
-                        } ${
-                          isCurrentColumnHighlighted(header.column.id) ? 'search-column-highlight-current' : ''
-                        }`}
-                      >
-                        {flexRender(header.column.columnDef.header, header.getContext())}
-                      </th>
-                    ))}
-                    <th className='add-col-header'>
-                      <button
-                        ref={addColBtnRef}
-                        onClick={addNewCol}
-                        disabled={isCreatingColumn}
-                        className="add-col-button"
-                        style={{ 
-                          opacity: isCreatingColumn ? 0.6 : 1,
-                          cursor: isCreatingColumn ? 'not-allowed' : 'pointer'
-                        }}
-                      >
-                        {isCreatingColumn ? '...' : '+'}
-                      </button>  
-                    </th>
-                  </tr>
-                ))} 
-              </thead>
-              <tbody>
-                <tr style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
-                  <td>
-                    <div ref={parentRef} style={{ height: '100%', position: 'relative' }}>
-                      {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                        const rows = table.getCoreRowModel().rows;
-                        const row = rows[virtualRow.index];
-                        if (!row) return null;
-
-                        const isHighlighted = isRowHighlighted(virtualRow.index);
-
-                        return (
-                          <div
-                            key={row.id}
-                            className={`virtual-row ${selectedRows.includes(row.id) ? 'row-selected' : ''}`}
-                            style={{
-                              position: 'absolute',
-                              top: `${virtualRow.start}px`,
-                              left: 0,
-                              width: '100%',
-                              height: `${virtualRow.size}px`,
-                            }}
-                            onMouseEnter={() => setHoveredRowIndex(virtualRow.index)}
-                            onMouseLeave={() => setHoveredRowIndex(null)}
-                          >
-                            <div className={`row-number ${isHighlighted ? 'search-row-highlight' : ''}`}>
-                              {hoveredRowIndex === virtualRow.index
-                              ? <div className='all-rows-select' style={{ cursor: 'pointer' }}></div>
-                              : virtualRow.index + 1}
-                            </div>
-                            {row.getVisibleCells().map((cell, cellIndex) => (
-                              <div 
-                                key={cell.id} 
-                                className={`record ${cellIndex === 0 ? 'first-column' : ''}`}
-                              >
-                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                              </div>
-                            ))}
-                          </div>
-                        );
-                      })}  
+        </div>
+      ) : (
+      <>
+        <div className='table-scroll-container' ref={parentRef}>
+          <table>
+            <thead>
+              {table.getHeaderGroups().map(headerGroup => (
+                <tr key={headerGroup.id}>
+                  <th className="row-number-header">
+                    <div
+                      className='all-rows-select'
+                      onClick={handleSelectAllRows}
+                      style={{ cursor: 'pointer' }}
+                    >
                     </div>
-                  </td>
+                  </th>
+                  {headerGroup.headers.map(header => (
+                    <th
+                      key={header.id}
+                      className={`column-names ${
+                        isColumnHighlighted(header.column.id) ? 'search-column-highlight' : ''
+                      } ${
+                        isCurrentColumnHighlighted(header.column.id) ? 'search-column-highlight-current' : ''
+                      }`}
+                    >
+                      {flexRender(header.column.columnDef.header, header.getContext())}
+                    </th>
+                  ))}
+                  <th className='add-col-header'>
+                    <button
+                      ref={addColBtnRef}
+                      onClick={addNewCol}
+                      disabled={isCreatingColumn}
+                      className="add-col-button"
+                      style={{ 
+                        opacity: isCreatingColumn ? 0.6 : 1,
+                        cursor: isCreatingColumn ? 'not-allowed' : 'pointer'
+                      }}
+                    >
+                      {isCreatingColumn ? '...' : '+'}
+                    </button>  
+                  </th>
                 </tr>
-              </tbody>
-            </table>
-            <div onClick={addNewRow} className='add-row-button' style={{ width: `${totalTableWidth}px`}}>
-              <span className='add-row-icon-button'>+</span>
-            </div>
+              ))} 
+            </thead>
+          </table>
+
+          {/* Virtual scrolling container */}
+          <div style={{ 
+            height: `${rowVirtualizer.getTotalSize()}px`,
+            width: '100%',
+            position: 'relative'
+          }}>
+            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+              const rows = table.getCoreRowModel().rows;
+              const row = rows[virtualRow.index];
+              if (!row) return null;
+
+              const isHighlighted = isRowHighlighted(virtualRow.index);
+
+              return (
+                <div
+                  key={row.id}
+                  className={`virtual-row ${selectedRows.includes(row.id) ? 'row-selected' : ''}`}
+                  style={{
+                    position: 'absolute',
+                    top: `${virtualRow.start}px`,
+                    left: 0,
+                    width: '100%',
+                    height: `${virtualRow.size}px`,
+                    display: 'flex',
+                  }}
+                  onMouseEnter={() => setHoveredRowIndex(virtualRow.index)}
+                  onMouseLeave={() => setHoveredRowIndex(null)}
+                >
+                  <div className={`row-number ${isHighlighted ? 'search-row-highlight' : ''}`}>
+                    {hoveredRowIndex === virtualRow.index
+                    ? <div className='all-rows-select' style={{ cursor: 'pointer' }}></div>
+                    : virtualRow.index + 1}
+                  </div>
+                  {row.getVisibleCells().map((cell, cellIndex) => (
+                    <div 
+                      key={cell.id} 
+                      className={`record ${cellIndex === 0 ? 'first-column' : ''}`}
+                    >
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
           </div>
-          <div className='number-of-rows'>
-            {tableData.length.toLocaleString()} Records
-            {hasNextPage && " (scroll to load more)"} 
+
+          <div onClick={addNewRow} className='add-row-button' style={{ width: `${totalTableWidth}px`}}>
+            <span className='add-row-icon-button'>+</span>
           </div>
-        </>
-        )}
+        </div>
+        <div className='number-of-rows'>
+          {tableData.length.toLocaleString()} Records
+          {hasNextPage && " (scroll to load more)"} 
+        </div>
+      </>
+      )}
         <ContextMenuRecord
           visible={contextMenu?.visible ?? false}
           x={contextMenu?.x ?? 0}

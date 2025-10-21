@@ -108,6 +108,31 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
 
   const currentTable = base.tables?.[currentTableIndex] ?? base.tables?.[0] ?? null;
 
+  const { 
+    data: paginatedData, 
+    fetchNextPage, 
+    hasNextPage, 
+    isFetchingNextPage,
+    isLoading: isLoadingRecords,
+    isFetching: isFetchingRecords, 
+    refetch
+  } = api.base.getTableRecords.useInfiniteQuery(
+    {
+      tableId: currentTable?.id ?? '',
+      sortConfig: currentSort,
+      filterConfig: currentFilters,
+      limit: 100,
+    },
+    { 
+      enabled: !!currentTable?.id,
+      getNextPageParam: (lastPage) => lastPage.nextCursor,
+      refetchOnWindowFocus: false,
+      // Add this to prevent auto-refetch when sortConfig changes
+      refetchOnMount: false,
+      staleTime: Infinity, // Data never goes stale
+    }
+  );
+
   const { data: views = [], refetch: refetchViews } = api.view.getByTableId.useQuery(
     { tableId: currentTable?.id ?? '' },
     { enabled: !!currentTable?.id }
@@ -488,32 +513,30 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
     const results: SearchResult[] = [];
     const normalizedTerm = term.toLowerCase();
 
+    // Search column headers
     currentTable.columns?.forEach(column => {
-        if (column.name.toLowerCase().includes(normalizedTerm)) {
-          results.push({
-            rowId: 'header',
-            rowIndex: -1,
-            columnId: column.id,
-            columnName: column.name,
-            value: column.name,
-            isColumnHeader: true
-          });
-        }
+      if (column.name.toLowerCase().includes(normalizedTerm)) {
+        results.push({
+          rowId: 'header',
+          rowIndex: -1,
+          columnId: column.id,
+          columnName: column.name,
+          value: column.name,
+          isColumnHeader: true
+        });
+      }
     });
 
-    const tableData = currentTable.records?.map((record) => {
-      const data = record.data as Record<string, unknown> || {};
-      return {
-        id: record.id,
-        ...data,
-      } as Record<string, unknown> & { id: string };
-    }) ?? currentTable.records?.map((record) => {
-      const data = record.data as Record<string, unknown> || {};
-      return {
-        id: record.id,
-        ...data,
-      } as Record<string, unknown> & { id: string }; 
-    }) ?? [];
+    // Use paginatedData instead of currentTable.records
+    const tableData = paginatedData?.pages.flatMap(page => 
+      page.records.map((record) => {
+        const data = record.data as Record<string, unknown> || {};
+        return {
+          id: record.id,
+          ...data,
+        } as Record<string, unknown> & { id: string };
+      })
+    ) ?? [];
 
     tableData.forEach((row, rowIndex) => {
       currentTable.columns?.forEach(column => {
@@ -534,7 +557,7 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
 
     setSearchResults(results);
     setCurrentSearchIndex(0);
-  }, [currentTable]);
+  }, [currentTable, paginatedData]);
 
   const handleSearchNavigate = useCallback((direction: 'next' | 'prev') => {
     if (searchResults.length === 0) return;
@@ -714,6 +737,11 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
     }
   };
 
+  const { data: totalCount } = api.base.getTableRecordCount.useQuery(
+    { tableId: currentTable?.id ?? '' },
+    { enabled: !!currentTable?.id }
+  );
+
   return (
     <div className="base-dashboard">
       <NavigateSidebar session={session}/>
@@ -795,6 +823,14 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
                 onViewSelect={handleViewSelect}
                 onCreateView={handleCreateView}
                 onDeleteView={handleDeleteView}
+                paginatedData={paginatedData}
+                fetchNextPage={fetchNextPage}
+                hasNextPage={hasNextPage}
+                isFetchingNextPage={isFetchingNextPage}
+                isLoadingRecords={isLoadingRecords}
+                isFetchingRecords={isFetchingRecords}
+                refetch={refetch}
+                totalCount={totalCount}
               />
               {/* Loading overlay */}
               {(sortingLoading || filteringLoading) && (

@@ -62,6 +62,27 @@ interface DataTableProps {
   onViewSelect?: (viewId: string | null) => void;
   onCreateView?: () => void;
   onDeleteView?: (viewId: string) => void;
+  paginatedData?: {
+    pages: Array<{
+      records: Array<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        data: any;
+        tableId: string;
+      }>;
+      nextCursor?: string | null;
+      hasNextPage: boolean;
+    }>;
+    pageParams: (string | undefined)[];
+  };
+  fetchNextPage: () => void;
+  hasNextPage?: boolean;
+  isFetchingNextPage: boolean;
+  isLoadingRecords: boolean;
+  isFetchingRecords: boolean;
+  refetch: () => Promise<any>;
+  totalCount?: number;
 }
 
 export default function DataTable({ 
@@ -87,6 +108,14 @@ export default function DataTable({
     onViewSelect,
     onCreateView,
     onDeleteView,
+    paginatedData,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoadingRecords,
+    isFetchingRecords,
+    refetch,
+    totalCount,
   }: DataTableProps) {
   
   const [isCreatingRecord, setIsCreatingRecord] = useState(false);
@@ -131,36 +160,6 @@ export default function DataTable({
 
   const [pendingRecords, setPendingRecords] = useState<Set<string>>(new Set());
   const [virtualRecordCount, setVirtualRecordCount] = useState(0);
-
-  const { 
-    data: paginatedData, 
-    fetchNextPage, 
-    hasNextPage, 
-    isFetchingNextPage,
-    isLoading: isLoadingRecords,
-    isFetching: isFetchingRecords, 
-    refetch
-  } = api.base.getTableRecords.useInfiniteQuery(
-    {
-      tableId: currentTable?.id ?? '',
-      sortConfig: currentSort,
-      filterConfig: currentFilters,
-      limit: 100,
-    },
-    { 
-      enabled: !!currentTable?.id,
-      getNextPageParam: (lastPage) => lastPage.nextCursor,
-      refetchOnWindowFocus: false,
-      // Add this to prevent auto-refetch when sortConfig changes
-      refetchOnMount: false,
-      staleTime: Infinity, // Data never goes stale
-    }
-  );
-
-  const { data: totalCount } = api.base.getTableRecordCount.useQuery(
-    { tableId: currentTable?.id ?? '' },
-    { enabled: !!currentTable?.id }
-  );
 
   const isTableSwitching = currentTable?.id !== previousTableId;
   

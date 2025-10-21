@@ -397,7 +397,6 @@ export default function DataTable({
       return;
     }
 
-    // Immediately update local state for responsiveness
     setTablesData(prev => {
       const currentData = prev[currentTable.id] ?? [];
       
@@ -408,7 +407,6 @@ export default function DataTable({
         return row;
       });
 
-      // If row doesn't exist in local state, add it
       if (!currentData.find(r => r.id === actualRow.id)) {
         updatedData.push({ ...actualRow, [fieldKey]: value });
       }
@@ -419,10 +417,8 @@ export default function DataTable({
       };
     });
 
-    // Debounce the server update
     const updateKey = `${actualRow.id}-${fieldKey}`;
     
-    // Clear any pending timeout for this cell
     if ((window as any)[`updateTimeout_${updateKey}`]) {
       clearTimeout((window as any)[`updateTimeout_${updateKey}`]);
     }
@@ -434,10 +430,7 @@ export default function DataTable({
         fieldKey: fieldKey,
         value: value as string,
       }, {
-        onSuccess: () => {
-          console.log(`Cell updated: ${fieldKey} = ${value}`);
-          
-          // Check if this field affects sorting or filtering
+        onSuccess: () => {          
           const affectedBySort = currentSort.some(sort => {
             const column = currentTable.columns?.find(col => col.id === sort.columnId);
             return column && column.name.toLowerCase().replace(/\s+/g, '') === fieldKey;
@@ -448,14 +441,12 @@ export default function DataTable({
             return column && column.name.toLowerCase().replace(/\s+/g, '') === fieldKey;
           });
           
-          // Only refetch if sorting/filtering is affected
           if (affectedBySort || affectedByFilter) {
             refetch();
           }
         },
         onError: (error) => {
           console.error('Failed to update cell:', error);
-          // Revert local state on error
           setTablesData(prev => ({
             ...prev,
             [currentTable.id]: prev[currentTable.id]?.map(row => 
@@ -464,7 +455,7 @@ export default function DataTable({
           }));
         }
       });
-    }, 500); // 500ms debounce
+    }, 500);
 
   }, [updateCellMutation, currentTable?.id, currentTable?.columns, currentSort, currentFilters, refetch, tableData]);
 

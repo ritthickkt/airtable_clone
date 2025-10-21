@@ -58,12 +58,22 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
   const [showViewCreationModal, setShowViewCreationModal] = useState(false);
   const [viewModalPosition, setViewModalPosition] = useState({ x: 0, y: 0});
   const [base, setBase] = useState(initialBase);
-  const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-
+  
+  const searchParams = useSearchParams();
   const initialTableIndex = parseInt(searchParams.get('tableIndex') ?? '0', 10);
-  const [currentTableIndex, setCurrentTableIndex] = useState(initialTableIndex);
+  const [currentTableIndex, setCurrentTableIndex] = useState(() => {
+    const tableIndex = searchParams.get('tableIndex');
+    return tableIndex ? parseInt(tableIndex, 10) : 0;
+  });
+
+  useEffect(() => {
+    const tableIndex = searchParams.get('tableIndex');
+    if (tableIndex) {
+      setCurrentTableIndex(parseInt(tableIndex, 10));
+    }
+  }, [searchParams]);
 
   if (base && (!base.tables || base.tables.length === 0)) {
     return (

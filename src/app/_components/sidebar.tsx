@@ -306,7 +306,7 @@ export default function Sidebar({
               backgroundColor: !currentViewId ? '#F8F8F8' : 'transparent',
             }}
           >
-            Grid View
+            Default View
           </button>
 
           {filteredViews.map((view) => (

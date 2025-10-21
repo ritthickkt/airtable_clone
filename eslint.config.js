@@ -37,7 +37,8 @@ export default tseslint.config(
       "@typescript-eslint/no-misused-promises": "off",
       "@typescript-eslint/no-redundant-type-constituents": "off",
       "@typescript-eslint/no-unused-vars": "off",
-      "@typescript-eslint/prefer-nullish-coalescing": "off"
+      "@typescript-eslint/prefer-nullish-coalescing": "off",
+      "@typescript-eslint/non-nullable-type-assertion-style": "off"
     },
   },
   {

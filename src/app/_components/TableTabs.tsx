@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import type { Base } from '../../types';
 
 interface TableTabsProps {
@@ -13,7 +14,7 @@ interface TableTabsProps {
 
 export default function TableTabs({ 
   base, 
-  currentTableIndex, 
+  currentTableIndex,
   setCurrentTableIndex, 
   handleCreateTable, 
   createTableMutation = { isPending: false }
@@ -23,6 +24,15 @@ export default function TableTabs({
   const [tableName, setTableName] = useState('');
   const menuRef = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const handleTableChange = (index: number) => {
+    setCurrentTableIndex(index);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('tableIndex', index.toString());
+    router.push(`?${params.toString()}`, { scroll: false });
+  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -87,7 +97,7 @@ export default function TableTabs({
           <span
             key={table.id}
             className={`tab ${index === currentTableIndex ? 'active' : ''}`}
-            onClick={() => setCurrentTableIndex(index)}
+            onClick={() => handleTableChange(index)}
           >
             {table.name}
           </span>

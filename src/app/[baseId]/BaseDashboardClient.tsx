@@ -52,8 +52,8 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
-  const [sortingLoading, setSortingLoading] = useState(false);
-  const [filteringLoading, setFilteringLoading] = useState(false);
+  // const [sortingLoading, setSortingLoading] = useState(false);
+  // const [filteringLoading, setFilteringLoading] = useState(false);
   const [tablesData, setTablesData] = useState<Record<string, any[]>>({});
   const [currentViewId, setCurrentViewId] = useState<string | null>(null);
   const [showViewCreationModal, setShowViewCreationModal] = useState(false);
@@ -268,18 +268,6 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
     }
   }, [currentViewId, hiddenColumns, currentSort, currentFilters, searchTerm, handleUpdateCurrentView]);
 
-
-  // const { data: tableWithSortedRecords, refetch, isLoading: tableDataLoading } = api.base.getTableRecords.useQuery(
-  //   {
-  //     tableId: currentTable?.id ?? '',
-  //     sortConfig: currentSort,
-  //     filterConfig: currentFilters,
-  //   },
-  //   {
-  //     enabled: !!currentTable?.id,
-  //   }
-  // );
-
    React.useEffect(() => {
     if (currentTable) {
       if (currentTable.sortConfig && Array.isArray(currentTable.sortConfig)) {
@@ -300,7 +288,6 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
   const updateTableFiltersMutation = api.base.updateTableFilters.useMutation();
 
   const handleAddFilter = useCallback((filter: FilterCondition) => {
-    setFilteringLoading(true);
     const newFilters = [...currentFilters, filter];
     setCurrentFilters(newFilters);
     
@@ -310,19 +297,19 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
         filterConfig: newFilters,
       }, {
         onSuccess: () => {
-          setFilteringLoading(false);
+          // setFilteringLoading(false);
         },
         onError: () => {
-          setFilteringLoading(false);
+          // setFilteringLoading(false);
         }
       });
     } else {
-      setFilteringLoading(false);
+      // setFilteringLoading(false);
     }
   }, [currentFilters, currentTable?.id, updateTableFiltersMutation]);
 
   const handleUpdateFilter = useCallback((filterId: string, updates: Partial<FilterCondition>) => {
-    setFilteringLoading(true);
+    // setFilteringLoading(true);
     const newFilters = currentFilters.map(filter => 
       filter.id === filterId ? { ...filter, ...updates } : filter
     );
@@ -334,19 +321,19 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
         filterConfig: newFilters,
       }, {
         onSuccess: () => {
-          setFilteringLoading(false);
+          // setFilteringLoading(false);
         },
         onError: () => {
-          setFilteringLoading(false);
+          // setFilteringLoading(false);
         }
       });
     } else {
-      setFilteringLoading(false);
+      // setFilteringLoading(false);
     }
   }, [currentFilters, currentTable?.id, updateTableFiltersMutation]);
 
   const handleRemoveFilter = useCallback((filterId: string) => {
-    setFilteringLoading(true);
+    // setFilteringLoading(true);
     const newFilters = currentFilters.filter(filter => filter.id !== filterId);
     setCurrentFilters(newFilters);
     
@@ -356,19 +343,19 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
         filterConfig: newFilters,
       }, {
         onSuccess: () => {
-          setFilteringLoading(false);
+          // setFilteringLoading(false);
         },
         onError: () => {
-          setFilteringLoading(false);
+          // setFilteringLoading(false);
         }
       });
     } else {
-      setFilteringLoading(false);
+      // setFilteringLoading(false);
     }
   }, [currentFilters, currentTable?.id, updateTableFiltersMutation]);
 
   const handleClearAllFilters = useCallback(() => {
-    setFilteringLoading(true);
+    // setFilteringLoading(true);
     setCurrentFilters([]);
     
     if (currentTable?.id) {
@@ -377,14 +364,14 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
         filterConfig: [],
       }, {
         onSuccess: () => {
-          setFilteringLoading(false);
+          // setFilteringLoading(false);
         },
         onError: () => {
-          setFilteringLoading(false);
+          // setFilteringLoading(false);
         }
       });
     } else {
-      setFilteringLoading(false);
+      // setFilteringLoading(false);
     }
   }, [currentTable?.id, updateTableFiltersMutation]);
 
@@ -413,7 +400,7 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
   }, [currentTable?.columns]);
 
   const handleSort = useCallback((columnId: string, direction: 'asc' | 'desc') => {
-    setSortingLoading(true);
+    // setSortingLoading(true);
     
     setCurrentSort(prevSort => {
       const existingIndex = prevSort.findIndex(s => s.columnId === columnId);
@@ -434,10 +421,10 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
         }, {
           onSuccess: () => {
             // Only refetch after ADDING or CHANGING sort, not removing
-            setSortingLoading(false);
+            // setSortingLoading(false);
           },
           onError: () => {
-            setSortingLoading(false);
+            // setSortingLoading(false);
           }
         });
       }
@@ -447,7 +434,7 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
   }, [currentTable?.id, updateTableSortMutation]);
 
   const handleClearSort = useCallback(() => {
-    setSortingLoading(true);
+    // setSortingLoading(true);
     setCurrentSort([]);
     
     if (currentTable?.id) {
@@ -456,19 +443,19 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
         sortConfig: [],
       }, {
         onSuccess: () => {
-          setSortingLoading(false);
+          // setSortingLoading(false);
         },
         onError: () => {
-          setSortingLoading(false);
+          // setSortingLoading(false);
         }
       });
     } else {
-      setSortingLoading(false);
+      // setSortingLoading(false);
     }
   }, [currentTable?.id, updateTableSortMutation]);
 
   const handleApplySort = useCallback((sortConfig: Array<{ columnId: string; direction: 'asc' | 'desc' }>) => {
-    setSortingLoading(true);
+    // setSortingLoading(true);
     setCurrentSort(sortConfig);
     
     if (currentTable?.id) {
@@ -477,14 +464,14 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
         sortConfig: sortConfig,
       }, {
         onSuccess: () => {
-          setSortingLoading(false);
+          // setSortingLoading(false);
         },
         onError: () => {
-          setSortingLoading(false);
+          // setSortingLoading(false);
         }
       });
     } else {
-      setSortingLoading(false);
+      // setSortingLoading(false);
     }
   }, [currentTable?.id, updateTableSortMutation]);
 
@@ -814,8 +801,8 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
                 onRemoveFilter={handleRemoveFilter}
                 onClearAllFilters={handleClearAllFilters}
                 baseColor={base.color ?? undefined}
-                sortingLoading={sortingLoading}
-                filteringLoading={filteringLoading}
+                // sortingLoading={sortingLoading}
+                // filteringLoading={filteringLoading}
                 onSearch={handleSearch}
                 searchTerm={searchTerm}
                 searchResults={searchResults}
@@ -859,50 +846,6 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
                 tablesData={tablesData} // ✅ Pass tablesData
                 onTablesDataChange={setTablesData} // ✅ Pass setter
               />
-              {/* Loading overlay */}
-              {(sortingLoading || filteringLoading) && (
-                <div style={{
-                  position: 'fixed',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  background: 'rgba(0, 0, 0, 0.1)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  zIndex: 9999,
-                  pointerEvents: 'none'
-                }}>
-                  <div style={{
-                    background: 'white',
-                    padding: '20px 30px',
-                    borderRadius: '8px',
-                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px'
-                  }}>
-                    <div style={{
-                      width: '20px',
-                      height: '20px',
-                      border: '2px solid #f3f3f3',
-                      borderTop: '2px solid #3b82f6',
-                      borderRadius: '50%',
-                      animation: 'spin 1s linear infinite'
-                    }} />
-                    <span>
-                      {sortingLoading ? 'Applying sort...' : 'Applying filters...'}
-                    </span>
-                  </div>
-                </div>
-              )}
-              <style jsx>{`
-                @keyframes spin {
-                  0% { transform: rotate(0deg); }
-                  100% { transform: rotate(360deg); }
-                }
-              `}</style>
             </div>
           </div>
         </div>

@@ -16,6 +16,7 @@ import type { TableRow, Table } from '../../types';
 import ColumnConfiguration from '../_components/ColumnConfiguration';
 import ColumnContextMenu from './ColumnContextMenu';
 import { faker } from '@faker-js/faker';
+import TableLoading from './TableLoading';
 import React from 'react';
 import { isInstanceOfRegisteredClass } from 'node_modules/superjson/dist/transformer';
 
@@ -84,7 +85,7 @@ interface DataTableProps {
   refetch: () => Promise<any>;
   totalCount?: number;
   tablesData: Record<string, TableRow[]>;
-  onTablesDataChange: (data: Record<string, TableRow[]>) => void; 
+  onTablesDataChange: (data: Record<string, TableRow[]> | ((prev: Record<string, TableRow[]>) => Record<string, TableRow[]>)) => void; 
 }
 
 export default function DataTable({ 
@@ -169,6 +170,8 @@ export default function DataTable({
   const shouldShowLoading = (isLoadingRecords ?? (isTableSwitching && !isFetchingRecords)) && 
                             !isCreatingRecord &&
                             !isCreatingColumn;
+
+  const isTableLoading = isLoadingRecords || isFetchingRecords || shouldShowLoading;
 
   React.useEffect(() => {
     if (currentTable?.id && currentTable.id !== previousTableId) {
@@ -1259,7 +1262,7 @@ const defaultColumn = useMemo(
     getScrollElement: () => parentRef.current,
     estimateSize: () => 30,
     overscan: 10,
-    measureElement: typeof window !== 'undefined' && navigator.userAgent.indexOf('Firefox') === -1
+    measureElement: typeof window !== 'undefined' && !navigator.userAgent.includes('Firefox')
       ? (element) => element?.getBoundingClientRect().height
       : undefined, 
   });
@@ -1374,239 +1377,203 @@ const defaultColumn = useMemo(
 
   const [hoveredRowIndex, setHoveredRowIndex] = useState<number | null>(null);
 
-  return (
-  <div className='table-main-content'>
-    <SideBar
-      views={views}
-      currentViewId={currentViewId}
-      onViewSelect={onViewSelect}
-      onCreateView={onCreateView}
-      onDeleteView={onDeleteView}
-    />
-    <div className='table-wrapper'>
-      {shouldShowLoading ? (
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '100vh',
-          width: '100%',
-        }}>
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '16px',
-          }}>
-            <div style={{
-              width: '40px',
-              height: '40px',
-              border: '4px solid #f3f3f3',
-              borderTop: '4px solid #3b82f6',
-              borderRadius: '50%',
-              animation: 'spin 1s linear infinite',
-            }} />
-            <style jsx>{`
-              @keyframes spin {
-                0% { transform: rotate(0deg); }
-                100% { transform: rotate(360deg); }
-              }
-            `}</style>
-            <p style={{
-              color: '#666',
-              fontSize: '14px',
-              fontWeight: 500,
-            }}>
-              Loading table...
-            </p>
-          </div>
-        </div>
-      ) : (
-      <>
-        <div className='table-scroll-container' ref={parentRef}>
-          <table>
-            <thead>
-              {table.getHeaderGroups().map(headerGroup => (
-                <tr key={headerGroup.id}>
-                  <th className="row-number-header">
+return (
+  <div style={{ minHeight: 320, background: '#fff' }}>
+    <div className='table-main-content'>
+      <SideBar
+        views={views}
+        currentViewId={currentViewId}
+        onViewSelect={onViewSelect}
+        onCreateView={onCreateView}
+        onDeleteView={onDeleteView}
+      />
+      <div className='table-wrapper'>
+        {isTableLoading ? (
+          <TableLoading />
+        ) : (
+          <>
+            <div className='table-scroll-container' ref={parentRef}>
+              <table>
+                <thead>
+                  {table.getHeaderGroups().map(headerGroup => (
+                    <tr key={headerGroup.id}>
+                      <th className="row-number-header">
+                        <div
+                          className='all-rows-select'
+                          onClick={handleSelectAllRows}
+                          style={{ cursor: 'pointer' }}
+                        >
+                        </div>
+                      </th>
+                      {headerGroup.headers.map(header => (
+                        <th
+                          key={header.id}
+                          className={`column-names ${
+                            isColumnHighlighted(header.column.id) ? 'search-column-highlight' : ''
+                          } ${
+                            isCurrentColumnHighlighted(header.column.id) ? 'search-column-highlight-current' : ''
+                          }`}
+                        >
+                          {flexRender(header.column.columnDef.header, header.getContext())}
+                        </th>
+                      ))}
+                      <th className='add-col-header'>
+                        <button
+                          ref={addColBtnRef}
+                          onClick={addNewCol}
+                          disabled={isCreatingColumn}
+                          className="add-col-button"
+                          style={{ 
+                            opacity: isCreatingColumn ? 0.6 : 1,
+                            cursor: isCreatingColumn ? 'not-allowed' : 'pointer'
+                          }}
+                        >
+                          {isCreatingColumn ? '...' : '+'}
+                        </button>  
+                      </th>
+                    </tr>
+                  ))} 
+                </thead>
+              </table>
+              <div style={{ 
+                height: `${rowVirtualizer.getTotalSize()}px`,
+                width: '100%',
+                position: 'relative'
+              }}>
+                {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                  const rows = table.getCoreRowModel().rows;
+                  const row = rows[virtualRow.index];
+                  if (!row) return null;
+
+                  const isHighlighted = isRowHighlighted(virtualRow.index);
+
+                  return (
                     <div
-                      className='all-rows-select'
-                      onClick={handleSelectAllRows}
-                      style={{ cursor: 'pointer' }}
-                    >
-                    </div>
-                  </th>
-                  {headerGroup.headers.map(header => (
-                    <th
-                      key={header.id}
-                      className={`column-names ${
-                        isColumnHighlighted(header.column.id) ? 'search-column-highlight' : ''
-                      } ${
-                        isCurrentColumnHighlighted(header.column.id) ? 'search-column-highlight-current' : ''
-                      }`}
-                    >
-                      {flexRender(header.column.columnDef.header, header.getContext())}
-                    </th>
-                  ))}
-                  <th className='add-col-header'>
-                    <button
-                      ref={addColBtnRef}
-                      onClick={addNewCol}
-                      disabled={isCreatingColumn}
-                      className="add-col-button"
-                      style={{ 
-                        opacity: isCreatingColumn ? 0.6 : 1,
-                        cursor: isCreatingColumn ? 'not-allowed' : 'pointer'
+                      key={row.id}
+                      className={`virtual-row ${selectedRows.includes(row.id) ? 'row-selected' : ''}`}
+                      style={{
+                        position: 'absolute',
+                        top: `${virtualRow.start}px`,
+                        left: 0,
+                        width: `${totalTableWidth}px`,
+                        height: `${virtualRow.size}px`,
+                        display: 'flex',
                       }}
+                      onMouseEnter={() => setHoveredRowIndex(virtualRow.index)}
+                      onMouseLeave={() => setHoveredRowIndex(null)}
                     >
-                      {isCreatingColumn ? '...' : '+'}
-                    </button>  
-                  </th>
-                </tr>
-              ))} 
-            </thead>
-          </table>
-
-          {/* Virtual scrolling container */}
-          <div style={{ 
-            height: `${rowVirtualizer.getTotalSize()}px`,
-            width: '100%',
-            position: 'relative'
-          }}>
-            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-              const rows = table.getCoreRowModel().rows;
-              const row = rows[virtualRow.index];
-              if (!row) return null;
-
-              const isHighlighted = isRowHighlighted(virtualRow.index);
-
-              return (
-                <div
-                  key={row.id}
-                  className={`virtual-row ${selectedRows.includes(row.id) ? 'row-selected' : ''}`}
-                  style={{
-                    position: 'absolute',
-                    top: `${virtualRow.start}px`,
-                    left: 0,
-                    width: `${totalTableWidth}px`,
-                    height: `${virtualRow.size}px`,
-                    display: 'flex',
-                  }}
-                  onMouseEnter={() => setHoveredRowIndex(virtualRow.index)}
-                  onMouseLeave={() => setHoveredRowIndex(null)}
-                >
-                  <div className={`row-number ${isHighlighted ? 'search-row-highlight' : ''}`}>
-                    {hoveredRowIndex === virtualRow.index
-                    ? <div className='all-rows-select' style={{ cursor: 'pointer' }}></div>
-                    : virtualRow.index + 1}
-                  </div>
-                  {row.getVisibleCells().map((cell, cellIndex) => (
-                    <div 
-                      key={cell.id} 
-                      className={`record ${cellIndex === 0 ? 'first-column' : ''}`}
-                    >
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      <div className={`row-number ${isHighlighted ? 'search-row-highlight' : ''}`}>
+                        {hoveredRowIndex === virtualRow.index
+                        ? <div className='all-rows-select' style={{ cursor: 'pointer' }}></div>
+                        : virtualRow.index + 1}
+                      </div>
+                      {row.getVisibleCells().map((cell, cellIndex) => (
+                        <div 
+                          key={cell.id} 
+                          className={`record ${cellIndex === 0 ? 'first-column' : ''}`}
+                        >
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              );
-            })}
+                  );
+                })}
+              </div>
+              <div onClick={addNewRow} className='add-row-button' style={{ width: `${totalTableWidth}px`}}>
+                <span className='add-row-icon-button'>+</span>
+              </div>
+            </div>
+            <div className='number-of-rows'>
+              {tableData.length.toLocaleString()} Records
+              {hasNextPage && " (scroll to load more)"} 
+            </div>
+            <ContextMenuRecord
+              visible={contextMenu?.visible ?? false}
+              x={contextMenu?.x ?? 0}
+              y={contextMenu?.y ?? 0}
+              rowIndex={contextMenu?.rowIndex ?? 0}
+              onDelete={handleDeleteRow}
+              onCancel={() => setContextMenu(null)}
+            />
+            <ColumnContextMenu
+              visible={columnContextMenu?.visible ?? false}
+              x={columnContextMenu?.x ?? 0}
+              y={columnContextMenu?.y ?? 0}
+              columnId={columnContextMenu?.columnId ?? ''}
+              columnName={columnContextMenu?.columnName ?? ''}
+              columnType={columnContextMenu?.columnType ?? 'text'}
+              onEdit={() => {
+                console.log('Edit column');
+                setColumnContextMenu(null);
+              }}
+              onDuplicate={() => {
+                console.log('Duplicate column');
+                setColumnContextMenu(null);
+              }}
+              onInsertLeft={() => {
+                console.log('Insert left');
+                setColumnContextMenu(null);
+              }}
+              onInsertRight={() => {
+                console.log('Insert right');
+                setColumnContextMenu(null);
+              }}
+              onHide={() => handleHideColumn(columnContextMenu?.columnId ?? '')}
+              onDelete={handleDeleteColumn}
+              onSort={(direction) => handleSortColumn(columnContextMenu?.columnId ?? '', direction)}
+              onCancel={() => setColumnContextMenu(null)}
+            />
+          </>
+        )}
+        {isColumnModalOpen && colConfigPosition && (
+          <div
+            ref={colConfigRef}
+            style={{
+              position: 'absolute',
+              top: colConfigPosition.top,
+              left: colConfigPosition.left,
+              zIndex: 1000,
+            }}
+          >
+            <ColumnConfiguration
+              isOpen={isColumnModalOpen}
+              onClose={() => setIsColumnModalOpen(false)}
+              onCreateColumn={handleCreateColumn}
+              isColumnModalOpen={isColumnModalOpen}
+            />
           </div>
-
-          <div onClick={addNewRow} className='add-row-button' style={{ width: `${totalTableWidth}px`}}>
-            <span className='add-row-icon-button'>+</span>
-          </div>
-        </div>
-        <div className='number-of-rows'>
-          {tableData.length.toLocaleString()} Records
-          {hasNextPage && " (scroll to load more)"} 
-        </div>
-      </>
-      )}
-        <ContextMenuRecord
-          visible={contextMenu?.visible ?? false}
-          x={contextMenu?.x ?? 0}
-          y={contextMenu?.y ?? 0}
-          rowIndex={contextMenu?.rowIndex ?? 0}
-          onDelete={handleDeleteRow}
-          onCancel={() => setContextMenu(null)}
-        />
-        <ColumnContextMenu
-          visible={columnContextMenu?.visible ?? false}
-          x={columnContextMenu?.x ?? 0}
-          y={columnContextMenu?.y ?? 0}
-          columnId={columnContextMenu?.columnId ?? ''}
-          columnName={columnContextMenu?.columnName ?? ''}
-          columnType={columnContextMenu?.columnType ?? 'text'}
-          onEdit={() => {
-            console.log('Edit column');
-            setColumnContextMenu(null);
-          }}
-          onDuplicate={() => {
-            console.log('Duplicate column');
-            setColumnContextMenu(null);
-          }}
-          onInsertLeft={() => {
-            console.log('Insert left');
-            setColumnContextMenu(null);
-          }}
-          onInsertRight={() => {
-            console.log('Insert right');
-            setColumnContextMenu(null);
-          }}
-          onHide={() => handleHideColumn(columnContextMenu?.columnId ?? '')}
-          onDelete={handleDeleteColumn}
-          onSort={(direction) => handleSortColumn(columnContextMenu?.columnId ?? '', direction)}
-          onCancel={() => setColumnContextMenu(null)}
-        />
-      </div>
-      {isColumnModalOpen && colConfigPosition && (
-        <div
-          ref={colConfigRef}
-          style={{
-            position: 'absolute',
-            top: colConfigPosition.top,
-            left: colConfigPosition.left,
+        )}
+        {bulkProgress && (
+          <div style={{
+            position: 'fixed',
+            bottom: '20px',
+            right: '20px',
+            background: 'white',
+            padding: '12px 20px',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
             zIndex: 1000,
-          }}
-        >
-          <ColumnConfiguration
-            isOpen={isColumnModalOpen}
-            onClose={() => setIsColumnModalOpen(false)}
-            onCreateColumn={handleCreateColumn}
-            isColumnModalOpen={isColumnModalOpen}
-          />
-        </div>
-      )}
-      {bulkProgress && (
-        <div style={{
-          position: 'fixed',
-          bottom: '20px',
-          right: '20px',
-          background: 'white',
-          padding: '12px 20px',
-          borderRadius: '8px',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-          zIndex: 1000,
-        }}>
-          <div>Adding rows: {bulkProgress.added.toLocaleString()} / {bulkProgress.total.toLocaleString()}</div>
-          <div style={{ 
-            width: '200px', 
-            height: '4px', 
-            background: '#f0f0f0', 
-            borderRadius: '2px',
-            marginTop: '8px'
           }}>
-            <div style={{
-              width: `${(bulkProgress.added / bulkProgress.total) * 100}%`,
-              height: '100%',
-              background: '#3b82f6',
+            <div>Adding rows: {bulkProgress.added.toLocaleString()} / {bulkProgress.total.toLocaleString()}</div>
+            <div style={{ 
+              width: '200px', 
+              height: '4px', 
+              background: '#f0f0f0', 
               borderRadius: '2px',
-              transition: 'width 0.1s ease-out'
-            }} />
+              marginTop: '8px'
+            }}>
+              <div style={{
+                width: `${(bulkProgress.added / bulkProgress.total) * 100}%`,
+                height: '100%',
+                background: '#3b82f6',
+                borderRadius: '2px',
+                transition: 'width 0.1s ease-out'
+              }} />
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
-  );
+  </div>
+);
 }

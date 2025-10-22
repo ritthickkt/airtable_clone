@@ -5,7 +5,7 @@ import '../../styles/SideBar.css'
 import { cursorTo } from 'readline';
 import ViewCreationModal from './ViewCreationMenu';
 import { MdGridView, MdCalendarToday, MdViewModule, MdViewKanban, MdTimeline, MdList } from 'react-icons/md';
-
+import ViewDeleteConfirm from './ViewDeleteConfirm';
 
 interface View {
   id: string;
@@ -35,6 +35,8 @@ export default function Sidebar({
   const [viewMenuPosition, setViewMenuPosition] = useState({ x: 0, y: 0 });
   const [showViewMenu, setShowViewMenu] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [pendingDeleteView, setPendingDeleteView] = useState<{ id: string; name: string } | null>(null);
 
   const handleOpenViewMenu = (e: React.MouseEvent<HTMLButtonElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -43,6 +45,11 @@ export default function Sidebar({
       y: rect.bottom + window.scrollY + 8, // 8px below the button
     });
     setShowViewMenu(true);
+  };
+
+  const handleDeleteViewClick = (view: { id: string; name: string }) => {
+    setPendingDeleteView(view);
+    setDeleteConfirmOpen(true);
   };
 
   useEffect(() => {
@@ -333,9 +340,10 @@ export default function Sidebar({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (window.confirm(`Delete view "${view.name}"?`)) {
-                    onDeleteView?.(view.id);
-                  }
+                  // if (window.confirm(`Delete view "${view.name}"?`)) {
+                  //   onDeleteView?.(view.id);
+                  // }
+                  handleDeleteViewClick(view);
                 }}
                 style={{
                   padding: '4px 8px',
@@ -353,6 +361,21 @@ export default function Sidebar({
           ))}
         </div>
       </div>
+      <ViewDeleteConfirm
+        isOpen={deleteConfirmOpen}
+        viewName={pendingDeleteView?.name}
+        onConfirm={() => {
+          if (pendingDeleteView) {
+            onDeleteView?.(pendingDeleteView.id);
+          }
+          setDeleteConfirmOpen(false);
+          setPendingDeleteView(null);
+        }}
+        onCancel={() => {
+          setDeleteConfirmOpen(false);
+          setPendingDeleteView(null);
+        }}
+      />
     </>
   );
 }

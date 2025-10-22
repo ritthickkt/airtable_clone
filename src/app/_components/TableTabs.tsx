@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { Base } from '../../types';
+import ViewDeleteConfirm from './ViewDeleteConfirm';
 
 interface TableTabsProps {
   base: Base;
@@ -90,59 +91,61 @@ export default function TableTabs({
   }
 
   return (
-    <div className="tabs-header" style={{ background: lighterShadeofBaseColor(base.color ?? 'black')}}>
-      <div className="tab-background"></div>
-      <div className="tabs-list">
-        {base.tables?.map((table, index) => (
-          <span
-            key={table.id}
-            className={`tab ${index === currentTableIndex ? 'active' : ''}`}
-            onClick={() => handleTableChange(index)}
-          >
-            {table.name}
-          </span>
-        ))}
-        <div style={{ position: 'relative', display: 'inline-block' }}>
-          <button 
-            className="add-tab-btn" 
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowMenu(!showMenu);
-            }} 
-            disabled={createTableMutation.isPending}
-          >
-            + Add or Import
-          </button>
-          {showMenu && (
-            <div ref={menuRef} className="add-table-menu">
-              <div className='blanktableconfig-title'>Add a blank table</div>
-              <div className='blanktableconfig-add-table-button' onClick={handleBuildFromScratch}>
-                <div className='blanktableconfig-add-table-button-word'>Start from scratch</div>
+    <>
+      <div className="tabs-header" style={{ background: lighterShadeofBaseColor(base.color ?? 'black')}}>
+        <div className="tab-background"></div>
+        <div className="tabs-list">
+          {base.tables?.map((table, index) => (
+            <span
+              key={table.id}
+              className={`tab ${index === currentTableIndex ? 'active' : ''}`}
+              onClick={() => handleTableChange(index)}
+            >
+              {table.name}
+            </span>
+          ))}
+          <div style={{ position: 'relative', display: 'inline-block' }}>
+            <button 
+              className="add-tab-btn" 
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowMenu(!showMenu);
+              }} 
+              disabled={createTableMutation.isPending}
+            >
+              + Add or Import
+            </button>
+            {showMenu && (
+              <div ref={menuRef} className="add-table-menu">
+                <div className='blanktableconfig-title'>Add a blank table</div>
+                <div className='blanktableconfig-add-table-button' onClick={handleBuildFromScratch}>
+                  <div className='blanktableconfig-add-table-button-word'>Start from scratch</div>
+                </div>
               </div>
-            </div>
-          )}
-          {showNameDialog && (
-            <div ref={dialogRef} className="table-name-dialog">
-              <input
-                type="text"
-                value={tableName}
-                onChange={(e) => setTableName(e.target.value)}
-                placeholder="Table name"
-                autoFocus
-                className="table-name-input"
-              />
-              <div className="dialog-actions">
-                <button onClick={handleCancel} className="cancel-btn">
-                  Cancel
-                </button>
-                <button onClick={handleSaveTable} className="save-btn">
-                  Save
-                </button>
+            )}
+            {showNameDialog && (
+              <div ref={dialogRef} className="table-name-dialog">
+                <input
+                  type="text"
+                  value={tableName}
+                  onChange={(e) => setTableName(e.target.value)}
+                  placeholder="Table name"
+                  autoFocus
+                  className="table-name-input"
+                />
+                <div className="dialog-actions">
+                  <button onClick={handleCancel} className="cancel-btn">
+                    Cancel
+                  </button>
+                  <button onClick={handleSaveTable} className="save-btn">
+                    Save
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

@@ -194,42 +194,53 @@ export default function DataTable({
   }, []);
 
   const tableData = useMemo(() => {
-    const localData = tablesData[currentTable?.id ?? ''] ?? [];
-    
-    const paginatedRecords = paginatedData?.pages.flatMap(page => 
-      page.records.map((record) => {
-        const data = record.data as Record<string, unknown> || {};
-        const recordRow = {
-          id: record.id,
-          ...data,
-        } as TableRow;
-        
-        const localVersion = localData.find(r => r.id === record.id);
-        return localVersion || recordRow;
-      })
-    ) ?? [];
-    
-    const localOnlyRecords = localData.filter(row => 
-      !paginatedRecords.some(dbRow => dbRow.id === row.id)
-    );
-    
-    const allRecords = [...paginatedRecords, ...localOnlyRecords];
-    
-    // Filter records based on search term
-    if (searchTerm.trim() && searchResults.length > 0) {
-      const rowResults = searchResults.filter(result => !result.isColumnHeader);
+    if (!currentTable?.id) return [];
+
+    // ✅ When filters are active, ONLY use paginated server data
+    if (currentFilters && currentFilters.length > 0) {
+      if (!paginatedData?.pages) return [];
       
-      if (rowResults.length > 0) {
-        const recordIdsWithMatches = new Set(
-          rowResults.map(result => result.rowId)
-        );
-        
-        return allRecords.filter(row => recordIdsWithMatches.has(row.id));
-      }
+      const allRecords = paginatedData.pages.flatMap(page => page.records);
+      
+      return allRecords.map(record => {
+        const rowData: TableRow = {
+          id: record.id,
+        };
+
+        currentTable.columns?.forEach(col => {
+          const fieldKey = col.name.toLowerCase().replace(/\s+/g, '');
+          rowData[fieldKey] = (record.data as Record<string, unknown>)[fieldKey] ?? '';
+        });
+
+        return rowData;
+      });
     }
+
+    // ✅ When NO filters, use the combined local + server data (original behavior)
+    const localData = tablesData[currentTable.id] ?? [];
     
-    return allRecords;
-  }, [paginatedData, tablesData, currentTable?.id, searchTerm, searchResults]);
+    if (!paginatedData?.pages) return localData;
+
+    const serverRecords = paginatedData.pages.flatMap(page => page.records);
+    
+    const serverData = serverRecords.map(record => {
+      const rowData: TableRow = {
+        id: record.id,
+      };
+
+      currentTable.columns?.forEach(col => {
+        const fieldKey = col.name.toLowerCase().replace(/\s+/g, '');
+        rowData[fieldKey] = (record.data as Record<string, unknown>)[fieldKey] ?? '';
+      });
+
+      return rowData;
+    });
+
+    const serverIds = new Set(serverData.map(r => r.id));
+    const uniqueLocalData = localData.filter(r => !serverIds.has(r.id));
+
+    return [...uniqueLocalData, ...serverData];
+  }, [paginatedData, tablesData, currentTable?.id, currentFilters]);
 
   const adjustedSearchResults = useMemo(() => {
     if (!searchTerm.trim() || searchResults.length === 0) {

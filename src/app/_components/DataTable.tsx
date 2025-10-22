@@ -196,11 +196,16 @@ export default function DataTable({
   const tableData = useMemo(() => {
     if (!currentTable?.id) return [];
 
-    // ✅ When filters are active, ONLY use paginated server data
+    const localData = tablesData[currentTable.id] ?? [];
+
+    // ✅ When filters are active
     if (currentFilters && currentFilters.length > 0) {
-      if (!paginatedData?.pages) return [];
+      if (!paginatedData?.pages) return localData; // Show local data while loading
       
       const allRecords = paginatedData.pages.flatMap(page => page.records);
+      
+      // Create a map of local updates by record ID
+      const localUpdateMap = new Map(localData.map(row => [row.id, row]));
       
       return allRecords.map(record => {
         const rowData: TableRow = {
@@ -212,13 +217,18 @@ export default function DataTable({
           rowData[fieldKey] = (record.data as Record<string, unknown>)[fieldKey] ?? '';
         });
 
+        // ✅ Merge with local updates - local updates take priority
+        const localUpdate = localUpdateMap.get(record.id);
+        if (localUpdate) {
+          // Spread local update over server data - local wins
+          return { ...rowData, ...localUpdate };
+        }
+
         return rowData;
       });
     }
 
-    // ✅ When NO filters, use the combined local + server data (original behavior)
-    const localData = tablesData[currentTable.id] ?? [];
-    
+    // ✅ When NO filters - original logic
     if (!paginatedData?.pages) return localData;
 
     const serverRecords = paginatedData.pages.flatMap(page => page.records);
@@ -236,11 +246,19 @@ export default function DataTable({
       return rowData;
     });
 
+    // Merge: local updates override server data, plus any local-only records
     const serverIds = new Set(serverData.map(r => r.id));
+    const localUpdateMap = new Map(localData.map(row => [row.id, row]));
+    
+    const mergedServer = serverData.map(row => {
+      const localUpdate = localUpdateMap.get(row.id);
+      return localUpdate ? { ...row, ...localUpdate } : row;
+    });
+    
     const uniqueLocalData = localData.filter(r => !serverIds.has(r.id));
 
-    return [...uniqueLocalData, ...serverData];
-  }, [paginatedData, tablesData, currentTable?.id, currentFilters]);
+    return [...uniqueLocalData, ...mergedServer];
+  }, [paginatedData, tablesData, currentTable?.id, currentTable?.columns, currentFilters]);
 
   const adjustedSearchResults = useMemo(() => {
     if (!searchTerm.trim() || searchResults.length === 0) {
@@ -443,76 +461,82 @@ export default function DataTable({
   }, [contextMenu, currentTable?.id, deleteRecordMutation, currentSort, currentFilters, refetch, tableData]);
 
   const updateData = useCallback((rowIndex: number, fieldKey: string, value: unknown) => {
-    if (!currentTable?.id) return;
+  if (!currentTable?.id) return;
 
-    const actualRow = tableData[rowIndex];
-    if (!actualRow) return;
+  const actualRow = tableData[rowIndex];
+  if (!actualRow) return;
 
-    if (actualRow.id.startsWith('temp-bulk-') || actualRow.id.startsWith('temp-')) {
-      return;
-    }
+  if (actualRow.id.startsWith('temp-bulk-') || actualRow.id.startsWith('temp-')) {
+    return;
+  }
 
-    onTablesDataChange(prev => {
-      const currentData = prev[currentTable.id] ?? [];
-      
-      const updatedData = currentData.map((row) => {
-        if (row.id === actualRow.id) {
-          return { ...row, [fieldKey]: value };
-        }
-        return row;
-      });
-
-      if (!currentData.find(r => r.id === actualRow.id)) {
-        updatedData.push({ ...actualRow, [fieldKey]: value });
-      }
-
+  // ✅ IMMEDIATELY update the tableData to show the change
+  onTablesDataChange(prev => {
+    const currentData = prev[currentTable.id] ?? [];
+    
+    // Find existing row or create new entry
+    const existingIndex = currentData.findIndex(r => r.id === actualRow.id);
+    
+    if (existingIndex >= 0) {
+      // Update existing row
+      const updatedData = [...currentData];
+      updatedData[existingIndex] = { 
+        ...updatedData[existingIndex], 
+        [fieldKey]: value 
+      };
       return {
         ...prev,
         [currentTable.id]: updatedData
       };
-    });
-
-    const updateKey = `${actualRow.id}-${fieldKey}`;
-    
-    if ((window as any)[`updateTimeout_${updateKey}`]) {
-      clearTimeout((window as any)[`updateTimeout_${updateKey}`]);
+    } else {
+      // Add new row with update
+      return {
+        ...prev,
+        [currentTable.id]: [...currentData, { ...actualRow, [fieldKey]: value }]
+      };
     }
+  });
 
-    // Increased from 500ms to 1000ms for better batching
-    (window as any)[`updateTimeout_${updateKey}`] = setTimeout(() => {
-      updateCellMutation.mutate({
-        recordId: actualRow.id,
-        fieldKey: fieldKey,
-        value: value as string,
-      }, {
-        onSuccess: () => {          
-          const affectedBySort = currentSort.some(sort => {
-            const column = currentTable.columns?.find(col => col.id === sort.columnId);
-            return column && column.name.toLowerCase().replace(/\s+/g, '') === fieldKey;
-          });
+  const updateKey = `${actualRow.id}-${fieldKey}`;
+  
+  if ((window as any)[`updateTimeout_${updateKey}`]) {
+    clearTimeout((window as any)[`updateTimeout_${updateKey}`]);
+  }
+
+  // Debounce the server update
+  (window as any)[`updateTimeout_${updateKey}`] = setTimeout(() => {
+    updateCellMutation.mutate({
+      recordId: actualRow.id,
+      fieldKey: fieldKey,
+      value: value as string,
+    }, {
+      onSuccess: () => {          
+        // ✅ FIXED: Don't remove the record from local cache
+        // Just keep the optimistic update - it will be overwritten by server data on next refetch
+        console.log('Cell updated successfully');
+      },
+      onError: (error) => {
+        console.error('Failed to update cell:', error);
+        // Revert on error
+        onTablesDataChange(prev => {
+          const currentData = prev[currentTable.id] ?? [];
+          const existingIndex = currentData.findIndex(r => r.id === actualRow.id);
           
-          const affectedByFilter = currentFilters.some(filter => {
-            const column = currentTable.columns?.find(col => col.id === filter.columnId);
-            return column && column.name.toLowerCase().replace(/\s+/g, '') === fieldKey;
-          });
-          
-          if (affectedBySort || affectedByFilter) {
-            refetch();
+          if (existingIndex >= 0) {
+            const updatedData = [...currentData];
+            updatedData[existingIndex] = actualRow; // Revert to original value
+            return {
+              ...prev,
+              [currentTable.id]: updatedData
+            };
           }
-        },
-        onError: (error) => {
-          console.error('Failed to update cell:', error);
-          onTablesDataChange(prev => ({
-            ...prev,
-            [currentTable.id]: prev[currentTable.id]?.map(row => 
-              row.id === actualRow.id ? actualRow : row
-            ) ?? []
-          }));
-        }
-      });
-    }, 1000); // Increased debounce time
+          return prev;
+        });
+      }
+    });
+  }, 1000);
 
-  }, [updateCellMutation, currentTable?.id, currentTable?.columns, currentSort, currentFilters, refetch, tableData]);
+}, [updateCellMutation, currentTable?.id, tableData, onTablesDataChange]);
 
   const handleKeyDown = useCallback((event: React.KeyboardEvent, rowIndex: number, columnIndex: number) => {
     const maxRows = tableData.length;
@@ -883,99 +907,104 @@ export default function DataTable({
   // All useMemo hooks
 
   const CellInput = React.memo(({ 
-  value: initialValue, 
-  index, 
-  columnId,
-  columnIndex,
-  onUpdate,
-  onKeyDown,
-  onContextMenu,
-  searchTerm,
-  highlightFunction,
-  isCurrentCellHighlighted,
-  isCellHighlighted,
-  rowId // Add rowId prop
-}: any) => {
-  const [value, setValue] = React.useState(initialValue);
-  const [isDirty, setIsDirty] = React.useState(false);
-  const prevValueRef = React.useRef(initialValue);
-  const prevRowIdRef = React.useRef(rowId); // Track rowId changes
+    value: initialValue, 
+    index, 
+    columnId,
+    columnIndex,
+    onUpdate,
+    onKeyDown,
+    onContextMenu,
+    searchTerm,
+    highlightFunction,
+    isCurrentCellHighlighted,
+    isCellHighlighted,
+    rowId
+  }: any) => {
+    const [value, setValue] = React.useState(initialValue);
+    const [isDirty, setIsDirty] = React.useState(false);
+    const prevValueRef = React.useRef(initialValue);
+    const prevRowIdRef = React.useRef(rowId);
 
-  const onBlur = () => {
-    setIsDirty(false);
-    if (value !== prevValueRef.current) {
-      onUpdate(index, columnId, value);
-      prevValueRef.current = value;
-    }
-  };
-
-  const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setValue(e.target.value);
-    setIsDirty(true);
-  };
-
-  // Reset state if we're rendering a completely different row
-  React.useEffect(() => {
-    if (prevRowIdRef.current !== rowId) {
-      setValue(initialValue);
+    const onBlur = () => {
       setIsDirty(false);
-      prevValueRef.current = initialValue;
-      prevRowIdRef.current = rowId;
-    } else if (!isDirty && initialValue !== prevValueRef.current) {
-      setValue(initialValue);
-      prevValueRef.current = initialValue;
-    }
-  }, [initialValue, isDirty, rowId]);
-
-  return (
-    <div
-      data-row-index={index}
-      data-column-index={columnIndex}
-      className={
-        isCurrentCellHighlighted
-          ? 'search-row-highlight-current'
-          : isCellHighlighted
-          ? 'search-row-highlight'
-          : ''
+      if (value !== prevValueRef.current) {
+        onUpdate(index, columnId, value);
+        prevValueRef.current = value;
       }
-      style={{
-        width: '100%',
-        height: '100%',
-        display: 'flex',
-        alignItems: 'center',
-      }}
-    >
-      <input
-        value={value as string || ''}
-        onChange={onChange}
-        onBlur={onBlur}
-        onKeyDown={e => onKeyDown(e, index, columnIndex)}
-        onContextMenu={e => onContextMenu(e, index)}
+    };
+
+    const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      setValue(e.target.value);
+      setIsDirty(true);
+    };
+
+    // ✅ Fixed: Only reset if rowId changes AND we're not actively editing
+    React.useEffect(() => {
+      if (prevRowIdRef.current !== rowId) {
+        // Row changed - reset everything
+        setValue(initialValue);
+        setIsDirty(false);
+        prevValueRef.current = initialValue;
+        prevRowIdRef.current = rowId;
+      } else if (!isDirty) {
+        // Same row, not editing - update from props
+        setValue(initialValue);
+        prevValueRef.current = initialValue;
+      }
+      // ✅ Don't update if isDirty is true - user is typing
+    }, [initialValue, rowId, isDirty]);
+
+    return (
+      <div
+        data-row-index={index}
+        data-column-index={columnIndex}
+        className={
+          isCurrentCellHighlighted
+            ? 'search-row-highlight-current'
+            : isCellHighlighted
+            ? 'search-row-highlight'
+            : ''
+        }
         style={{
           width: '100%',
           height: '100%',
-          border: 'none',
-          backgroundColor: isCurrentCellHighlighted ? '#FFE4A3' : isCellHighlighted ? '#FFF4CC' : 'transparent',
-          padding: '0 12px',
-          fontSize: '13px',
-          fontFamily: 'inherit',
-          outline: 'none',
-          boxSizing: 'border-box',
+          display: 'flex',
+          alignItems: 'center',
         }}
-      />
-    </div>
-  );
-}, (prevProps, nextProps) => {
-  return (
-    prevProps.value === nextProps.value &&
-    prevProps.rowId === nextProps.rowId &&
-    prevProps.isCurrentCellHighlighted === nextProps.isCurrentCellHighlighted &&
-    prevProps.isCellHighlighted === nextProps.isCellHighlighted &&
-    prevProps.searchTerm === nextProps.searchTerm
-  );
-});
+      >
+        <input
+          value={value as string || ''}
+          onChange={onChange}
+          onBlur={onBlur}
+          onKeyDown={e => onKeyDown(e, index, columnIndex)}
+          onContextMenu={e => onContextMenu(e, index)}
+          style={{
+            width: '100%',
+            height: '100%',
+            border: 'none',
+            backgroundColor: isCurrentCellHighlighted ? '#FFE4A3' : isCellHighlighted ? '#FFF4CC' : 'transparent',
+            padding: '0 12px',
+            fontSize: '13px',
+            fontFamily: 'inherit',
+            outline: 'none',
+            boxSizing: 'border-box',
+          }}
+        />
+      </div>
+    );
+  }, (prevProps, nextProps) => {
+    // ✅ Fixed memo comparison
+    return (
+      prevProps.value === nextProps.value &&
+      prevProps.rowId === nextProps.rowId &&
+      prevProps.index === nextProps.index &&
+      prevProps.isCurrentCellHighlighted === nextProps.isCurrentCellHighlighted &&
+      prevProps.isCellHighlighted === nextProps.isCellHighlighted &&
+      prevProps.searchTerm === nextProps.searchTerm
+    );
+  });
 
-CellInput.displayName = 'CellInput';
+  CellInput.displayName = 'CellInput';
 
 const defaultColumn = useMemo(
   () => ({

@@ -119,28 +119,26 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
 
   const currentTable = base.tables?.[currentTableIndex] ?? base.tables?.[0] ?? null;
 
-  const { 
-    data: paginatedData, 
-    fetchNextPage, 
-    hasNextPage, 
+  const {
+    data: paginatedData,
+    fetchNextPage,
+    hasNextPage,
     isFetchingNextPage,
     isLoading: isLoadingRecords,
-    isFetching: isFetchingRecords, 
-    refetch
+    isFetching: isFetchingRecords,
+    refetch,
   } = api.base.getTableRecords.useInfiniteQuery(
     {
       tableId: currentTable?.id ?? '',
-      sortConfig: currentSort,
-      filterConfig: currentFilters,
+      sortConfig: currentSort, // ✅ Use current sort
+      filterConfig: currentFilters, // ✅ Use current filters
       limit: 100,
     },
-    { 
+    {
       enabled: !!currentTable?.id,
       getNextPageParam: (lastPage) => lastPage.nextCursor,
+      staleTime: 30000,
       refetchOnWindowFocus: false,
-      // Add this to prevent auto-refetch when sortConfig changes
-      refetchOnMount: false,
-      staleTime: Infinity, // Data never goes stale
     }
   );
 
@@ -154,22 +152,35 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
   const deleteViewMutation = api.view.delete.useMutation();
 
   useEffect(() => {
-  if (currentViewId) {
-    const view = views.find(v => v.id === currentViewId);
-    if (view) {
-      const config = view.config as unknown as ViewConfig;
-      setHiddenColumns(new Set(config.hiddenColumns ?? []));
-      setCurrentSort(config.sort ?? []);
-      setCurrentFilters(config.filters ?? []);
-      setSearchTerm(config.searchTerm ?? '');
+    if (currentViewId && views.length > 0) {
+      const view = views.find(v => v.id === currentViewId);
+      if (view && view.config) {
+        const config = view.config as ViewConfig;
+        
+        // Apply hidden columns
+        setHiddenColumns(new Set(config.hiddenColumns || []));
+        
+        // Apply sort configuration
+        if (config.sort && config.sort.length > 0) {
+          setCurrentSort(config.sort);
+        } else {
+          setCurrentSort([]);
+        }
+        
+        // Apply filters
+        if (config.filters && config.filters.length > 0) {
+          setCurrentFilters(config.filters);
+        } else {
+          setCurrentFilters([]);
+        }
+        
+        // Apply search term
+        if (config.searchTerm) {
+          setSearchTerm(config.searchTerm);
+        }
+      }
     }
-  } else {
-    setHiddenColumns(new Set());
-    setCurrentSort([]);
-    setCurrentFilters([]);
-    setSearchTerm('');
-  }
-}, [currentViewId, views]);
+  }, [currentViewId, views]);
 
   useEffect(() => {
     setCurrentViewId(null);
@@ -268,21 +279,38 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
     }
   }, [currentViewId, hiddenColumns, currentSort, currentFilters, searchTerm, handleUpdateCurrentView]);
 
-   React.useEffect(() => {
-    if (currentTable) {
-      if (currentTable.sortConfig && Array.isArray(currentTable.sortConfig)) {
-        setCurrentSort(currentTable.sortConfig as Array<{ columnId: string; direction: 'asc' | 'desc' }>);
-      } else {
-        setCurrentSort([]);
-      }
+  //  React.useEffect(() => {
+  //   if (currentTable) {
+  //     if (currentTable.sortConfig && Array.isArray(currentTable.sortConfig)) {
+  //       setCurrentSort(currentTable.sortConfig as Array<{ columnId: string; direction: 'asc' | 'desc' }>);
+  //     } else {
+  //       setCurrentSort([]);
+  //     }
 
-      if (currentTable.filterConfig && Array.isArray(currentTable.filterConfig)) {
-        setCurrentFilters(currentTable.filterConfig as FilterCondition[]);
-      } else {
-        setCurrentFilters([]);
-      }
+  //     if (currentTable.filterConfig && Array.isArray(currentTable.filterConfig)) {
+  //       setCurrentFilters(currentTable.filterConfig as FilterCondition[]);
+  //     } else {
+  //       setCurrentFilters([]);
+  //     }
+  //   }
+  // }, [currentTable?.id]);
+
+  useEffect(() => {
+  if (currentTable && !currentViewId) {
+    // Only load from table config when no view is active
+    if (currentTable.sortConfig && Array.isArray(currentTable.sortConfig)) {
+      setCurrentSort(currentTable.sortConfig as Array<{ columnId: string; direction: 'asc' | 'desc' }>);
+    } else {
+      setCurrentSort([]);
     }
-  }, [currentTable?.id]);
+
+    if (currentTable.filterConfig && Array.isArray(currentTable.filterConfig)) {
+      setCurrentFilters(currentTable.filterConfig as FilterCondition[]);
+    } else {
+      setCurrentFilters([]);
+    }
+  }
+}, [currentTable?.id, currentViewId]);
 
   const updateTableSortMutation = api.base.updateTableSort.useMutation();
   const updateTableFiltersMutation = api.base.updateTableFilters.useMutation();
@@ -454,26 +482,39 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
     }
   }, [currentTable?.id, updateTableSortMutation]);
 
-  const handleApplySort = useCallback((sortConfig: Array<{ columnId: string; direction: 'asc' | 'desc' }>) => {
-    // setSortingLoading(true);
-    setCurrentSort(sortConfig);
+  const handleApplySort = useCallback((newSort: Array<{ columnId: string; direction: 'asc' | 'desc' }>) => {
+    setCurrentSort(newSort);
     
+    // ✅ Save sort to table config (so it persists without views)
     if (currentTable?.id) {
       updateTableSortMutation.mutate({
         tableId: currentTable.id,
-        sortConfig: sortConfig,
-      }, {
-        onSuccess: () => {
-          // setSortingLoading(false);
-        },
-        onError: () => {
-          // setSortingLoading(false);
-        }
+        sortConfig: newSort,
       });
-    } else {
-      // setSortingLoading(false);
     }
-  }, [currentTable?.id, updateTableSortMutation]);
+    
+    // ✅ Save sort to current view if one is active
+    if (currentViewId) {
+      const currentView = views.find(v => v.id === currentViewId);
+      if (currentView) {
+        const updatedConfig: ViewConfig = {
+          ...(currentView.config as ViewConfig || {}),
+          hiddenColumns: Array.from(hiddenColumns),
+          sort: newSort,
+          filters: currentFilters,
+          searchTerm: searchTerm,
+        };
+        
+        updateViewMutation.mutate({
+          viewId: currentViewId,
+          config: updatedConfig,
+        });
+      }
+    }
+    
+    // ✅ Refetch with new sort - this will re-sort the data
+    refetch();
+  }, [currentTable?.id, currentViewId, views, hiddenColumns, currentFilters, searchTerm, refetch, updateViewMutation, updateTableSortMutation]);
 
   const handleRemoveColumnSort = useCallback((columnId: string) => {
     // Simply remove from UI state without updating database

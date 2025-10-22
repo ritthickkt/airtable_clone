@@ -455,23 +455,75 @@ export const baseRouter = createTRPCRouter({
 
   // Save sort configuration
   updateTableSort: protectedProcedure
-    .input(z.object({
-      tableId: z.string(),
-      sortConfig: z.array(z.object({
-        columnId: z.string(),
-        direction: z.enum(['asc', 'desc'])
-      }))
+  .input(z.object({
+    tableId: z.string(),
+    sortConfig: z.array(z.object({
+      columnId: z.string(),
+      direction: z.enum(['asc', 'desc'])
     }))
-    .mutation(async ({ ctx, input }) => {
-      return ctx.db.table.update({
-        where: {
-          id: input.tableId,
-        },
-        data: {
-          sortConfig: input.sortConfig,
-        },
+  }))
+  .mutation(async ({ ctx, input }) => {
+    const table = await ctx.db.table.findUnique({
+      where: { id: input.tableId },
+      include: { columns: true, records: true },
+    });
+
+    if (!table) {
+      throw new Error('Table not found');
+    }
+
+    // ✅ Apply sort and update record positions permanently
+    if (input.sortConfig.length > 0) {
+      const sortedRecords = table.records.sort((a, b) => {
+        const aData = a.data as Record<string, any>;
+        const bData = b.data as Record<string, any>;
+        
+        for (const sort of input.sortConfig) {
+          const column = table.columns.find(col => col.id === sort.columnId);
+          if (!column) continue;
+          
+          const fieldKey = column.name.toLowerCase().replace(/\s+/g, '');
+          const aValue = aData[fieldKey];
+          const bValue = bData[fieldKey];
+          
+          let comparison = 0;
+          
+          if (column.type === 'number') {
+            const aNum = Number(aValue) || 0;
+            const bNum = Number(bValue) || 0;
+            comparison = aNum - bNum;
+          } else {
+            const aStr = String(aValue ?? '').toLowerCase();
+            const bStr = String(bValue ?? '').toLowerCase();
+            comparison = aStr.localeCompare(bStr);
+          }
+          
+          if (comparison !== 0) {
+            return sort.direction === 'desc' ? -comparison : comparison;
+          }
+        }
+        return 0;
       });
-    }),
+
+      // ✅ Update position field for each record to save sorted order
+      await Promise.all(
+        sortedRecords.map((record, index) =>
+          ctx.db.record.update({
+            where: { id: record.id },
+            data: { position: index }
+          })
+        )
+      );
+    }
+
+    // Save sort config to table
+    return await ctx.db.table.update({
+      where: { id: input.tableId },
+      data: { 
+        sortConfig: input.sortConfig as any,
+      },
+    });
+  }),
 
   // Save filter configuration
   updateTableFilters: protectedProcedure
@@ -530,15 +582,15 @@ export const baseRouter = createTRPCRouter({
       throw new Error('Table not found');
     }
 
-    // ✅ STEP 1: Fetch ALL records (no pagination yet)
+    // ✅ Fetch records ordered by position (saved sort order)
     const allRecords = await ctx.db.record.findMany({
       where: {
         tableId: input.tableId,
       },
-      orderBy: { createdAt: 'asc' }, // Default ordering
+      orderBy: { position: 'asc' }, // Use saved position
     });
 
-    // ✅ STEP 2: Apply filtering
+    // Apply filtering
     let filteredRecords = allRecords;
     if (input.filterConfig && input.filterConfig.length > 0) {
       filteredRecords = allRecords.filter(record => {
@@ -580,7 +632,7 @@ export const baseRouter = createTRPCRouter({
       });
     }
 
-    // ✅ STEP 3: Apply sorting to ALL filtered records
+    // ✅ Only apply live sorting if sortConfig is provided in request
     if (input.sortConfig && input.sortConfig.length > 0) {
       filteredRecords = filteredRecords.sort((a, b) => {
         const aData = a.data as Record<string, any>;
@@ -614,12 +666,12 @@ export const baseRouter = createTRPCRouter({
       });
     }
 
-    // ✅ STEP 4: Apply cursor-based pagination AFTER sorting
+    // Apply pagination
     let startIndex = 0;
     if (input.cursor) {
       startIndex = filteredRecords.findIndex(r => r.id === input.cursor);
       if (startIndex !== -1) {
-        startIndex += 1; // Start after the cursor
+        startIndex += 1;
       } else {
         startIndex = 0;
       }
@@ -635,6 +687,7 @@ export const baseRouter = createTRPCRouter({
       hasNextPage,
     };
   }),
+
 
   // Get total count for a table
   getTableRecordCount: protectedProcedure

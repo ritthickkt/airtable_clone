@@ -47,8 +47,8 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
   const [isEditing, setIsEditing] = useState(false);
   const [add100kRowsPressed, set100kRowsPressed] = useState(false);
   const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set());
-  const [currentSort, setCurrentSort] = useState<Array<{ columnId: string; direction: 'asc' | 'desc' }>>([]);
-  const [currentFilters, setCurrentFilters] = useState<FilterCondition[]>([]);
+  const [tableSorts, setTableSorts] = useState<Record<string, Array<{ columnId: string; direction: 'asc' | 'desc' }>>>({});
+  const [tableFilters, setTableFilters] = useState<Record<string, FilterCondition[]>>({});
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
@@ -119,6 +119,25 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
 
   const currentTable = base.tables?.[currentTableIndex] ?? base.tables?.[0] ?? null;
 
+  const currentSort = tableSorts[currentTable?.id ?? ''] ?? [];
+  const currentFilters = tableFilters[currentTable?.id ?? ''] ?? [];
+
+  const setCurrentSort = useCallback((newSort: Array<{ columnId: string; direction: 'asc' | 'desc' }>) => {
+    if (!currentTable?.id) return;
+    setTableSorts(prev => ({
+      ...prev,
+      [currentTable.id]: newSort
+    }));
+  }, [currentTable?.id]);
+
+  const setCurrentFilters = useCallback((newFilters: FilterCondition[]) => {
+    if (!currentTable?.id) return;
+    setTableFilters(prev => ({
+      ...prev,
+      [currentTable.id]: newFilters
+    }));
+  }, [currentTable?.id]);
+
   const {
     data: paginatedData,
     fetchNextPage,
@@ -152,7 +171,7 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
   const deleteViewMutation = api.view.delete.useMutation();
 
   useEffect(() => {
-    if (currentViewId && views.length > 0) {
+    if (currentViewId && views.length > 0 && currentTable?.id) {
       const view = views.find(v => v.id === currentViewId);
       if (view && view.config) {
         const config = view.config as ViewConfig;
@@ -162,16 +181,28 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
         
         // Apply sort configuration
         if (config.sort && config.sort.length > 0) {
-          setCurrentSort(config.sort);
+          setTableSorts(prev => ({
+            ...prev,
+            [currentTable.id]: config.sort
+          }));
         } else {
-          setCurrentSort([]);
+          setTableSorts(prev => ({
+            ...prev,
+            [currentTable.id]: []
+          }));
         }
         
         // Apply filters
         if (config.filters && config.filters.length > 0) {
-          setCurrentFilters(config.filters);
+          setTableFilters(prev => ({
+            ...prev,
+            [currentTable.id]: config.filters
+          }));
         } else {
-          setCurrentFilters([]);
+          setTableFilters(prev => ({
+            ...prev,
+            [currentTable.id]: []
+          }));
         }
         
         // Apply search term
@@ -180,17 +211,25 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
         }
       }
     }
-  }, [currentViewId, views]);
+  }, [currentViewId, views, currentTable?.id]);
 
   useEffect(() => {
     setCurrentViewId(null);
     setHiddenColumns(new Set());
-    setCurrentSort([]);
-    setCurrentFilters([]);
+    if (currentTable?.id) {
+      setTableSorts(prev => ({
+        ...prev,
+        [currentTable.id]: []
+      }));
+      setTableFilters(prev => ({
+        ...prev,
+        [currentTable.id]: []
+      }));
+    }
     setSearchTerm('');
     setSearchResults([]);
     setCurrentSearchIndex(0);
-  }, [currentTableIndex]);
+  }, [currentTableIndex, currentTable?.id]);
 
   const handleCreateView = useCallback(() => {
     const sidebar = document.querySelector('.left-side-bar');
@@ -296,113 +335,115 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
   // }, [currentTable?.id]);
 
   useEffect(() => {
-  if (currentTable && !currentViewId) {
-    // Only load from table config when no view is active
-    if (currentTable.sortConfig && Array.isArray(currentTable.sortConfig)) {
-      setCurrentSort(currentTable.sortConfig as Array<{ columnId: string; direction: 'asc' | 'desc' }>);
-    } else {
-      setCurrentSort([]);
-    }
+    if (currentTable && !currentViewId) {
+      // Only load from table config when no view is active
+      if (currentTable.sortConfig && Array.isArray(currentTable.sortConfig)) {
+        setTableSorts(prev => ({
+          ...prev,
+          [currentTable.id]: currentTable.sortConfig as Array<{ columnId: string; direction: 'asc' | 'desc' }>
+        }));
+      } else {
+        setTableSorts(prev => ({
+          ...prev,
+          [currentTable.id]: []
+        }));
+      }
 
-    if (currentTable.filterConfig && Array.isArray(currentTable.filterConfig)) {
-      setCurrentFilters(currentTable.filterConfig as FilterCondition[]);
-    } else {
-      setCurrentFilters([]);
+      if (currentTable.filterConfig && Array.isArray(currentTable.filterConfig)) {
+        setTableFilters(prev => ({
+          ...prev,
+          [currentTable.id]: currentTable.filterConfig as FilterCondition[]
+        }));
+      } else {
+        setTableFilters(prev => ({
+          ...prev,
+          [currentTable.id]: []
+        }));
+      }
     }
-  }
-}, [currentTable?.id, currentViewId]);
+  }, [currentTable?.id, currentViewId]);
 
   const updateTableSortMutation = api.base.updateTableSort.useMutation();
   const updateTableFiltersMutation = api.base.updateTableFilters.useMutation();
 
   const handleAddFilter = useCallback((filter: FilterCondition) => {
-    const newFilters = [...currentFilters, filter];
-    setCurrentFilters(newFilters);
+    if (!currentTable?.id) return;
     
-    if (currentTable?.id) {
-      updateTableFiltersMutation.mutate({
-        tableId: currentTable.id,
-        filterConfig: newFilters,
-      }, {
-        onSuccess: () => {
-          // setFilteringLoading(false);
-        },
-        onError: () => {
-          // setFilteringLoading(false);
-        }
-      });
-    } else {
-      // setFilteringLoading(false);
+    setTableFilters(prev => ({
+      ...prev,
+      [currentTable.id]: [...(prev[currentTable.id] ?? []), filter]
+    }));
+    
+    updateTableFiltersMutation.mutate({
+      tableId: currentTable.id,
+      filterConfig: [...(tableFilters[currentTable.id] ?? []), filter]
+    });
+  }, [currentTable?.id, tableFilters]);
+
+  // ✅ Load sort/filter config when table is loaded
+  useEffect(() => {
+    if (currentTable?.id && currentTable.sortConfig) {
+      setTableSorts(prev => ({
+        ...prev,
+        [currentTable.id]: currentTable.sortConfig ?? []
+      }));
     }
-  }, [currentFilters, currentTable?.id, updateTableFiltersMutation]);
+    
+    if (currentTable?.id && currentTable.filterConfig) {
+      setTableFilters(prev => ({
+        ...prev,
+        [currentTable.id]: currentTable.filterConfig ?? []
+      }));
+    }
+  }, [currentTable?.id, currentTable?.sortConfig, currentTable?.filterConfig]);
 
   const handleUpdateFilter = useCallback((filterId: string, updates: Partial<FilterCondition>) => {
-    // setFilteringLoading(true);
+    if (!currentTable?.id) return;
+    
     const newFilters = currentFilters.map(filter => 
       filter.id === filterId ? { ...filter, ...updates } : filter
     );
-    setCurrentFilters(newFilters);
     
-    if (currentTable?.id) {
-      updateTableFiltersMutation.mutate({
-        tableId: currentTable.id,
-        filterConfig: newFilters,
-      }, {
-        onSuccess: () => {
-          // setFilteringLoading(false);
-        },
-        onError: () => {
-          // setFilteringLoading(false);
-        }
-      });
-    } else {
-      // setFilteringLoading(false);
-    }
+    setTableFilters(prev => ({
+      ...prev,
+      [currentTable.id]: newFilters
+    }));
+    
+    updateTableFiltersMutation.mutate({
+      tableId: currentTable.id,
+      filterConfig: newFilters,
+    });
   }, [currentFilters, currentTable?.id, updateTableFiltersMutation]);
 
   const handleRemoveFilter = useCallback((filterId: string) => {
-    // setFilteringLoading(true);
-    const newFilters = currentFilters.filter(filter => filter.id !== filterId);
-    setCurrentFilters(newFilters);
+    if (!currentTable?.id) return;
     
-    if (currentTable?.id) {
-      updateTableFiltersMutation.mutate({
-        tableId: currentTable.id,
-        filterConfig: newFilters,
-      }, {
-        onSuccess: () => {
-          // setFilteringLoading(false);
-        },
-        onError: () => {
-          // setFilteringLoading(false);
-        }
-      });
-    } else {
-      // setFilteringLoading(false);
-    }
+    const newFilters = currentFilters.filter(filter => filter.id !== filterId);
+    
+    setTableFilters(prev => ({
+      ...prev,
+      [currentTable.id]: newFilters
+    }));
+    
+    updateTableFiltersMutation.mutate({
+      tableId: currentTable.id,
+      filterConfig: newFilters,
+    });
   }, [currentFilters, currentTable?.id, updateTableFiltersMutation]);
 
   const handleClearAllFilters = useCallback(() => {
-    // setFilteringLoading(true);
-    setCurrentFilters([]);
+    if (!currentTable?.id) return;
     
-    if (currentTable?.id) {
-      updateTableFiltersMutation.mutate({
-        tableId: currentTable.id,
-        filterConfig: [],
-      }, {
-        onSuccess: () => {
-          // setFilteringLoading(false);
-        },
-        onError: () => {
-          // setFilteringLoading(false);
-        }
-      });
-    } else {
-      // setFilteringLoading(false);
-    }
+    setTableFilters(prev => ({
+      ...prev,
+      [currentTable.id]: []
+    }));
+    
+    updateTableFiltersMutation.mutate({
+      tableId: currentTable.id,
+      filterConfig: [],
+    });
   }, [currentTable?.id, updateTableFiltersMutation]);
-
 
   const handleShowColumn = useCallback((columnId: string) => {
     setHiddenColumns(prev => {
@@ -428,70 +469,50 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
   }, [currentTable?.columns]);
 
   const handleSort = useCallback((columnId: string, direction: 'asc' | 'desc') => {
-    // setSortingLoading(true);
+    if (!currentTable?.id) return;
     
-    setCurrentSort(prevSort => {
-      const existingIndex = prevSort.findIndex(s => s.columnId === columnId);
-      let newSort;
-      
-      if (existingIndex >= 0) {
-        newSort = prevSort.map((s, i) => 
-          i === existingIndex ? { ...s, direction } : s
-        );
-      } else {
-        newSort = [...prevSort, { columnId, direction }];
-      }
-      
-      if (currentTable?.id) {
-        updateTableSortMutation.mutate({
-          tableId: currentTable.id,
-          sortConfig: newSort,
-        }, {
-          onSuccess: () => {
-            // Only refetch after ADDING or CHANGING sort, not removing
-            // setSortingLoading(false);
-          },
-          onError: () => {
-            // setSortingLoading(false);
-          }
-        });
-      }
-      
-      return newSort;
+    const newSort = [{ columnId, direction }];
+    
+    // Update local state
+    setTableSorts(prev => ({
+      ...prev,
+      [currentTable.id]: newSort
+    }));
+    
+    // ✅ Save sort to database and apply it permanently
+    updateTableSortMutation.mutate({
+      tableId: currentTable.id,
+      sortConfig: newSort
+    });
+  }, [currentTable?.id]);
+
+  const handleClearSort = useCallback(() => {
+    if (!currentTable?.id) return;
+    
+    setTableSorts(prev => ({
+      ...prev,
+      [currentTable.id]: []
+    }));
+    
+    updateTableSortMutation.mutate({
+      tableId: currentTable.id,
+      sortConfig: [],
     });
   }, [currentTable?.id, updateTableSortMutation]);
 
-  const handleClearSort = useCallback(() => {
-    // setSortingLoading(true);
-    setCurrentSort([]);
-    
-    if (currentTable?.id) {
-      updateTableSortMutation.mutate({
-        tableId: currentTable.id,
-        sortConfig: [],
-      }, {
-        onSuccess: () => {
-          // setSortingLoading(false);
-        },
-        onError: () => {
-          // setSortingLoading(false);
-        }
-      });
-    } else {
-      // setSortingLoading(false);
-    }
-  }, [currentTable?.id, updateTableSortMutation]);
-
   const handleApplySort = useCallback((newSort: Array<{ columnId: string; direction: 'asc' | 'desc' }>) => {
-    setCurrentSort(newSort);
+    if (!currentTable?.id) return;
+    
+    setTableSorts(prev => ({
+      ...prev,
+      [currentTable.id]: newSort
+    }));
     
     // ✅ Save sort to table config (so it persists without views)
-    if (currentTable?.id) {
-      updateTableSortMutation.mutate({
-        tableId: currentTable.id,
-        sortConfig: newSort,
-      });
-    }
+    updateTableSortMutation.mutate({
+      tableId: currentTable.id,
+      sortConfig: newSort,
+    });
     
     // ✅ Save sort to current view if one is active
     if (currentViewId) {
@@ -517,20 +538,31 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
   }, [currentTable?.id, currentViewId, views, hiddenColumns, currentFilters, searchTerm, refetch, updateViewMutation, updateTableSortMutation]);
 
   const handleRemoveColumnSort = useCallback((columnId: string) => {
-    // Simply remove from UI state without updating database
-    setCurrentSort(prevSort => {
-      const newSort = prevSort.filter(sort => sort.columnId !== columnId);
-      return newSort;
+    if (!currentTable?.id) return;
+    
+    setTableSorts(prev => {
+      const currentSort = prev[currentTable.id] ?? [];
+      const newSort = currentSort.filter(sort => sort.columnId !== columnId);
+      return {
+        ...prev,
+        [currentTable.id]: newSort
+      };
     });
-  }, []);
+  }, [currentTable?.id]);
 
-  const handleSetCurrentTableIndex = useCallback((index: number) => {
-    // Switch immediately without waiting
+  // const handleSetCurrentTableIndex = useCallback((index: number) => {
+  //   // Switch immediately without waiting
+  //   setCurrentTableIndex(index);
+  //   const params = new URLSearchParams(searchParams.toString());
+  //   params.set('tableIndex', index.toString());
+  //   router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  // }, [pathname, router, searchParams]);
+
+  const handleTableSelect = useCallback((index: number) => {
     setCurrentTableIndex(index);
-    const params = new URLSearchParams(searchParams.toString());
-    params.set('tableIndex', index.toString());
-    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-  }, [pathname, router, searchParams]);
+    const newPath = `/${base.id}?tableIndex=${index}`;
+    router.push(newPath);
+  }, [base.id, router]);
 
   // Update when URL changes
   useEffect(() => {
@@ -815,7 +847,7 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
             <TableTabs 
               base={base}
               currentTableIndex={currentTableIndex}
-              setCurrentTableIndex={handleSetCurrentTableIndex}
+              setCurrentTableIndex={setCurrentTableIndex}
               handleCreateTable={handleCreateTable}
               createTableMutation={createTableMutation}
             />

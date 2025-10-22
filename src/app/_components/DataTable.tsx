@@ -194,71 +194,42 @@ export default function DataTable({
   }, []);
 
   const tableData = useMemo(() => {
-    if (!currentTable?.id) return [];
-
-    const localData = tablesData[currentTable.id] ?? [];
-
-    // ✅ When filters are active
-    if (currentFilters && currentFilters.length > 0) {
-      if (!paginatedData?.pages) return localData; // Show local data while loading
-      
-      const allRecords = paginatedData.pages.flatMap(page => page.records);
-      
-      // Create a map of local updates by record ID
-      const localUpdateMap = new Map(localData.map(row => [row.id, row]));
-      
-      return allRecords.map(record => {
-        const rowData: TableRow = {
+    const localData = tablesData[currentTable?.id ?? ''] ?? [];
+    
+    const paginatedRecords = paginatedData?.pages.flatMap(page => 
+      page.records.map((record) => {
+        const data = record.data as Record<string, unknown> || {};
+        const recordRow = {
           id: record.id,
-        };
-
-        currentTable.columns?.forEach(col => {
-          const fieldKey = col.name.toLowerCase().replace(/\s+/g, '');
-          rowData[fieldKey] = (record.data as Record<string, unknown>)[fieldKey] ?? '';
-        });
-
-        // ✅ Merge with local updates - local updates take priority
-        const localUpdate = localUpdateMap.get(record.id);
-        if (localUpdate) {
-          // Spread local update over server data - local wins
-          return { ...rowData, ...localUpdate };
-        }
-
-        return rowData;
-      });
+          ...data,
+        } as TableRow;
+        
+        const localVersion = localData.find(r => r.id === record.id);
+        return localVersion || recordRow;
+      })
+    ) ?? [];
+    
+    const localOnlyRecords = localData.filter(row => 
+      !paginatedRecords.some(dbRow => dbRow.id === row.id)
+    );
+    
+    const allRecords = [...paginatedRecords, ...localOnlyRecords];
+    
+    // Filter records based on search term
+    if (searchTerm.trim() && searchResults.length > 0) {
+      const rowResults = searchResults.filter(result => !result.isColumnHeader);
+      
+      if (rowResults.length > 0) {
+        const recordIdsWithMatches = new Set(
+          rowResults.map(result => result.rowId)
+        );
+        
+        return allRecords.filter(row => recordIdsWithMatches.has(row.id));
+      }
     }
-
-    // ✅ When NO filters - original logic
-    if (!paginatedData?.pages) return localData;
-
-    const serverRecords = paginatedData.pages.flatMap(page => page.records);
     
-    const serverData = serverRecords.map(record => {
-      const rowData: TableRow = {
-        id: record.id,
-      };
-
-      currentTable.columns?.forEach(col => {
-        const fieldKey = col.name.toLowerCase().replace(/\s+/g, '');
-        rowData[fieldKey] = (record.data as Record<string, unknown>)[fieldKey] ?? '';
-      });
-
-      return rowData;
-    });
-
-    // Merge: local updates override server data, plus any local-only records
-    const serverIds = new Set(serverData.map(r => r.id));
-    const localUpdateMap = new Map(localData.map(row => [row.id, row]));
-    
-    const mergedServer = serverData.map(row => {
-      const localUpdate = localUpdateMap.get(row.id);
-      return localUpdate ? { ...row, ...localUpdate } : row;
-    });
-    
-    const uniqueLocalData = localData.filter(r => !serverIds.has(r.id));
-
-    return [...uniqueLocalData, ...mergedServer];
-  }, [paginatedData, tablesData, currentTable?.id, currentTable?.columns, currentFilters]);
+    return allRecords;
+  }, [paginatedData, tablesData, currentTable?.id, searchTerm, searchResults]);
 
   const adjustedSearchResults = useMemo(() => {
     if (!searchTerm.trim() || searchResults.length === 0) {
@@ -734,11 +705,7 @@ export default function DataTable({
               : row
           )
         }));
-        
-        // REMOVED: Don't refetch at all - let data stay in current order
-        // if (currentSort.length > 0 || currentFilters.length > 0) {
-        //   refetch();
-        // }
+      
       },
       onError: () => {
         onTablesDataChange(prev => ({
@@ -749,79 +716,6 @@ export default function DataTable({
       onSettled: () => setIsCreatingRecord(false),
     });
   }, [currentTable, createRecordMutation, isCreatingRecord]);
-
-  // const add100kRows = useCallback(async () => {
-  //   if (!currentTable || isCreatingRecord) return;
-
-  //   setIsCreatingRecord(true);
-  //   const totalRecords = 100000;
-  //   setBulkProgress({ isAdding: true, added: 0, total: totalRecords });
-
-  //   try {
-  //     // prepare empty template for each record (will be shallow-copied per item)
-  //     const emptyDataTemplate: Record<string, string> = {};
-  //     currentTable.columns?.forEach(col => {
-  //       const fieldKey = col.name.toLowerCase().replace(/\s+/g, '');
-  //       emptyDataTemplate[fieldKey] = '';
-  //     });
-
-  //     // CONFIG: tune these to your backend capacity
-  //     const dbBatchSize = 2000;   // size per request (reduce if server times out)
-  //     const concurrency = 4;      // number of parallel requests
-
-  //     let nextStart = 0;
-  //     let createdSoFar = 0;
-
-  //     // small helper to yield to the event loop to keep UI responsive
-  //     const yieldNow = () => new Promise(res => setTimeout(res, 0));
-
-  //     const worker = async () => {
-  //       while (true) {
-  //         const start = nextStart;
-  //         nextStart += dbBatchSize;
-  //         if (start >= totalRecords) break;
-
-  //         const size = Math.min(dbBatchSize, totalRecords - start);
-
-  //         // build payload for this batch without creating the entire 100k array at once
-  //         const batchPayload = Array.from({ length: size }, () => ({ ...emptyDataTemplate }));
-
-  //         // send batch (mutateAsync returns once the request finishes)
-  //         const result = await createBulkRecordsMutation.mutateAsync({
-  //           tableId: currentTable.id,
-  //           records: batchPayload,
-  //         });
-
-  //         createdSoFar += (result?.count ?? size);
-
-  //         // update progress once per completed batch
-  //         setBulkProgress(prev => prev ? { ...prev, added: createdSoFar } : prev);
-
-  //         // yield briefly so the UI thread can update and avoid long blocking runs
-  //         await yieldNow();
-  //       }
-  //     };
-
-  //     // start workers in parallel (limited concurrency)
-  //     await Promise.all(Array.from({ length: concurrency }, () => worker()));
-
-  //     // finished uploading: refresh server state once
-  //     await refetch();
-
-  //     // don't add/remove 100k placeholders in tablesData — server results are authoritative
-  //     console.log('✅ All 100k rows created');
-
-  //     // ✅ After all batches finish:
-  //     await refetch();         // refresh first page
-  //     fetchNextPage();         // start fetching more pages if available
-  //   } catch (error) {
-  //     console.error('Failed to add 100k rows:', error);
-  //   } finally {
-  //     setIsCreatingRecord(false);
-  //     set100kRowsPressed(false);
-  //     setTimeout(() => setBulkProgress(null), 1500);
-  //   }
-  // }, [currentTable, isCreatingRecord, set100kRowsPressed, createBulkRecordsMutation, refetch]);
 
   const add100kRows = useCallback(async () => {
     if (!currentTable || isCreatingRecord) return;
@@ -1418,8 +1312,8 @@ const defaultColumn = useMemo(
   const [hoveredRowIndex, setHoveredRowIndex] = useState<number | null>(null);
 
 return (
-  <div style={{ minHeight: 320, background: '#fff' }}>
-    <div className='table-main-content'>
+  <div style={{ minHeight: 320, background: '#fff', display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div className='table-main-content' style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
       <SideBar
         views={views}
         currentViewId={currentViewId}
@@ -1427,162 +1321,195 @@ return (
         onCreateView={onCreateView}
         onDeleteView={onDeleteView}
       />
-      <div className='table-wrapper'>
-        {isTableLoading ? (
-          <TableLoading />
-        ) : (
-          <>
-            <div className='table-scroll-container' ref={parentRef}>
-              <table>
-                <thead>
-                  {table.getHeaderGroups().map(headerGroup => (
-                    <tr key={headerGroup.id}>
-                      <th className="row-number-header">
-                        <div
-                          className='all-rows-select'
-                          onClick={handleSelectAllRows}
-                          style={{ cursor: 'pointer' }}
-                        >
-                        </div>
-                      </th>
-                      {headerGroup.headers.map(header => (
-                        <th
-                          key={header.id}
-                          className={`column-names ${
-                            isColumnHighlighted(header.column.id) ? 'search-column-highlight' : ''
-                          } ${
-                            isCurrentColumnHighlighted(header.column.id) ? 'search-column-highlight-current' : ''
-                          }`}
-                        >
-                          {flexRender(header.column.columnDef.header, header.getContext())}
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+        <div className='table-wrapper' style={{ flex: 1, overflow: 'auto', position: 'relative' }}>
+          {isTableLoading ? (
+            <TableLoading />
+          ) : (
+            <>
+              <div className='table-scroll-container' ref={parentRef}>
+                <table style={{
+                  position: 'sticky',
+                  top: 0,
+                  zIndex: 10,
+                  backgroundColor: '#fff'
+                }}>
+                  <thead>
+                    {table.getHeaderGroups().map(headerGroup => (
+                      <tr key={headerGroup.id}>
+                        <th className="row-number-header" style={{
+                          position: 'sticky',
+                          left: 0,
+                          zIndex: 11,
+                          backgroundColor: '#fff'
+                        }}>
+                          <div
+                            className='all-rows-select'
+                            onClick={handleSelectAllRows}
+                            style={{ cursor: 'pointer' }}
+                          >
+                          </div>
                         </th>
-                      ))}
-                      <th className='add-col-header'>
-                        <button
-                          ref={addColBtnRef}
-                          onClick={addNewCol}
-                          disabled={isCreatingColumn}
-                          className="add-col-button"
-                          style={{ 
-                            opacity: isCreatingColumn ? 0.6 : 1,
-                            cursor: isCreatingColumn ? 'not-allowed' : 'pointer'
+                        {headerGroup.headers.map(header => (
+                          <th
+                            key={header.id}
+                            className={`column-names ${
+                              isColumnHighlighted(header.column.id) ? 'search-column-highlight' : ''
+                            } ${
+                              isCurrentColumnHighlighted(header.column.id) ? 'search-column-highlight-current' : ''
+                            }`}
+                          >
+                            {flexRender(header.column.columnDef.header, header.getContext())}
+                          </th>
+                        ))}
+                        <th className='add-col-header'>
+                          <button
+                            ref={addColBtnRef}
+                            onClick={addNewCol}
+                            disabled={isCreatingColumn}
+                            className="add-col-button"
+                            style={{ 
+                              opacity: isCreatingColumn ? 0.6 : 1,
+                              cursor: isCreatingColumn ? 'not-allowed' : 'pointer'
+                            }}
+                          >
+                            {isCreatingColumn ? '...' : '+'}
+                          </button>  
+                        </th>
+                      </tr>
+                    ))} 
+                  </thead>
+                </table>
+                <div style={{ 
+                  height: `${rowVirtualizer.getTotalSize()}px`,
+                  width: '100%',
+                  position: 'relative'
+                }}>
+                  {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                    const rows = table.getCoreRowModel().rows;
+                    const row = rows[virtualRow.index];
+                    if (!row) return null;
+
+                    const isHighlighted = isRowHighlighted(virtualRow.index);
+
+                    return (
+                      <div
+                        key={row.id}
+                        className={`virtual-row ${selectedRows.includes(row.id) ? 'row-selected' : ''}`}
+                        style={{
+                          position: 'absolute',
+                          top: `${virtualRow.start}px`,
+                          left: 0,
+                          width: `${totalTableWidth}px`,
+                          height: `${virtualRow.size}px`,
+                          display: 'flex',
+                        }}
+                        onMouseEnter={() => setHoveredRowIndex(virtualRow.index)}
+                        onMouseLeave={() => setHoveredRowIndex(null)}
+                      >
+                        <div 
+                          className={`row-number ${isHighlighted ? 'search-row-highlight' : ''}`}
+                          style={{
+                            position: 'sticky',
+                            left: 0,
+                            zIndex: 1,
+                            backgroundColor: '#fff'
                           }}
                         >
-                          {isCreatingColumn ? '...' : '+'}
-                        </button>  
-                      </th>
-                    </tr>
-                  ))} 
-                </thead>
-              </table>
-              <div style={{ 
-                height: `${rowVirtualizer.getTotalSize()}px`,
-                width: '100%',
-                position: 'relative'
-              }}>
-                {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                  const rows = table.getCoreRowModel().rows;
-                  const row = rows[virtualRow.index];
-                  if (!row) return null;
-
-                  const isHighlighted = isRowHighlighted(virtualRow.index);
-
-                  return (
-                    <div
-                      key={row.id}
-                      className={`virtual-row ${selectedRows.includes(row.id) ? 'row-selected' : ''}`}
-                      style={{
-                        position: 'absolute',
-                        top: `${virtualRow.start}px`,
-                        left: 0,
-                        width: `${totalTableWidth}px`,
-                        height: `${virtualRow.size}px`,
-                        display: 'flex',
-                      }}
-                      onMouseEnter={() => setHoveredRowIndex(virtualRow.index)}
-                      onMouseLeave={() => setHoveredRowIndex(null)}
-                    >
-                      <div className={`row-number ${isHighlighted ? 'search-row-highlight' : ''}`}>
-                        {hoveredRowIndex === virtualRow.index
-                        ? <div className='all-rows-select' style={{ cursor: 'pointer' }}></div>
-                        : virtualRow.index + 1}
-                      </div>
-                      {row.getVisibleCells().map((cell, cellIndex) => (
-                        <div 
-                          key={cell.id} 
-                          className={`record ${cellIndex === 0 ? 'first-column' : ''}`}
-                        >
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          {hoveredRowIndex === virtualRow.index
+                          ? <div className='all-rows-select' style={{ cursor: 'pointer' }}></div>
+                          : virtualRow.index + 1}
                         </div>
-                      ))}
-                    </div>
-                  );
-                })}
+                        {row.getVisibleCells().map((cell, cellIndex) => (
+                          <div 
+                            key={cell.id} 
+                            className={`record ${cellIndex === 0 ? 'first-column' : ''}`}
+                          >
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div onClick={addNewRow} className='add-row-button' style={{ width: `${totalTableWidth}px`}}>
+                  <span className='add-row-icon-button'>+</span>
+                </div>
               </div>
-              <div onClick={addNewRow} className='add-row-button' style={{ width: `${totalTableWidth}px`}}>
-                <span className='add-row-icon-button'>+</span>
-              </div>
+              <ContextMenuRecord
+                visible={contextMenu?.visible ?? false}
+                x={contextMenu?.x ?? 0}
+                y={contextMenu?.y ?? 0}
+                rowIndex={contextMenu?.rowIndex ?? 0}
+                onDelete={handleDeleteRow}
+                onCancel={() => setContextMenu(null)}
+              />
+              <ColumnContextMenu
+                visible={columnContextMenu?.visible ?? false}
+                x={columnContextMenu?.x ?? 0}
+                y={columnContextMenu?.y ?? 0}
+                columnId={columnContextMenu?.columnId ?? ''}
+                columnName={columnContextMenu?.columnName ?? ''}
+                columnType={columnContextMenu?.columnType ?? 'text'}
+                onEdit={() => {
+                  console.log('Edit column');
+                  setColumnContextMenu(null);
+                }}
+                onDuplicate={() => {
+                  console.log('Duplicate column');
+                  setColumnContextMenu(null);
+                }}
+                onInsertLeft={() => {
+                  console.log('Insert left');
+                  setColumnContextMenu(null);
+                }}
+                onInsertRight={() => {
+                  console.log('Insert right');
+                  setColumnContextMenu(null);
+                }}
+                onHide={() => handleHideColumn(columnContextMenu?.columnId ?? '')}
+                onDelete={handleDeleteColumn}
+                onSort={(direction) => handleSortColumn(columnContextMenu?.columnId ?? '', direction)}
+                onCancel={() => setColumnContextMenu(null)}
+              />
+            </>
+          )}
+          {isColumnModalOpen && colConfigPosition && (
+            <div
+              ref={colConfigRef}
+              style={{
+                position: 'absolute',
+                top: colConfigPosition.top,
+                left: colConfigPosition.left,
+                zIndex: 1000,
+              }}
+            >
+              <ColumnConfiguration
+                isOpen={isColumnModalOpen}
+                onClose={() => setIsColumnModalOpen(false)}
+                onCreateColumn={handleCreateColumn}
+                isColumnModalOpen={isColumnModalOpen}
+              />
             </div>
-            <div className='number-of-rows'>
-              {tableData.length.toLocaleString()} Records
-              {hasNextPage && " (scroll to load more)"} 
-            </div>
-            <ContextMenuRecord
-              visible={contextMenu?.visible ?? false}
-              x={contextMenu?.x ?? 0}
-              y={contextMenu?.y ?? 0}
-              rowIndex={contextMenu?.rowIndex ?? 0}
-              onDelete={handleDeleteRow}
-              onCancel={() => setContextMenu(null)}
-            />
-            <ColumnContextMenu
-              visible={columnContextMenu?.visible ?? false}
-              x={columnContextMenu?.x ?? 0}
-              y={columnContextMenu?.y ?? 0}
-              columnId={columnContextMenu?.columnId ?? ''}
-              columnName={columnContextMenu?.columnName ?? ''}
-              columnType={columnContextMenu?.columnType ?? 'text'}
-              onEdit={() => {
-                console.log('Edit column');
-                setColumnContextMenu(null);
-              }}
-              onDuplicate={() => {
-                console.log('Duplicate column');
-                setColumnContextMenu(null);
-              }}
-              onInsertLeft={() => {
-                console.log('Insert left');
-                setColumnContextMenu(null);
-              }}
-              onInsertRight={() => {
-                console.log('Insert right');
-                setColumnContextMenu(null);
-              }}
-              onHide={() => handleHideColumn(columnContextMenu?.columnId ?? '')}
-              onDelete={handleDeleteColumn}
-              onSort={(direction) => handleSortColumn(columnContextMenu?.columnId ?? '', direction)}
-              onCancel={() => setColumnContextMenu(null)}
-            />
-          </>
-        )}
-        {isColumnModalOpen && colConfigPosition && (
-          <div
-            ref={colConfigRef}
-            style={{
-              position: 'absolute',
-              top: colConfigPosition.top,
-              left: colConfigPosition.left,
-              zIndex: 1000,
-            }}
-          >
-            <ColumnConfiguration
-              isOpen={isColumnModalOpen}
-              onClose={() => setIsColumnModalOpen(false)}
-              onCreateColumn={handleCreateColumn}
-              isColumnModalOpen={isColumnModalOpen}
-            />
-          </div>
-        )}
+          )}
+        </div>
+        {/* ✅ MOVED OUTSIDE table-wrapper - now it's a sibling */}
+        <div style={{
+          position: 'relative',
+          zIndex: 5,
+          backgroundColor: '#f9fafb',
+          padding: '10px 16px',
+          borderTop: '1px solid #e5e7eb',
+          fontSize: '13px',
+          color: '#6b7280',
+          fontWeight: 500,
+          flexShrink: 0,
+          display: 'block',
+          minHeight: '40px',
+        }}>
+          {totalCount !== undefined ? totalCount.toLocaleString() : tableData.length.toLocaleString()} Records
+          {hasNextPage && " (scroll to load more)"} 
+        </div>
         {bulkProgress && (
           <div style={{
             position: 'fixed',

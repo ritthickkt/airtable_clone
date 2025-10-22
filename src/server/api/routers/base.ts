@@ -497,143 +497,144 @@ export const baseRouter = createTRPCRouter({
       });
     }),
 
-  // ...existing code...
-
+  // Get records with sorting and filtering applied at DB level
   getTableRecords: protectedProcedure
-    .input(z.object({
-      tableId: z.string(),
-      sortConfig: z.array(z.object({
-        columnId: z.string(),
-        direction: z.enum(['asc', 'desc'])
-      })).optional(),
-      filterConfig: z.array(z.object({
-        id: z.string(),
-        columnId: z.string(),
-        columnName: z.string(),
-        columnType: z.string(),
-        operator: z.string(),
-        value: z.string()
-      })).optional(),
-      cursor: z.string().optional(),
-      limit: z.number().min(1).max(1000).default(100),
-    }))
-    .query(async ({ ctx, input }) => {
-      const table = await ctx.db.table.findUnique({
-        where: { id: input.tableId },
-        include: {
-          columns: {
-            orderBy: { position: 'asc' },
-          },
+  .input(z.object({
+    tableId: z.string(),
+    sortConfig: z.array(z.object({
+      columnId: z.string(),
+      direction: z.enum(['asc', 'desc'])
+    })).optional(),
+    filterConfig: z.array(z.object({
+      id: z.string(),
+      columnId: z.string(),
+      columnName: z.string(),
+      columnType: z.string(),
+      operator: z.string(),
+      value: z.string()
+    })).optional(),
+    cursor: z.string().optional(),
+    limit: z.number().min(1).max(1000).default(100),
+  }))
+  .query(async ({ ctx, input }) => {
+    const table = await ctx.db.table.findUnique({
+      where: { id: input.tableId },
+      include: {
+        columns: {
+          orderBy: { position: 'asc' },
         },
-      });
+      },
+    });
 
-      if (!table) {
-        throw new Error('Table not found');
-      }
+    if (!table) {
+      throw new Error('Table not found');
+    }
 
-      // ✅ FETCH ALL RECORDS (no limit yet - we need to filter first)
-      const allRecords = await ctx.db.record.findMany({
-        where: {
-          tableId: input.tableId,
-        },
-        orderBy: { id: 'asc' },
-      });
+    // ✅ STEP 1: Fetch ALL records (no pagination yet)
+    const allRecords = await ctx.db.record.findMany({
+      where: {
+        tableId: input.tableId,
+      },
+      orderBy: { createdAt: 'asc' }, // Default ordering
+    });
 
-      // ✅ Apply filtering FIRST
-      let filteredRecords = allRecords;
-      if (input.filterConfig && input.filterConfig.length > 0) {
-        filteredRecords = allRecords.filter(record => {
-          const data = record.data as Record<string, any>;
+    // ✅ STEP 2: Apply filtering
+    let filteredRecords = allRecords;
+    if (input.filterConfig && input.filterConfig.length > 0) {
+      filteredRecords = allRecords.filter(record => {
+        const data = record.data as Record<string, any>;
+        
+        return input.filterConfig!.every(filter => {
+          const column = table.columns.find(col => col.id === filter.columnId);
+          if (!column) return true;
           
-          return input.filterConfig!.every(filter => {
-            const column = table.columns.find(col => col.id === filter.columnId);
-            if (!column) return true;
-            
-            const fieldKey = column.name.toLowerCase().replace(/\s+/g, '');
-            const cellValue = data[fieldKey];
-            const filterValue = filter.value;
-            
-            switch (filter.operator) {
-              case 'contains':
-                return String(cellValue ?? '').toLowerCase().includes(String(filterValue).toLowerCase());
-              case 'not_contains':
-                return !String(cellValue ?? '').toLowerCase().includes(String(filterValue).toLowerCase());
-              case 'eq':
-                return String(cellValue ?? '').toLowerCase() === String(filterValue).toLowerCase();
-              case 'not_eq':
-                return String(cellValue ?? '').toLowerCase() !== String(filterValue).toLowerCase();
-              case 'is_empty':
-                return !cellValue || String(cellValue) === '';
-              case 'is_not_empty':
-                return cellValue != null && String(cellValue) !== '';
-              case 'gt':
-                return !isNaN(Number(cellValue)) && !isNaN(Number(filterValue)) && Number(cellValue) > Number(filterValue);
-              case 'lt':
-                return !isNaN(Number(cellValue)) && !isNaN(Number(filterValue)) && Number(cellValue) < Number(filterValue);
-              case 'gte':
-                return !isNaN(Number(cellValue)) && !isNaN(Number(filterValue)) && Number(cellValue) >= Number(filterValue);
-              case 'lte':
-                return !isNaN(Number(cellValue)) && !isNaN(Number(filterValue)) && Number(cellValue) <= Number(filterValue);
-              default:
-                return true;
-            }
-          });
-        });
-      }
-
-      // ✅ Apply sorting SECOND
-      if (input.sortConfig && input.sortConfig.length > 0) {
-        filteredRecords = filteredRecords.sort((a, b) => {
-          const aData = a.data as Record<string, any>;
-          const bData = b.data as Record<string, any>;
+          const fieldKey = column.name.toLowerCase().replace(/\s+/g, '');
+          const cellValue = data[fieldKey];
+          const filterValue = filter.value;
           
-          for (const sort of input.sortConfig!) {
-            const column = table.columns.find(col => col.id === sort.columnId);
-            if (!column) continue;
-            
-            const fieldKey = column.name.toLowerCase().replace(/\s+/g, '');
-            const aValue = aData[fieldKey];
-            const bValue = bData[fieldKey];
-            
-            let comparison = 0;
-            
-            if (column.type === 'number') {
-              const aNum = Number(aValue) || 0;
-              const bNum = Number(bValue) || 0;
-              comparison = aNum - bNum;
-            } else {
-              const aStr = String(aValue ?? '').toLowerCase();
-              const bStr = String(bValue ?? '').toLowerCase();
-              comparison = aStr.localeCompare(bStr);
-            }
-            
-            if (comparison !== 0) {
-              return sort.direction === 'desc' ? -comparison : comparison;
-            }
+          switch (filter.operator) {
+            case 'contains':
+              return String(cellValue ?? '').toLowerCase().includes(String(filterValue).toLowerCase());
+            case 'not_contains':
+              return !String(cellValue ?? '').toLowerCase().includes(String(filterValue).toLowerCase());
+            case 'eq':
+              return String(cellValue ?? '').toLowerCase() === String(filterValue).toLowerCase();
+            case 'not_eq':
+              return String(cellValue ?? '').toLowerCase() !== String(filterValue).toLowerCase();
+            case 'is_empty':
+              return !cellValue || String(cellValue) === '';
+            case 'is_not_empty':
+              return cellValue != null && String(cellValue) !== '';
+            case 'gt':
+              return !isNaN(Number(cellValue)) && !isNaN(Number(filterValue)) && Number(cellValue) > Number(filterValue);
+            case 'lt':
+              return !isNaN(Number(cellValue)) && !isNaN(Number(filterValue)) && Number(cellValue) < Number(filterValue);
+            case 'gte':
+              return !isNaN(Number(cellValue)) && !isNaN(Number(filterValue)) && Number(cellValue) >= Number(filterValue);
+            case 'lte':
+              return !isNaN(Number(cellValue)) && !isNaN(Number(filterValue)) && Number(cellValue) <= Number(filterValue);
+            default:
+              return true;
           }
-          return 0;
         });
+      });
+    }
+
+    // ✅ STEP 3: Apply sorting to ALL filtered records
+    if (input.sortConfig && input.sortConfig.length > 0) {
+      filteredRecords = filteredRecords.sort((a, b) => {
+        const aData = a.data as Record<string, any>;
+        const bData = b.data as Record<string, any>;
+        
+        for (const sort of input.sortConfig!) {
+          const column = table.columns.find(col => col.id === sort.columnId);
+          if (!column) continue;
+          
+          const fieldKey = column.name.toLowerCase().replace(/\s+/g, '');
+          const aValue = aData[fieldKey];
+          const bValue = bData[fieldKey];
+          
+          let comparison = 0;
+          
+          if (column.type === 'number') {
+            const aNum = Number(aValue) || 0;
+            const bNum = Number(bValue) || 0;
+            comparison = aNum - bNum;
+          } else {
+            const aStr = String(aValue ?? '').toLowerCase();
+            const bStr = String(bValue ?? '').toLowerCase();
+            comparison = aStr.localeCompare(bStr);
+          }
+          
+          if (comparison !== 0) {
+            return sort.direction === 'desc' ? -comparison : comparison;
+          }
+        }
+        return 0;
+      });
+    }
+
+    // ✅ STEP 4: Apply cursor-based pagination AFTER sorting
+    let startIndex = 0;
+    if (input.cursor) {
+      startIndex = filteredRecords.findIndex(r => r.id === input.cursor);
+      if (startIndex !== -1) {
+        startIndex += 1; // Start after the cursor
+      } else {
+        startIndex = 0;
       }
+    }
 
-      // ✅ NOW apply pagination on the filtered/sorted results
-      const cursorIndex = input.cursor 
-        ? filteredRecords.findIndex(r => r.id === input.cursor) + 1 
-        : 0;
-      
-      const paginatedRecords = filteredRecords.slice(cursorIndex, cursorIndex + input.limit + 1);
-      
-      const hasNextPage = paginatedRecords.length > input.limit;
-      const recordsToReturn = hasNextPage ? paginatedRecords.slice(0, -1) : paginatedRecords;
-      const nextCursor = hasNextPage ? paginatedRecords[paginatedRecords.length - 2]?.id : null;
+    const paginatedRecords = filteredRecords.slice(startIndex, startIndex + input.limit);
+    const hasNextPage = startIndex + input.limit < filteredRecords.length;
+    const nextCursor = hasNextPage ? paginatedRecords[paginatedRecords.length - 1]?.id : null;
 
-      return {
-        records: recordsToReturn,
-        nextCursor,
-        hasNextPage,
-      };
-    }),
-
-  // ...existing code...
+    return {
+      records: paginatedRecords,
+      nextCursor,
+      hasNextPage,
+    };
+  }),
 
   // Get total count for a table
   getTableRecordCount: protectedProcedure

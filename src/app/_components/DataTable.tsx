@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   createColumnHelper,
@@ -194,28 +194,35 @@ export default function DataTable({
   }, []);
 
   const tableData = useMemo(() => {
+  console.log('🔄 tableData recalculating:', {
+    hasFilters: currentFilters.length > 0,
+    hasSort: currentSort.length > 0,
+    paginatedPagesCount: paginatedData?.pages.length,
+  });
+
+  // ✅ When filters or sorting are active, use paginatedData BUT overlay local edits
+  if (currentFilters.length > 0 || currentSort.length > 0) {
     const localData = tablesData[currentTable?.id ?? ''] ?? [];
     
     const paginatedRecords = paginatedData?.pages.flatMap(page => 
       page.records.map((record) => {
         const data = record.data as Record<string, unknown> || {};
-        const recordRow = {
+        const serverRecord = {
           id: record.id,
           ...data,
         } as TableRow;
         
+        // ✅ Check if there's a local version with unsaved edits
         const localVersion = localData.find(r => r.id === record.id);
-        return localVersion || recordRow;
+        
+        // ✅ Use local version if it exists (has unsaved typing)
+        return localVersion || serverRecord;
       })
     ) ?? [];
     
-    const localOnlyRecords = localData.filter(row => 
-      !paginatedRecords.some(dbRow => dbRow.id === row.id)
-    );
+    console.log('✅ Using filtered data:', paginatedRecords.length, 'records');
     
-    const allRecords = [...paginatedRecords, ...localOnlyRecords];
-    
-    // Filter records based on search term
+    // ✅ Apply search filter if needed
     if (searchTerm.trim() && searchResults.length > 0) {
       const rowResults = searchResults.filter(result => !result.isColumnHeader);
       
@@ -224,12 +231,65 @@ export default function DataTable({
           rowResults.map(result => result.rowId)
         );
         
-        return allRecords.filter(row => recordIdsWithMatches.has(row.id));
+        return paginatedRecords.filter(row => recordIdsWithMatches.has(row.id));
       }
     }
     
-    return allRecords;
-  }, [paginatedData, tablesData, currentTable?.id, searchTerm, searchResults]);
+    return paginatedRecords;
+  }
+  
+  // ✅ No filters/sort - use server data as source of truth but overlay local edits
+  const paginatedRecords = paginatedData?.pages.flatMap(page => 
+    page.records.map((record) => {
+      const data = record.data as Record<string, unknown> || {};
+      return {
+        id: record.id,
+        ...data,
+      } as TableRow;
+    })
+  ) ?? [];
+
+  console.log('✅ Using unfiltered data:', paginatedRecords.length, 'records from server');
+
+  const localData = tablesData[currentTable?.id ?? ''] ?? [];
+  
+  // ✅ Create a map of server records by ID for quick lookup
+  const serverRecordsMap = new Map(
+    paginatedRecords.map(record => [record.id, record])
+  );
+  
+  // ✅ Merge: Use server record order, but overlay local edits
+  const mergedRecords = paginatedRecords.map(serverRecord => {
+    const localVersion = localData.find(r => r.id === serverRecord.id);
+    // If there's a local version, use it (has unsaved edits)
+    // Otherwise use the server version
+    return localVersion || serverRecord;
+  });
+  
+  // ✅ Add any local-only records (optimistic creates) at the end
+  const localOnlyRecords = localData.filter(row => 
+    !serverRecordsMap.has(row.id)
+  );
+  
+  const allRecords = [...mergedRecords, ...localOnlyRecords];
+  
+  console.log('📊 Final merged records:', allRecords.length);
+  
+  // Apply search filter if needed
+  if (searchTerm.trim() && searchResults.length > 0) {
+    const rowResults = searchResults.filter(result => !result.isColumnHeader);
+    
+    if (rowResults.length > 0) {
+      const recordIdsWithMatches = new Set(
+        rowResults.map(result => result.rowId)
+      );
+      
+      return allRecords.filter(row => recordIdsWithMatches.has(row.id));
+    }
+  }
+  
+  return allRecords;
+}, [paginatedData, tablesData, currentTable?.id, searchTerm, searchResults, currentFilters, currentSort]);
 
   const adjustedSearchResults = useMemo(() => {
     if (!searchTerm.trim() || searchResults.length === 0) {
@@ -437,30 +497,40 @@ export default function DataTable({
   const actualRow = tableData[rowIndex];
   if (!actualRow) return;
 
-  if (actualRow.id.startsWith('temp-bulk-') || actualRow.id.startsWith('temp-')) {
+  // ✅ Don't update temp/bulk records OR if switching tables
+  if (actualRow.id.startsWith('temp-bulk-') || 
+      actualRow.id.startsWith('temp-') ||
+      isTableSwitching) {
     return;
   }
+
+  // ✅ Check if value actually changed
+  const currentValue = actualRow[fieldKey as keyof TableRow];
+  if (currentValue === value) {
+    return; // No change, skip update
+  }
+
+  console.log('💾 Updating local state for record:', actualRow.id, 'field:', fieldKey, 'value:', value);
 
   // ✅ IMMEDIATELY update the tableData to show the change
   onTablesDataChange(prev => {
     const currentData = prev[currentTable.id] ?? [];
     
-    // Find existing row or create new entry
     const existingIndex = currentData.findIndex(r => r.id === actualRow.id);
     
     if (existingIndex >= 0) {
-      // Update existing row
+      // Update existing local record
       const updatedData = [...currentData];
       updatedData[existingIndex] = { 
         ...updatedData[existingIndex], 
         [fieldKey]: value 
-      };
+      } as TableRow;
       return {
         ...prev,
         [currentTable.id]: updatedData
       };
     } else {
-      // Add new row with update
+      // Create new local record with the update
       return {
         ...prev,
         [currentTable.id]: [...currentData, { ...actualRow, [fieldKey]: value }]
@@ -476,18 +546,20 @@ export default function DataTable({
 
   // Debounce the server update
   (window as any)[`updateTimeout_${updateKey}`] = setTimeout(() => {
+    console.log('🌐 Sending to server:', actualRow.id, fieldKey, value);
+    
     updateCellMutation.mutate({
       recordId: actualRow.id,
       fieldKey: fieldKey,
       value: value as string,
     }, {
-      onSuccess: () => {          
-        // ✅ FIXED: Don't remove the record from local cache
-        // Just keep the optimistic update - it will be overwritten by server data on next refetch
-        console.log('Cell updated successfully');
+      onSuccess: () => {
+        console.log('✅ Cell updated on server successfully');
+        // ✅ After successful save, we can optionally clear the local state
+        // But keeping it doesn't hurt - next refetch will sync it
       },
       onError: (error) => {
-        console.error('Failed to update cell:', error);
+        console.error('❌ Failed to update cell:', error);
         // Revert on error
         onTablesDataChange(prev => {
           const currentData = prev[currentTable.id] ?? [];
@@ -495,7 +567,7 @@ export default function DataTable({
           
           if (existingIndex >= 0) {
             const updatedData = [...currentData];
-            updatedData[existingIndex] = actualRow; // Revert to original value
+            updatedData[existingIndex] = actualRow; // Revert to original
             return {
               ...prev,
               [currentTable.id]: updatedData
@@ -505,9 +577,9 @@ export default function DataTable({
         });
       }
     });
-  }, 1000);
+  }, 1000); // 1 second debounce
 
-}, [updateCellMutation, currentTable?.id, tableData, onTablesDataChange]);
+}, [updateCellMutation, currentTable?.id, tableData, onTablesDataChange, isTableSwitching]);
 
   const handleKeyDown = useCallback((event: React.KeyboardEvent, rowIndex: number, columnIndex: number) => {
     const maxRows = tableData.length;
@@ -818,6 +890,7 @@ export default function DataTable({
     const [isDirty, setIsDirty] = React.useState(false);
     const prevValueRef = React.useRef(initialValue);
     const prevRowIdRef = React.useRef(rowId);
+    const isMountedRef = React.useRef(false);
 
     const onBlur = () => {
       setIsDirty(false);
@@ -832,20 +905,31 @@ export default function DataTable({
       setIsDirty(true);
     };
 
-    // ✅ Fixed: Only reset if rowId changes AND we're not actively editing
+    // ✅ Fixed: Properly handle initial mount and row changes
     React.useEffect(() => {
+      // On initial mount, just set the refs
+      if (!isMountedRef.current) {
+        isMountedRef.current = true;
+        prevRowIdRef.current = rowId;
+        prevValueRef.current = initialValue;
+        setValue(initialValue);
+        return;
+      }
+
+      // Row changed (table switch or data reload)
       if (prevRowIdRef.current !== rowId) {
-        // Row changed - reset everything
         setValue(initialValue);
         setIsDirty(false);
         prevValueRef.current = initialValue;
         prevRowIdRef.current = rowId;
-      } else if (!isDirty) {
-        // Same row, not editing - update from props
+        return;
+      }
+
+      // Same row, not editing - update from props (e.g., server response)
+      if (!isDirty && initialValue !== prevValueRef.current) {
         setValue(initialValue);
         prevValueRef.current = initialValue;
       }
-      // ✅ Don't update if isDirty is true - user is typing
     }, [initialValue, rowId, isDirty]);
 
     return (
@@ -887,11 +971,12 @@ export default function DataTable({
       </div>
     );
   }, (prevProps, nextProps) => {
-    // ✅ Fixed memo comparison
+    // ✅ More strict memo comparison
     return (
       prevProps.value === nextProps.value &&
       prevProps.rowId === nextProps.rowId &&
       prevProps.index === nextProps.index &&
+      prevProps.columnId === nextProps.columnId &&
       prevProps.isCurrentCellHighlighted === nextProps.isCurrentCellHighlighted &&
       prevProps.isCellHighlighted === nextProps.isCellHighlighted &&
       prevProps.searchTerm === nextProps.searchTerm
@@ -944,113 +1029,6 @@ const defaultColumn = useMemo(
     },
   }), [handleCellRightClick, handleKeyDown, searchTerm, adjustedSearchResults, currentSearchIndex]
 );
-
-  // const defaultColumn = useMemo(
-  //   () => ({
-  //     cell: ({ getValue, row: { index }, column, table }: any) => {
-  //       const initialValue = getValue();
-  //       const [value, setValue] = React.useState(initialValue);
-  //       const [isDirty, setIsDirty] = React.useState(false);
-  //       const prevValueRef = React.useRef(initialValue);
-
-  //       const columnIndex = table.getAllColumns()
-  //         .filter((col: any) => col.getIsVisible())
-  //         .findIndex((col: any) => col.id === column.id);
-
-  //       const onBlur = () => {
-  //         setIsDirty(false);
-  //         // Only update if value actually changed
-  //         if (value !== prevValueRef.current) {
-  //           table.options.meta?.updateData(index, column.columnDef.accessorKey, value);
-  //           prevValueRef.current = value;
-  //         }
-  //       };
-
-  //       const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-  //         setValue(e.target.value);
-  //         setIsDirty(true);
-  //       };
-
-  //       // Only update from props if:
-  //       // 1. We're not actively editing (isDirty is false)
-  //       // 2. The value has actually changed
-  //       React.useEffect(() => {
-  //         if (!isDirty && initialValue !== prevValueRef.current) {
-  //           setValue(initialValue);
-  //           prevValueRef.current = initialValue;
-  //         }
-  //       }, [initialValue, isDirty]);
-
-  //       const isCellHighlighted = searchResults.some(
-  //         result =>
-  //           result.rowIndex === index &&
-  //           result.columnId === column.id &&
-  //           !result.isColumnHeader
-  //       );
-
-  //       const isCurrentCellHighlighted = (() => {
-  //         const currentResult = searchResults[currentSearchIndex];
-  //         return (
-  //           currentResult &&
-  //           currentResult.rowIndex === index &&
-  //           currentResult.columnId === column.id &&
-  //           !currentResult.isColumnHeader
-  //         );
-  //       })();
-
-  //       const displayValue = searchTerm && (value as string)
-  //       ? highlightSearchTermWithCurrent(value as string, searchTerm, column.id, index)
-  //       : (value as string || '');
-
-  //       return (
-  //         <div
-  //           data-row-index={index}
-  //           data-column-index={columnIndex}
-  //           className={
-  //             isCurrentCellHighlighted
-  //               ? 'search-row-highlight-current'
-  //               : isCellHighlighted
-  //               ? 'search-row-highlight'
-  //               : ''
-  //           }
-  //           style={{
-  //             width: '100%',
-  //             height: '100%',
-  //             display: 'flex',
-  //             alignItems: 'center',
-  //             margin: 0,
-  //             padding: 0,
-  //             position: 'relative',
-  //           }}
-  //         >
-  //           <input
-  //             value={value as string || ''}
-  //             onChange={onChange}
-  //             onBlur={onBlur}
-  //             onKeyDown={e => handleKeyDown(e, index, columnIndex)}
-  //             onContextMenu={e => handleCellRightClick(e, index)}
-  //             style={{
-  //               width: '100%',
-  //               height: '100%',
-  //               border: 'none',
-  //               backgroundColor: isCurrentCellHighlighted ? '#FFE4A3' : isCellHighlighted ? '#FFF4CC' : 'transparent',
-  //               padding: '0 12px',
-  //               fontSize: '13px',
-  //               fontFamily: 'inherit',
-  //               outline: 'none',
-  //               boxSizing: 'border-box',
-  //               margin: 0,
-  //               borderRadius: 3,
-  //               color: 'inherit',
-  //               position: 'relative',
-  //               zIndex: 0,
-  //             }}
-  //           />
-  //         </div>
-  //       );
-  //     },
-  //   }), [handleCellRightClick, handleKeyDown, searchTerm, searchResults, currentSearchIndex, highlightSearchTermWithCurrent]
-  // );
 
   const columns = useMemo(() => {
     if (!currentTable?.columns) return [];
@@ -1321,18 +1299,35 @@ return (
         onCreateView={onCreateView}
         onDeleteView={onDeleteView}
       />
-      <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-        <div className='table-wrapper' style={{ flex: 1, overflow: 'auto', position: 'relative' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', position: 'relative' }}>
+        <div className='table-wrapper' style={{ 
+          flex: 1, 
+          overflow: 'hidden',
+          position: 'relative' 
+        }}>
           {isTableLoading ? (
             <TableLoading />
           ) : (
             <>
-              <div className='table-scroll-container' ref={parentRef}>
+              <div 
+                className='table-scroll-container' 
+                ref={parentRef}
+                style={{
+                  overflowX: 'auto',
+                  overflowY: 'auto',
+                  height: '100%',
+                  width: '100%',
+                }}
+              >
+                {/* ✅ Removed the wrapper div, apply width directly to table */}
                 <table style={{
                   position: 'sticky',
                   top: 0,
                   zIndex: 10,
-                  backgroundColor: '#fff'
+                  backgroundColor: '#fff',
+                  width: `${totalTableWidth}px`,
+                  tableLayout: 'fixed',
+                  borderCollapse: 'collapse',
                 }}>
                   <thead>
                     {table.getHeaderGroups().map(headerGroup => (
@@ -1341,7 +1336,8 @@ return (
                           position: 'sticky',
                           left: 0,
                           zIndex: 11,
-                          backgroundColor: '#fff'
+                          backgroundColor: '#fff',
+                          width: '100px',
                         }}>
                           <div
                             className='all-rows-select'
@@ -1358,11 +1354,12 @@ return (
                             } ${
                               isCurrentColumnHighlighted(header.column.id) ? 'search-column-highlight-current' : ''
                             }`}
+                            style={{ width: '200px' }}
                           >
                             {flexRender(header.column.columnDef.header, header.getContext())}
                           </th>
                         ))}
-                        <th className='add-col-header'>
+                        <th className='add-col-header' style={{ width: '100px' }}>
                           <button
                             ref={addColBtnRef}
                             onClick={addNewCol}
@@ -1382,7 +1379,7 @@ return (
                 </table>
                 <div style={{ 
                   height: `${rowVirtualizer.getTotalSize()}px`,
-                  width: '100%',
+                  width: `${totalTableWidth}px`,
                   position: 'relative'
                 }}>
                   {rowVirtualizer.getVirtualItems().map((virtualRow) => {
@@ -1413,7 +1410,9 @@ return (
                             position: 'sticky',
                             left: 0,
                             zIndex: 1,
-                            backgroundColor: '#fff'
+                            backgroundColor: '#fff',
+                            width: '100px',
+                            flexShrink: 0,
                           }}
                         >
                           {hoveredRowIndex === virtualRow.index
@@ -1424,6 +1423,10 @@ return (
                           <div 
                             key={cell.id} 
                             className={`record ${cellIndex === 0 ? 'first-column' : ''}`}
+                            style={{
+                              width: '200px',
+                              flexShrink: 0,
+                            }}
                           >
                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
                           </div>
@@ -1432,10 +1435,13 @@ return (
                     );
                   })}
                 </div>
-                <div onClick={addNewRow} className='add-row-button' style={{ width: `${totalTableWidth}px`}}>
+                <div onClick={addNewRow} className='add-row-button' style={{ 
+                  width: `${totalTableWidth}px`,
+                  display: 'flex',
+                }}>
                   <span className='add-row-icon-button'>+</span>
                 </div>
-              </div>
+                </div>
               <ContextMenuRecord
                 visible={contextMenu?.visible ?? false}
                 x={contextMenu?.x ?? 0}
@@ -1474,26 +1480,26 @@ return (
               />
             </>
           )}
-          {isColumnModalOpen && colConfigPosition && (
-            <div
-              ref={colConfigRef}
-              style={{
-                position: 'absolute',
-                top: colConfigPosition.top,
-                left: colConfigPosition.left,
-                zIndex: 1000,
-              }}
-            >
-              <ColumnConfiguration
-                isOpen={isColumnModalOpen}
-                onClose={() => setIsColumnModalOpen(false)}
-                onCreateColumn={handleCreateColumn}
-                isColumnModalOpen={isColumnModalOpen}
-              />
-            </div>
-          )}
         </div>
-        {/* ✅ MOVED OUTSIDE table-wrapper - now it's a sibling */}
+        {/* ✅ MOVED OUTSIDE table-wrapper but still inside parent div */}
+        {isColumnModalOpen && colConfigPosition && (
+          <div
+            ref={colConfigRef}
+            style={{
+              position: 'fixed', // Changed from 'absolute' to 'fixed'
+              top: colConfigPosition.top,
+              left: colConfigPosition.left,
+              zIndex: 1000,
+            }}
+          >
+            <ColumnConfiguration
+              isOpen={isColumnModalOpen}
+              onClose={() => setIsColumnModalOpen(false)}
+              onCreateColumn={handleCreateColumn}
+              isColumnModalOpen={isColumnModalOpen}
+            />
+          </div>
+        )}
         <div style={{
           position: 'relative',
           zIndex: 5,
@@ -1508,7 +1514,7 @@ return (
           minHeight: '40px',
         }}>
           {totalCount !== undefined ? totalCount.toLocaleString() : tableData.length.toLocaleString()} Records
-          {hasNextPage && " (scroll to load more)"} 
+          {hasNextPage} 
         </div>
         {bulkProgress && (
           <div style={{

@@ -465,64 +465,25 @@ export const baseRouter = createTRPCRouter({
   .mutation(async ({ ctx, input }) => {
     const table = await ctx.db.table.findUnique({
       where: { id: input.tableId },
-      include: { columns: true, records: true },
+      include: { 
+        columns: true,
+      },
     });
 
     if (!table) {
       throw new Error('Table not found');
     }
 
-    // ✅ Apply sort and update record positions permanently
-    if (input.sortConfig.length > 0) {
-      const sortedRecords = table.records.sort((a, b) => {
-        const aData = a.data as Record<string, any>;
-        const bData = b.data as Record<string, any>;
-        
-        for (const sort of input.sortConfig) {
-          const column = table.columns.find(col => col.id === sort.columnId);
-          if (!column) continue;
-          
-          const fieldKey = column.name.toLowerCase().replace(/\s+/g, '');
-          const aValue = aData[fieldKey];
-          const bValue = bData[fieldKey];
-          
-          let comparison = 0;
-          
-          if (column.type === 'number') {
-            const aNum = Number(aValue) || 0;
-            const bNum = Number(bValue) || 0;
-            comparison = aNum - bNum;
-          } else {
-            const aStr = String(aValue ?? '').toLowerCase();
-            const bStr = String(bValue ?? '').toLowerCase();
-            comparison = aStr.localeCompare(bStr);
-          }
-          
-          if (comparison !== 0) {
-            return sort.direction === 'desc' ? -comparison : comparison;
-          }
-        }
-        return 0;
-      });
-
-      // ✅ Update position field for each record to save sorted order
-      await Promise.all(
-        sortedRecords.map((record, index) =>
-          ctx.db.record.update({
-            where: { id: record.id },
-            data: { position: index }
-          })
-        )
-      );
-    }
-
-    // Save sort config to table
-    return await ctx.db.table.update({
+    // ✅ Just save the sort config to the table - DON'T update all records
+    // The sorting will be applied on-the-fly when fetching records
+    await ctx.db.table.update({
       where: { id: input.tableId },
       data: { 
         sortConfig: input.sortConfig as any,
       },
     });
+
+    return { success: true };
   }),
 
   // Save filter configuration
@@ -550,7 +511,7 @@ export const baseRouter = createTRPCRouter({
     }),
 
   // Get records with sorting and filtering applied at DB level
-  getTableRecords: protectedProcedure
+getTableRecords: protectedProcedure
   .input(z.object({
     tableId: z.string(),
     sortConfig: z.array(z.object({
@@ -582,109 +543,156 @@ export const baseRouter = createTRPCRouter({
       throw new Error('Table not found');
     }
 
-    // ✅ Fetch records ordered by position (saved sort order)
-    const allRecords = await ctx.db.record.findMany({
+    const effectiveSortConfig = input.sortConfig && input.sortConfig.length > 0 
+      ? input.sortConfig 
+      : (table.sortConfig as Array<{ columnId: string; direction: 'asc' | 'desc' }>) ?? [];
+
+    const effectiveFilterConfig = input.filterConfig && input.filterConfig.length > 0
+      ? input.filterConfig
+      : (table.filterConfig as Array<{ id: string; columnId: string; columnName: string; columnType: string; operator: string; value: string }>) ?? [];
+
+    // ✅ Log for debugging
+    console.log('🔍 Filtering with config:', effectiveFilterConfig);
+    console.log('📊 Sorting with config:', effectiveSortConfig);
+
+    // ✅ Check if we have filters or sorting
+    const hasFiltersOrSort = effectiveSortConfig.length > 0 || effectiveFilterConfig.length > 0;
+
+    if (hasFiltersOrSort) {
+      // ✅ Fetch ALL records for filtering/sorting
+      const allRecords = await ctx.db.record.findMany({
+        where: {
+          tableId: input.tableId,
+        },
+        orderBy: { createdAt: 'asc' },
+      });
+
+      console.log('📦 Total records before filtering:', allRecords.length);
+
+      // Apply filtering
+      let filteredRecords = allRecords;
+      if (effectiveFilterConfig.length > 0) {
+        filteredRecords = allRecords.filter(record => {
+          const data = record.data as Record<string, any>;
+          
+          return effectiveFilterConfig.every(filter => {
+            const column = table.columns.find(col => col.id === filter.columnId);
+            if (!column) return true;
+            
+            const fieldKey = column.name.toLowerCase().replace(/\s+/g, '');
+            const cellValue = data[fieldKey];
+            const filterValue = filter.value;
+            
+            console.log(`🔎 Checking record ${record.id}, field ${fieldKey}, value:`, cellValue, 'against filter:', filterValue);
+            
+            switch (filter.operator) {
+              case 'contains':
+                return String(cellValue ?? '').toLowerCase().includes(String(filterValue).toLowerCase());
+              case 'not_contains':
+                return !String(cellValue ?? '').toLowerCase().includes(String(filterValue).toLowerCase());
+              case 'eq':
+                return String(cellValue ?? '').toLowerCase() === String(filterValue).toLowerCase();
+              case 'not_eq':
+                return String(cellValue ?? '').toLowerCase() !== String(filterValue).toLowerCase();
+              case 'is_empty':
+                return !cellValue || String(cellValue) === '';
+              case 'is_not_empty':
+                return cellValue != null && String(cellValue) !== '';
+              case 'gt':
+                return !isNaN(Number(cellValue)) && !isNaN(Number(filterValue)) && Number(cellValue) > Number(filterValue);
+              case 'lt':
+                return !isNaN(Number(cellValue)) && !isNaN(Number(filterValue)) && Number(cellValue) < Number(filterValue);
+              case 'gte':
+                return !isNaN(Number(cellValue)) && !isNaN(Number(filterValue)) && Number(cellValue) >= Number(filterValue);
+              case 'lte':
+                return !isNaN(Number(cellValue)) && !isNaN(Number(filterValue)) && Number(cellValue) <= Number(filterValue);
+              default:
+                return true;
+            }
+          });
+        });
+      }
+
+      console.log('✅ Filtered records count:', filteredRecords.length);
+
+      // Apply sorting
+      if (effectiveSortConfig.length > 0) {
+        filteredRecords = filteredRecords.sort((a, b) => {
+          const aData = a.data as Record<string, any>;
+          const bData = b.data as Record<string, any>;
+          
+          for (const sort of effectiveSortConfig) {
+            const column = table.columns.find(col => col.id === sort.columnId);
+            if (!column) continue;
+            
+            const fieldKey = column.name.toLowerCase().replace(/\s+/g, '');
+            const aValue = aData[fieldKey];
+            const bValue = bData[fieldKey];
+            
+            let comparison = 0;
+            
+            if (column.type === 'number') {
+              const aNum = Number(aValue) || 0;
+              const bNum = Number(bValue) || 0;
+              comparison = aNum - bNum;
+            } else {
+              const aStr = String(aValue ?? '').toLowerCase();
+              const bStr = String(bValue ?? '').toLowerCase();
+              comparison = aStr.localeCompare(bStr);
+            }
+            
+            if (comparison !== 0) {
+              return sort.direction === 'desc' ? -comparison : comparison;
+            }
+          }
+          return 0;
+        });
+      }
+
+      // ✅ FIX: Apply cursor-based pagination CORRECTLY
+      let startIndex = 0;
+      if (input.cursor) {
+        const cursorIndex = filteredRecords.findIndex(r => r.id === input.cursor);
+        if (cursorIndex !== -1) {
+          startIndex = cursorIndex + 1; // Start AFTER the cursor
+        }
+      }
+
+      const paginatedRecords = filteredRecords.slice(startIndex, startIndex + input.limit);
+      const hasNextPage = startIndex + input.limit < filteredRecords.length;
+      const nextCursor = hasNextPage && paginatedRecords.length > 0 
+        ? paginatedRecords[paginatedRecords.length - 1]?.id 
+        : null;
+
+      console.log('📄 Returning paginated records:', paginatedRecords.length, 'hasNextPage:', hasNextPage);
+
+      return {
+        records: paginatedRecords,
+        nextCursor,
+        hasNextPage,
+      };
+    }
+
+    // ✅ No filters/sort - use efficient DB-level pagination
+    const records = await ctx.db.record.findMany({
       where: {
         tableId: input.tableId,
       },
-      orderBy: { position: 'asc' }, // Use saved position
+      take: input.limit + 1,
+      cursor: input.cursor ? { id: input.cursor } : undefined,
+      orderBy: { createdAt: 'asc' },
     });
 
-    // Apply filtering
-    let filteredRecords = allRecords;
-    if (input.filterConfig && input.filterConfig.length > 0) {
-      filteredRecords = allRecords.filter(record => {
-        const data = record.data as Record<string, any>;
-        
-        return input.filterConfig!.every(filter => {
-          const column = table.columns.find(col => col.id === filter.columnId);
-          if (!column) return true;
-          
-          const fieldKey = column.name.toLowerCase().replace(/\s+/g, '');
-          const cellValue = data[fieldKey];
-          const filterValue = filter.value;
-          
-          switch (filter.operator) {
-            case 'contains':
-              return String(cellValue ?? '').toLowerCase().includes(String(filterValue).toLowerCase());
-            case 'not_contains':
-              return !String(cellValue ?? '').toLowerCase().includes(String(filterValue).toLowerCase());
-            case 'eq':
-              return String(cellValue ?? '').toLowerCase() === String(filterValue).toLowerCase();
-            case 'not_eq':
-              return String(cellValue ?? '').toLowerCase() !== String(filterValue).toLowerCase();
-            case 'is_empty':
-              return !cellValue || String(cellValue) === '';
-            case 'is_not_empty':
-              return cellValue != null && String(cellValue) !== '';
-            case 'gt':
-              return !isNaN(Number(cellValue)) && !isNaN(Number(filterValue)) && Number(cellValue) > Number(filterValue);
-            case 'lt':
-              return !isNaN(Number(cellValue)) && !isNaN(Number(filterValue)) && Number(cellValue) < Number(filterValue);
-            case 'gte':
-              return !isNaN(Number(cellValue)) && !isNaN(Number(filterValue)) && Number(cellValue) >= Number(filterValue);
-            case 'lte':
-              return !isNaN(Number(cellValue)) && !isNaN(Number(filterValue)) && Number(cellValue) <= Number(filterValue);
-            default:
-              return true;
-          }
-        });
-      });
+    let nextCursor: string | undefined = undefined;
+    if (records.length > input.limit) {
+      const nextItem = records.pop();
+      nextCursor = nextItem!.id;
     }
-
-    // ✅ Only apply live sorting if sortConfig is provided in request
-    if (input.sortConfig && input.sortConfig.length > 0) {
-      filteredRecords = filteredRecords.sort((a, b) => {
-        const aData = a.data as Record<string, any>;
-        const bData = b.data as Record<string, any>;
-        
-        for (const sort of input.sortConfig!) {
-          const column = table.columns.find(col => col.id === sort.columnId);
-          if (!column) continue;
-          
-          const fieldKey = column.name.toLowerCase().replace(/\s+/g, '');
-          const aValue = aData[fieldKey];
-          const bValue = bData[fieldKey];
-          
-          let comparison = 0;
-          
-          if (column.type === 'number') {
-            const aNum = Number(aValue) || 0;
-            const bNum = Number(bValue) || 0;
-            comparison = aNum - bNum;
-          } else {
-            const aStr = String(aValue ?? '').toLowerCase();
-            const bStr = String(bValue ?? '').toLowerCase();
-            comparison = aStr.localeCompare(bStr);
-          }
-          
-          if (comparison !== 0) {
-            return sort.direction === 'desc' ? -comparison : comparison;
-          }
-        }
-        return 0;
-      });
-    }
-
-    // Apply pagination
-    let startIndex = 0;
-    if (input.cursor) {
-      startIndex = filteredRecords.findIndex(r => r.id === input.cursor);
-      if (startIndex !== -1) {
-        startIndex += 1;
-      } else {
-        startIndex = 0;
-      }
-    }
-
-    const paginatedRecords = filteredRecords.slice(startIndex, startIndex + input.limit);
-    const hasNextPage = startIndex + input.limit < filteredRecords.length;
-    const nextCursor = hasNextPage ? paginatedRecords[paginatedRecords.length - 1]?.id : null;
 
     return {
-      records: paginatedRecords,
+      records,
       nextCursor,
-      hasNextPage,
+      hasNextPage: !!nextCursor,
     };
   }),
 

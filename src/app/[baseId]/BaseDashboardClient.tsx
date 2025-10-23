@@ -138,6 +138,8 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
     }));
   }, [currentTable?.id]);
 
+  const utils = api.useUtils();
+
   const {
     data: paginatedData,
     fetchNextPage,
@@ -149,18 +151,18 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
   } = api.base.getTableRecords.useInfiniteQuery(
     {
       tableId: currentTable?.id ?? '',
-      sortConfig: currentSort, // ✅ Use current sort
-      filterConfig: currentFilters, // ✅ Use current filters
+      sortConfig: tableSorts[currentTable?.id ?? ''] ?? [], // ✅ Read directly from state
+      filterConfig: tableFilters[currentTable?.id ?? ''] ?? [], // ✅ Read directly from state
       limit: 100,
     },
     {
       enabled: !!currentTable?.id,
       getNextPageParam: (lastPage) => lastPage.nextCursor,
-      staleTime: 30000,
+      staleTime: 0, // ✅ Good - don't cache
       refetchOnWindowFocus: false,
     }
   );
-
+  
   const { data: views = [], refetch: refetchViews } = api.view.getByTableId.useQuery(
     { tableId: currentTable?.id ?? '' },
     { enabled: !!currentTable?.id }
@@ -174,7 +176,7 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
     if (currentViewId && views.length > 0 && currentTable?.id) {
       const view = views.find(v => v.id === currentViewId);
       if (view && view.config) {
-        const config = view.config as ViewConfig;
+        const config = view.config as unknown as ViewConfig;
         
         // Apply hidden columns
         setHiddenColumns(new Set(config.hiddenColumns || []));
@@ -369,16 +371,26 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
   const handleAddFilter = useCallback((filter: FilterCondition) => {
     if (!currentTable?.id) return;
     
+    const newFilters = [...(tableFilters[currentTable.id] ?? []), filter];
+    
+    console.log('🔍 Adding filter:', filter);
+    console.log('🔍 New filters:', newFilters);
+    
+    // ✅ 1. Update state - this will trigger React Query to refetch automatically
     setTableFilters(prev => ({
       ...prev,
-      [currentTable.id]: [...(prev[currentTable.id] ?? []), filter]
+      [currentTable.id]: newFilters
     }));
     
+    // ✅ 2. Save to database
     updateTableFiltersMutation.mutate({
       tableId: currentTable.id,
-      filterConfig: [...(tableFilters[currentTable.id] ?? []), filter]
+      filterConfig: newFilters
     });
-  }, [currentTable?.id, tableFilters]);
+    
+    // ❌ REMOVE THIS - React Query will refetch automatically when tableFilters changes
+    // refetch();
+  }, [currentTable?.id, tableFilters, updateTableFiltersMutation]);
 
   // ✅ Load sort/filter config when table is loaded
   useEffect(() => {
@@ -413,12 +425,17 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
       tableId: currentTable.id,
       filterConfig: newFilters,
     });
+    
+    // ❌ REMOVE - automatic refetch
+    // refetch();
   }, [currentFilters, currentTable?.id, updateTableFiltersMutation]);
 
   const handleRemoveFilter = useCallback((filterId: string) => {
     if (!currentTable?.id) return;
     
     const newFilters = currentFilters.filter(filter => filter.id !== filterId);
+    
+    console.log('🗑️ Removing filter, new count:', newFilters.length);
     
     setTableFilters(prev => ({
       ...prev,
@@ -429,10 +446,18 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
       tableId: currentTable.id,
       filterConfig: newFilters,
     });
-  }, [currentFilters, currentTable?.id, updateTableFiltersMutation]);
+    
+    // ✅ IMPORTANT: Refetch to get unfiltered data when last filter is removed
+    if (newFilters.length === 0) {
+      console.log('🔄 Last filter removed, refetching all data...');
+      setTimeout(() => refetch(), 100);
+    }
+  }, [currentFilters, currentTable?.id, updateTableFiltersMutation, refetch]);
 
   const handleClearAllFilters = useCallback(() => {
     if (!currentTable?.id) return;
+    
+    console.log('🧹 Clearing all filters');
     
     setTableFilters(prev => ({
       ...prev,
@@ -443,7 +468,10 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
       tableId: currentTable.id,
       filterConfig: [],
     });
-  }, [currentTable?.id, updateTableFiltersMutation]);
+    
+    // ✅ IMPORTANT: Refetch to get unfiltered data
+    setTimeout(() => refetch(), 100);
+  }, [currentTable?.id, updateTableFiltersMutation, refetch]);
 
   const handleShowColumn = useCallback((columnId: string) => {
     setHiddenColumns(prev => {
@@ -519,7 +547,7 @@ export default function BaseDashboardClient({ session, base: initialBase }: Base
       const currentView = views.find(v => v.id === currentViewId);
       if (currentView) {
         const updatedConfig: ViewConfig = {
-          ...(currentView.config as ViewConfig || {}),
+          ...(currentView.config as unknown as ViewConfig || {}),
           hiddenColumns: Array.from(hiddenColumns),
           sort: newSort,
           filters: currentFilters,

@@ -16,6 +16,7 @@ const config = {
       root: __dirname,
     },
   },
+  regions: ['syd1'],
 };
 
 export default config;

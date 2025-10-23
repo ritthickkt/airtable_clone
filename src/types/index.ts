@@ -5,7 +5,7 @@ import type { StringLiteral } from "typescript";
 // Base interfaces
 export interface Base {
   id: string;
-  name: string;
+  name: string | null;
   color?: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -28,7 +28,7 @@ export type FilterConfig = Array<FilterCondition>;
 
 export interface Table {
   id: string;
-  name: string;
+  name: string | null;
   baseId: string;
   columns?: Column[];
   records?: Record[];

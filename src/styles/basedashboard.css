@@ -522,16 +522,17 @@
   width: 100%;
   overflow: auto;
   height: calc(100vh); /* Adjust based on your layout */
-  will-change: transform;
-  transform: translateZ(0);
+  /* will-change: transform;
+  transform: translateZ(0); */
 }
 
 .table-wrapper {
   flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden; /* Change from auto to hidden */
+  overflow: auto; /* Change from auto to hidden */
   height: 100%;
+  position: relative;
 }
 
 .cell-input {
@@ -959,7 +960,6 @@ th {
 .column-names {
   position: sticky;
   top: 0;
-  z-index: 100;
   border-bottom: 1px solid #E5E5E5;
   border-right: 1px solid #E5E5E5;
   align-items: center;
@@ -976,6 +976,7 @@ th {
   overflow: hidden;
   text-overflow: ellipsis;
   box-sizing: border-box;
+  z-index: 10; /* Sticky header z-index */
 }
 
 .column-header-content {
@@ -1021,29 +1022,26 @@ th {
 }
 
 .add-table-menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
+  /* Remove position: absolute and top/left - they come from inline styles now */
   background: white;
   border: 1px solid #ddd;
   border-radius: 8px;
   padding: 12px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 1000000;
   width: 300px;
 }
 
 .table-name-dialog {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
+  /* Remove position: absolute - it comes from inline styles */
   background: white;
   border: 1px solid #ddd;
   border-radius: 8px;
-  padding: 15px;
+  padding: 16px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 1000;
-  min-width: 300px;
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .table-name-label {

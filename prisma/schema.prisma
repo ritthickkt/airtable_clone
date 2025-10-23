@@ -116,10 +116,8 @@ model Record {
   data      Json
   tableId   String
   table     Table    @relation(fields: [tableId], references: [id], onDelete: Cascade)
-  position  Int      @default(0) // ✅ Add this field
   
   @@index([tableId])
-  @@index([position]) // ✅ Add index for performance
 }
 
 model View {

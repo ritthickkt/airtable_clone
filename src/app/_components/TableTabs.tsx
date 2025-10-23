@@ -23,8 +23,10 @@ export default function TableTabs({
   const [showMenu, setShowMenu] = useState(false);
   const [showNameDialog, setShowNameDialog] = useState(false);
   const [tableName, setTableName] = useState('');
+  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const addButtonRef = useRef<HTMLButtonElement>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -33,6 +35,17 @@ export default function TableTabs({
     const params = new URLSearchParams(searchParams.toString());
     params.set('tableIndex', index.toString());
     router.push(`?${params.toString()}`, { scroll: false });
+  };
+
+  const handleAddOrImportClick = () => {
+    if (addButtonRef.current) {
+      const rect = addButtonRef.current.getBoundingClientRect();
+      setMenuPosition({
+        top: rect.bottom + 4,
+        left: rect.left
+      });
+      setShowMenu(true);
+    }
   };
 
   useEffect(() => {
@@ -93,7 +106,6 @@ export default function TableTabs({
   return (
     <>
       <div className="tabs-header" style={{ background: lighterShadeofBaseColor(base.color ?? 'black')}}>
-        <div className="tab-background"></div>
         <div className="tabs-list">
           {base.tables?.map((table, index) => (
             <span
@@ -104,48 +116,65 @@ export default function TableTabs({
               {table.name}
             </span>
           ))}
-          <div style={{ position: 'relative', display: 'inline-block' }}>
-            <button 
-              className="add-tab-btn" 
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowMenu(!showMenu);
-              }} 
-              disabled={createTableMutation.isPending}
-            >
-              + Add or Import
-            </button>
-            {showMenu && (
-              <div ref={menuRef} className="add-table-menu">
-                <div className='blanktableconfig-title'>Add a blank table</div>
-                <div className='blanktableconfig-add-table-button' onClick={handleBuildFromScratch}>
-                  <div className='blanktableconfig-add-table-button-word'>Start from scratch</div>
-                </div>
-              </div>
-            )}
-            {showNameDialog && (
-              <div ref={dialogRef} className="table-name-dialog">
-                <input
-                  type="text"
-                  value={tableName}
-                  onChange={(e) => setTableName(e.target.value)}
-                  placeholder="Table name"
-                  autoFocus
-                  className="table-name-input"
-                />
-                <div className="dialog-actions">
-                  <button onClick={handleCancel} className="cancel-btn">
-                    Cancel
-                  </button>
-                  <button onClick={handleSaveTable} className="save-btn">
-                    Save
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+          <button 
+            ref={addButtonRef}
+            className="add-tab-btn" 
+            onClick={handleAddOrImportClick}
+            disabled={createTableMutation.isPending}
+          >
+            + Add or Import
+          </button>
         </div>
       </div>
+
+      {/* ✅ MOVED COMPLETELY OUTSIDE - sibling to tabs-header */}
+      {showMenu && menuPosition && (
+        <div 
+          ref={menuRef} 
+          className="add-table-menu" 
+          style={{
+            position: 'fixed',
+            top: `${menuPosition.top}px`,
+            left: `${menuPosition.left}px`,
+            zIndex: 10000,
+          }}
+        >
+          <div className='blanktableconfig-title'>Add a blank table</div>
+          <div className='blanktableconfig-add-table-button' onClick={handleBuildFromScratch}>
+            <div className='blanktableconfig-add-table-button-word'>Start from scratch</div>
+          </div>
+        </div>
+      )}
+
+      {showNameDialog && menuPosition && (
+        <div 
+          ref={dialogRef} 
+          className="table-name-dialog" 
+          style={{
+            position: 'fixed',
+            top: `${menuPosition.top}px`,
+            left: `${menuPosition.left}px`,
+            zIndex: 10000,
+          }}
+        >
+          <input
+            type="text"
+            value={tableName}
+            onChange={(e) => setTableName(e.target.value)}
+            placeholder="Table name"
+            autoFocus
+            className="table-name-input"
+          />
+          <div className="dialog-actions">
+            <button onClick={handleCancel} className="cancel-btn">
+              Cancel
+            </button>
+            <button onClick={handleSaveTable} className="save-btn">
+              Save
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }

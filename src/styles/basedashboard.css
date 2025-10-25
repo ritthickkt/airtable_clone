@@ -1416,16 +1416,16 @@ td {
   font-size: 12px;
   font-weight: 500;
   box-sizing: border-box;
-  flex-shrink: 0; /* Prevent shrinking */
+  flex-shrink: 0; 
 }
 
 .expand-and-select {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 10; /* Remove gap */
+  gap: 10px; 
   padding-left: 35px;
-  justify-content: flex-start; /* Align items to the left */
+  justify-content: flex-start; 
 }
 
 .row-number-header {

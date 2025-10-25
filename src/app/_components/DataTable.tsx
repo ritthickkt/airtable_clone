@@ -1425,13 +1425,24 @@ return (
                             width: '100px',
                           }}
                         >
-                          {hoveredRowIndex === virtualRow.index
+                          {/* {hoveredRowIndex === virtualRow.index
                           ? 
-                          <div className='expand-and-select'>
-                            <div className='all-rows-select' style={{ cursor: 'pointer' }}></div>
+                          <div className='expand-and-select' style={{
+                            display: 'flex',
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: '10',
+                            paddingLeft: '35px',
+                            justifyContent: 'flex-start'
+                          }}>
+                            <div className='all-rows-select'></div>
                             <Image className='expand-button' src={Expand} alt='' width={25} height={25}/>
                           </div>
-                          : virtualRow.index + 1}
+                          : virtualRow.index + 1} */}
+                          <div className='expand-and-select'>
+                            <div className='all-rows-select'></div>
+                            <Image className='expand-button' src={Expand} alt='' width={25} height={25}/>
+                          </div>
                         </div>
                         {row.getVisibleCells().map((cell, cellIndex) => (
                           <div 

@@ -340,9 +340,6 @@ export default function Sidebar({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  // if (window.confirm(`Delete view "${view.name}"?`)) {
-                  //   onDeleteView?.(view.id);
-                  // }
                   handleDeleteViewClick(view);
                 }}
                 style={{

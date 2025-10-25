@@ -2,6 +2,8 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Image from 'next/image';
+import DownArrow from '../assets/down-arrow.svg';
 import type { Base } from '../../types';
 import ViewDeleteConfirm from './ViewDeleteConfirm';
 
@@ -20,6 +22,9 @@ export default function TableTabs({
   handleCreateTable, 
   createTableMutation = { isPending: false }
 }: TableTabsProps) {
+  // ✅ Local state for instant UI updates (no flicker)
+  const [activeIndex, setActiveIndex] = useState(currentTableIndex);
+  
   const [showMenu, setShowMenu] = useState(false);
   const [showNameDialog, setShowNameDialog] = useState(false);
   const [tableName, setTableName] = useState('');
@@ -30,8 +35,19 @@ export default function TableTabs({
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  // ✅ Only sync from URL changes (browser back/forward)
+  useEffect(() => {
+    const urlTableIndex = parseInt(searchParams.get('tableIndex') ?? '0', 10);
+    setActiveIndex(urlTableIndex);
+  }, [searchParams]);
+
   const handleTableChange = (index: number) => {
+    // ✅ Update local state FIRST for instant visual feedback
+    setActiveIndex(index);
+    
+    // ✅ Then update parent (triggers data loading)
     setCurrentTableIndex(index);
+    
     const params = new URLSearchParams(searchParams.toString());
     params.set('tableIndex', index.toString());
     router.push(`?${params.toString()}`, { scroll: false });
@@ -74,7 +90,6 @@ export default function TableTabs({
   };
 
   const handleSaveTable = () => {
-    // Call your create table mutation with the table name
     handleCreateTable();
     setShowNameDialog(false);
     setTableName('');
@@ -85,21 +100,16 @@ export default function TableTabs({
     setTableName('');
   };
 
-  // Returns a lighter shade of the base color (expects hex format)
   function lighterShadeofBaseColor(hex: string, percent = 0.5) {
-    // Remove '#' if present
     hex = hex.replace(/^#/, '');
-    // Parse r, g, b
     let r = parseInt(hex.substring(0,2),16);
     let g = parseInt(hex.substring(2,4),16);
     let b = parseInt(hex.substring(4,6),16);
 
-    // Increase each by percent toward 255
     r = Math.round(r + (255 - r) * percent);
     g = Math.round(g + (255 - g) * percent);
     b = Math.round(b + (255 - b) * percent);
 
-    // Return as hex
     return `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
   }
 
@@ -110,12 +120,17 @@ export default function TableTabs({
           {base.tables?.map((table, index) => (
             <span
               key={table.id}
-              className={`tab ${index === currentTableIndex ? 'active' : ''}`}
+              className={`tab ${index === activeIndex ? 'active' : ''}`}
               onClick={() => handleTableChange(index)}
             >
               {table.name}
+              {/* ✅ Use activeIndex instead of currentTableIndex - no flicker! */}
+              {index === activeIndex && (
+                <Image src={DownArrow} alt='' width={15} height={15}/>
+              )}
             </span>
           ))}
+          <Image src={DownArrow} alt='' width={15} height={15} className='table-menu'/>
           <button 
             ref={addButtonRef}
             className="add-tab-btn" 
@@ -127,7 +142,6 @@ export default function TableTabs({
         </div>
       </div>
 
-      {/* ✅ MOVED COMPLETELY OUTSIDE - sibling to tabs-header */}
       {showMenu && menuPosition && (
         <div 
           ref={menuRef} 

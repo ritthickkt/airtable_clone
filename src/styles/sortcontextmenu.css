@@ -12,7 +12,6 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 16px;
 }
 
 .sort-clear-button {
@@ -158,17 +157,52 @@ hr {
   /* Remove any fixed width or height */
 }
 
-.sort-dropdown-header {
-  padding: 18px;
-}
 
-.sort-dropdown-header h3 {
+.sort-dropdown-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative; /* ✅ Add position relative for pseudo-element */
+  padding-left: 15px;
   padding-bottom: 10px;
   font-size: 14px;
   font-weight: 600;
   color: #2d3748;
   width: 100%;
-  border-bottom: 1px solid #E5E5E5;
+  border-bottom: none; /* ✅ Remove full border */
+}
+
+h3 {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  gap: 5px;
+}
+
+.sort-dropdown-header-secondary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-left: 15px;
+  padding-bottom: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #2d3748;
+  width: 100%;
+  border-bottom: none; /* ✅ Remove full border */
+}
+
+/* ✅ Add partial centered border using pseudo-element */
+.sort-dropdown-header::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%; /* ✅ Adjust this percentage (70%, 80%, 95%, etc.) */
+  height: 1px;
+  background: #E5E5E5;
+  z-index: 1;
 }
 
 .sort-search-container {

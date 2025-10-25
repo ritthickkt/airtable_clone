@@ -45,14 +45,13 @@ export default function BaseHeader({
         </div>
 
         <div className="base-header-center">
-          <div className="nav-tabs">
+          <div className="nav-tabs" style={{ '--base-color': base.color ?? '#3b82f6' } as React.CSSProperties}>
             {['Data', 'Automations', 'Interfaces', 'Forms'].map((tab) => (
               <button 
                 key={tab}
                 className={`nav-tab ${activeTab === tab ? 'active' : ''}`}
                 onClick={() => setActiveTab(tab)}
                 style={activeTab === tab ? {
-                  borderBottomColor: base.color ?? '#3b82f6',
                   color: 'black',
                   height: '100%',
                 } : {}}

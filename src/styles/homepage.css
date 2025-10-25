@@ -156,9 +156,9 @@
 .search-box {
   position: relative;
   display: flex;
+  gap: 10px;
   align-items: center;
-  background-color: #f8f9fa;
-  border-radius: 8px;
+  border-radius: 100px;
   padding: 8px 12px;
   border: 1px solid #e9ecef;
 }
@@ -180,7 +180,6 @@
   margin-left: 8px;
   color: #6c757d;
   font-size: 12px;
-  background-color: #e9ecef;
   padding: 2px 6px;
   border-radius: 4px;
 }
@@ -278,9 +277,11 @@
   text-align: left;
   padding: 8px 12px;
   border: none;
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
   background: none;
   border-radius: 6px;
-  margin-bottom: 4px;
   cursor: pointer;
   font-size: 14px;
   color: #6c757d;
@@ -436,7 +437,7 @@
 /* Action Cards */
 .action-cards {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 16px;
   margin-bottom: 32px;
 }
@@ -540,7 +541,6 @@
   width: 100%;
   min-height: 80px;
   gap: 20px;
-  border: 1px solid #e9ecef;
   border-radius: 8px;
   padding: 16px;
   background-color: white;

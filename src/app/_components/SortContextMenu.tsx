@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Search from '../assets/search.svg';
 import CustomDropdown from './CustomDropdown';
 import '../../styles/sortcontextmenu.css';
+import HelpIcon from '../assets/help-icon-grey.png';
 
 interface SortDropdownProps {
   visible: boolean;
@@ -146,7 +147,10 @@ export default function SortDropdown({
         {pendingSort.length === 0 ? (
           <>
             <div className="sort-dropdown-header">
-              <h3>Sort by</h3>
+              <h3>
+                <span>Sort by</span>
+                <Image src={HelpIcon} alt='' width={20} height={15}/>
+              </h3>
             </div>
 
             <div className="sort-search-container">
@@ -176,7 +180,7 @@ export default function SortDropdown({
           </>
         ) : (
           <>
-            <div className="sort-dropdown-header">
+            <div className="sort-dropdown-header-secondary">
               <h3>Sort by</h3>
             </div>
             {pendingSort.map((sort) => {

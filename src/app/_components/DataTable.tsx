@@ -19,6 +19,7 @@ import { faker } from '@faker-js/faker';
 import TableLoading from './TableLoading';
 import React from 'react';
 import { isInstanceOfRegisteredClass } from 'node_modules/superjson/dist/transformer';
+import { isLeftHandSideExpression } from 'typescript';
 
 const columnHelper = createColumnHelper<TableRow>();
 
@@ -1504,11 +1505,11 @@ return (
           position: 'relative',
           zIndex: 5,
           backgroundColor: '#f9fafb',
-          padding: '10px 16px',
+          paddingLeft: '5px',
+          paddingTop: '5px',          
           borderTop: '1px solid #e5e7eb',
-          fontSize: '13px',
-          color: '#6b7280',
-          fontWeight: 500,
+          fontSize: '12px',
+          color: 'black',
           flexShrink: 0,
           display: 'block',
           minHeight: '40px',

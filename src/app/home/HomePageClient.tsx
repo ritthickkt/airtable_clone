@@ -8,6 +8,12 @@ import colorlogo from "../assets/airtable-color.png";
 import '../../styles/homepage.css';
 import Base from '../_components/Base';
 import WhiteBase from '../_components/white-base';
+import Home from '../assets/home_icon.svg';
+import Starred from '../assets/starred.png';
+import Shared from '../assets/shared.svg';
+import Workspaces from '../assets/Workspaces.png';
+import Import from '../assets/import-icon.png';
+import Search from '../assets/search.svg';
 
 import type {
   CreateBaseResponse
@@ -169,7 +175,7 @@ export default function HomePageClient({ session }: { session: Session | null })
         
         <div className="search-container">
           <div className="search-box">
-            <span className="search-icon">🔍</span>
+            <Image src={Search} alt='' width={15} height={15}/>
             <input 
               type="text" 
               placeholder="Search..." 
@@ -194,24 +200,28 @@ export default function HomePageClient({ session }: { session: Session | null })
             className={`sidebar-button ${activeTab === 'Home' ? 'active' : ''}`}
             onClick={() => setActiveTab('Home')}
           >
+            <Image src={Home} alt='' width={23} height={23}/>
             Home
           </button>
           <button 
             className={`sidebar-button ${activeTab === 'Starred' ? 'active' : ''}`}
             onClick={() => setActiveTab('Starred')}
           >
+            <Image src={Starred} alt='' width={23} height={23}/>
             Starred
           </button>
           <button 
             className={`sidebar-button ${activeTab === 'Shared' ? 'active' : ''}`}
             onClick={() => setActiveTab('Shared')}
           >
+            <Image src={Shared} alt='' width={23} height={23}/>
             Shared
           </button>
           <button 
             className={`sidebar-button ${activeTab === 'Workspaces' ? 'active' : ''}`}
             onClick={() => setActiveTab('Workspaces')}
           >
+            <Image src={Workspaces} alt='' width={23} height={23}/>
             Workspaces
           </button>
 
@@ -219,7 +229,7 @@ export default function HomePageClient({ session }: { session: Session | null })
           <div className="bottom-section">
             <button className="bottom-item">Templates and apps</button>
             <button className="bottom-item">Marketplace</button>
-            <button className="bottom-item">Import</button>
+            <button className="bottom-item"><Image src={Import} alt='' width={15} height={15}/>Import</button>
             <button className="create-button" onClick={() => setShowCreateModal(true)}>+ Create</button>
           </div>
         </div>

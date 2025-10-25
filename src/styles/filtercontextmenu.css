@@ -22,3 +22,11 @@
   cursor: pointer;
   color: black;
 }
+
+.no-filters-applied-and-help {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+}

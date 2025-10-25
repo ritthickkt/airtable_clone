@@ -67,6 +67,40 @@
   margin-bottom: 20px;
 }
 
+.search-button-column-config {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.help-icon-for-column-config {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.column-config-search-input {
+  border: none;
+}
+
+.column-config-search-input:focus {
+  border: 1px solid #1a5cd7 !important;
+  background-color: #F7F8FC !important;
+}
+
+.bottom-config-column-config {
+  display: flex;
+  align-items: center;
+  flex-direction: row;
+  justify-content: space-between;
+  padding: 10px;
+}
+
 .form-group label {
   display: block;
   margin-bottom: 8px;

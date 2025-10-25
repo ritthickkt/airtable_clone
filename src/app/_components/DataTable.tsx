@@ -8,6 +8,7 @@ import {
   getCoreRowModel,
   useReactTable,
 } from '@tanstack/react-table';
+import Image from 'next/image';
 import SideBar from './sidebar';
 import { api } from "../../trpc/react";
 import TextIcon from './columnIcons/text';
@@ -20,6 +21,7 @@ import TableLoading from './TableLoading';
 import React from 'react';
 import { isInstanceOfRegisteredClass } from 'node_modules/superjson/dist/transformer';
 import { isLeftHandSideExpression } from 'typescript';
+import Expand from '../assets/expand-icon.svg';
 
 const columnHelper = createColumnHelper<TableRow>();
 
@@ -128,7 +130,7 @@ export default function DataTable({
   const [isCreatingColumn, setIsCreatingColumn] = useState(false);
   const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
   const [currentCell, setCurrentCell] = useState<{rowIndex: number; columnIndex: number} | null>(null);
-  const [colConfigPosition, setColConfigPosition] = useState<{ top: number; left: number } | null>(null);
+  const [colConfigPosition, setColConfigPosition] = useState<{ top: number; right: number } | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     visible: boolean;
     rowIndex: number;
@@ -721,24 +723,36 @@ export default function DataTable({
     setIsColumnModalOpen(false);
   }, [currentTable, createColumnMutation, onColumnUpdate]);
 
+  // const addNewCol = useCallback(() => {
+  //   if (addColBtnRef.current) {
+  //     const rect = addColBtnRef.current.getBoundingClientRect();
+  //     const popupWidth = 300;
+  //     const popupHeight = 200;
+
+  //     let top = rect.bottom + window.scrollY;
+  //     let left = rect.left + window.scrollX;
+
+  //     if (left + popupWidth > window.innerWidth) {
+  //       left = window.innerWidth - popupWidth - 16;
+  //     }
+  //     if (top + popupHeight > window.innerHeight + window.scrollY) {
+  //       top = rect.top + window.scrollY - popupHeight;
+  //       if (top < 0) top = 16;
+  //     }
+
+  //     setColConfigPosition({ top, left });
+  //   }
+  //   setIsColumnModalOpen(true);
+  // }, []);
+
   const addNewCol = useCallback(() => {
     if (addColBtnRef.current) {
       const rect = addColBtnRef.current.getBoundingClientRect();
-      const popupWidth = 300;
-      const popupHeight = 200;
-
-      let top = rect.bottom + window.scrollY;
-      let left = rect.left + window.scrollX;
-
-      if (left + popupWidth > window.innerWidth) {
-        left = window.innerWidth - popupWidth - 16;
-      }
-      if (top + popupHeight > window.innerHeight + window.scrollY) {
-        top = rect.top + window.scrollY - popupHeight;
-        if (top < 0) top = 16;
-      }
-
-      setColConfigPosition({ top, left });
+      
+      setColConfigPosition({ 
+        top: rect.bottom + 8,
+        right: window.innerWidth - rect.right
+      });
     }
     setIsColumnModalOpen(true);
   }, []);
@@ -1329,13 +1343,12 @@ return (
                   width: `${totalTableWidth}px`,
                   tableLayout: 'fixed',
                   borderCollapse: 'collapse',
+                  marginRight: '150px',
                 }}>
                   <thead>
                     {table.getHeaderGroups().map(headerGroup => (
                       <tr key={headerGroup.id}>
                         <th className="row-number-header" style={{
-                          position: 'sticky',
-                          left: 0,
                           zIndex: 11,
                           backgroundColor: '#fff',
                           width: '100px',
@@ -1368,7 +1381,7 @@ return (
                             className="add-col-button"
                             style={{ 
                               opacity: isCreatingColumn ? 0.6 : 1,
-                              cursor: isCreatingColumn ? 'not-allowed' : 'pointer'
+                              cursor: isCreatingColumn ? 'not-allowed' : 'pointer',
                             }}
                           >
                             {isCreatingColumn ? '...' : '+'}
@@ -1408,16 +1421,17 @@ return (
                         <div 
                           className={`row-number ${isHighlighted ? 'search-row-highlight' : ''}`}
                           style={{
-                            position: 'sticky',
-                            left: 0,
-                            zIndex: 1,
+                            zIndex: 11,
                             backgroundColor: '#fff',
                             width: '100px',
-                            flexShrink: 0,
                           }}
                         >
                           {hoveredRowIndex === virtualRow.index
-                          ? <div className='all-rows-select' style={{ cursor: 'pointer' }}></div>
+                          ? 
+                          <div className='expand-and-select'>
+                            <div className='all-rows-select' style={{ cursor: 'pointer' }}></div>
+                            <Image className='expand-button' src={Expand} alt='' width={25} height={25}/>
+                          </div>
                           : virtualRow.index + 1}
                         </div>
                         {row.getVisibleCells().map((cell, cellIndex) => (
@@ -1487,9 +1501,9 @@ return (
           <div
             ref={colConfigRef}
             style={{
-              position: 'fixed', // Changed from 'absolute' to 'fixed'
-              top: colConfigPosition.top,
-              left: colConfigPosition.left,
+              position: 'fixed',
+              top: `${colConfigPosition.top}px`,
+              right: `${colConfigPosition.right}px`,
               zIndex: 1000,
             }}
           >

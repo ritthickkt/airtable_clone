@@ -14,6 +14,7 @@ import HiddenFieldsDropdown from '../_components/HiddenFields';
 import SortDropdown from './SortContextMenu';
 import FilterContextMenu from './FilterContextMenu';
 import SearchOverlay from './SearchField';
+import DownArrow from '../assets/down-arrow.svg';
 
 interface FilterCondition {
   id: string;
@@ -204,7 +205,37 @@ export default function TableControls({
     <>
       <div className="table-controls">
         <div className="table-controls-left"> 
-          <button type="button" className="control-btn">⊞ Grid view</button>
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '3px',
+            alignItems: 'center',
+            marginLeft: '10px',
+            justifyContent: 'center',
+            marginTop: '2px',
+            height: '100%',
+          }}>
+            <div style={{
+              width: '12px',
+              height: '1px',
+              backgroundColor: '#6c757d',
+              borderRadius: '1px',
+            }}></div>
+            <div style={{
+              width: '12px',
+              height: '1px',
+              backgroundColor: '#6c757d',
+              borderRadius: '1px',
+            }}></div>
+            <div style={{
+              width: '12px',
+              height: '1px',
+              backgroundColor: '#6c757d',
+              borderRadius: '1px',
+            }}></div>
+          </div>
+          <button type="button" className="control-btn-grid-view">⊞ Grid view</button>
+          <Image src={DownArrow} width={15} height={15} alt=''/>
         </div>
         <div className="table-controls-right">
           <button type="button" className="control-btn" onClick={handle100kRowsPressed}>

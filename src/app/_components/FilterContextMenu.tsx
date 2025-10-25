@@ -159,13 +159,15 @@ export default function FilterContextMenu({
 
       {/* Empty state */}
       {currentFilters.length === 0 && !showAddFilterRow && (
-        <div style={{ 
-          textAlign: 'center', 
-          padding: '20px 0',
-          color: '#666',
-          fontSize: '13px'
-        }}>
-          No filters applied at the moment
+        <div className='no-filters-applied-and-help'>
+          <div style={{ 
+            textAlign: 'center', 
+            color: '#666',
+            fontSize: '13px'
+          }}>
+            No filters are applied 
+          </div>
+          <Image src={Help} width={15} height={15} alt=''/>
         </div>
       )}
 
@@ -372,8 +374,6 @@ export default function FilterContextMenu({
         justifyContent: 'space-between', 
         alignItems: 'center',
         marginTop: '16px',
-        paddingTop: '12px',
-        borderTop: '1px solid #e1e5e9'
       }}>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           <button

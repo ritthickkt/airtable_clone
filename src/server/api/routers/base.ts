@@ -551,7 +551,15 @@ getTableRecords: protectedProcedure
 
     const effectiveFilterConfig = input.filterConfig && input.filterConfig.length > 0
       ? input.filterConfig
-      : (table.filterConfig as Array<{ id: string; columnId: string; columnName: string; columnType: string; operator: string; value: string }>) ?? [];
+      : (table.filterConfig as Array<{ 
+          id: string; 
+          columnId: string; 
+          columnName: string; 
+          columnType: string; 
+          operator: string; 
+          value: string;
+          logicalOperator?: 'AND' | 'OR';
+        }>) ?? [];
 
     console.log('🔍 Filtering with config:', effectiveFilterConfig);
     console.log('📊 Sorting with config:', effectiveSortConfig);
@@ -579,10 +587,11 @@ getTableRecords: protectedProcedure
           
           for (let i = 0; i < effectiveFilterConfig.length; i++) {
             const filter = effectiveFilterConfig[i];
+            if (!filter) continue;
             const column = table.columns.find(col => col.id === filter.columnId);
-            
             if (!column) continue;
-            
+          
+
             const fieldKey = column.name.toLowerCase().replace(/\s+/g, '');
             const cellValue = data[fieldKey];
             const filterValue = filter.value;

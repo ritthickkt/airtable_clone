@@ -196,13 +196,6 @@ export default function DataTable({
   }, []);
 
   const tableData = useMemo(() => {
-  console.log('🔄 tableData recalculating:', {
-    hasFilters: currentFilters.length > 0,
-    hasSort: currentSort.length > 0,
-    paginatedPagesCount: paginatedData?.pages.length,
-  });
-
-  // ✅ When filters or sorting are active, use paginatedData BUT overlay local edits
   if (currentFilters.length > 0 || currentSort.length > 0) {
     const localData = tablesData[currentTable?.id ?? ''] ?? [];
     
@@ -214,17 +207,12 @@ export default function DataTable({
           ...data,
         } as TableRow;
         
-        // ✅ Check if there's a local version with unsaved edits
         const localVersion = localData.find(r => r.id === record.id);
-        
-        // ✅ Use local version if it exists (has unsaved typing)
         return localVersion || serverRecord;
       })
     ) ?? [];
-    
-    console.log('✅ Using filtered data:', paginatedRecords.length, 'records');
-    
-    // ✅ Apply search filter if needed
+  
+  
     if (searchTerm.trim() && searchResults.length > 0) {
       const rowResults = searchResults.filter(result => !result.isColumnHeader);
       
@@ -819,10 +807,12 @@ export default function DataTable({
 
       const dbBatchSize = 2000;
       const concurrency = 4;
+      const uiBatchSize = 5000; // Show progress every 5k records
 
       let nextStart = 0;
       let createdSoFar = 0;
       let lastProgressUpdate = 0;
+      let optimisticRecords: TableRow[] = [];
 
       const yieldNow = () => new Promise(res => setTimeout(res, 0));
 
@@ -850,39 +840,65 @@ export default function DataTable({
             return row;
           });
 
-          const result = await createBulkRecordsMutation.mutateAsync({
+          // ✅ Create optimistic records immediately
+          const tempRecords = batchPayload.map((data, idx) => ({
+            id: `temp-bulk-${start + idx}`,
+            ...data,
+          } as TableRow));
+
+          optimisticRecords.push(...tempRecords);
+
+          // ✅ Update UI every uiBatchSize records
+          if (optimisticRecords.length >= uiBatchSize || start + size >= totalRecords) {
+            onTablesDataChange(prev => ({
+              ...prev,
+              [currentTable.id]: [...(prev[currentTable.id] ?? []), ...optimisticRecords]
+            }));
+            optimisticRecords = [];
+          }
+
+          // ✅ Send to server in background (don't await)
+          createBulkRecordsMutation.mutateAsync({
             tableId: currentTable.id,
             records: batchPayload,
+          }).then(result => {
+            createdSoFar += (result?.count ?? size);
+            
+            if (createdSoFar - lastProgressUpdate >= 5000 || createdSoFar === totalRecords) {
+              setBulkProgress(prev => prev ? { ...prev, added: createdSoFar } : prev);
+              lastProgressUpdate = createdSoFar;
+            }
           });
 
-          createdSoFar += (result?.count ?? size);
-          
-          // Only update progress every 5000 records to reduce re-renders
-          if (createdSoFar - lastProgressUpdate >= 5000 || createdSoFar === totalRecords) {
-            setBulkProgress(prev => prev ? { ...prev, added: createdSoFar } : prev);
-            lastProgressUpdate = createdSoFar;
-          }
-          
           await yieldNow();
         }
       };
 
       await Promise.all(Array.from({ length: concurrency }, () => worker()));
       
-      // Final progress update
+      // ✅ Final update
       setBulkProgress(prev => prev ? { ...prev, added: totalRecords } : prev);
       
+      // ✅ Only refetch once at the very end to replace temp IDs with real ones
       await refetch();
+      
       console.log('✅ All 100k rows created');
-      fetchNextPage();
     } catch (error) {
       console.error('Failed to add 100k rows:', error);
+      // ✅ On error, clear optimistic records and refetch
+      onTablesDataChange(prev => ({
+        ...prev,
+        [currentTable.id]: (prev[currentTable.id] ?? []).filter(row => 
+          !row.id.startsWith('temp-bulk-')
+        )
+      }));
+      await refetch();
     } finally {
       setIsCreatingRecord(false);
       set100kRowsPressed(false);
       setTimeout(() => setBulkProgress(null), 1500);
     }
-  }, [currentTable, isCreatingRecord, set100kRowsPressed, createBulkRecordsMutation, refetch, fetchNextPage]);
+  }, [currentTable, isCreatingRecord, set100kRowsPressed, createBulkRecordsMutation, refetch, fetchNextPage, onTablesDataChange]);
 
   // All useMemo hooks
 
@@ -1195,6 +1211,10 @@ const defaultColumn = useMemo(
 
   // ✅ Auto-load more rows when scrolling near the bottom
   useEffect(() => {
+      if (currentFilters.length > 0 || currentSort.length > 0) {
+        return;
+      }
+
       const virtualItems = rowVirtualizer.getVirtualItems();
       if (!virtualItems.length) return;
 
@@ -1212,11 +1232,12 @@ const defaultColumn = useMemo(
       hasNextPage,
       isFetchingNextPage,
       fetchNextPage,
+      currentFilters.length,
+      currentSort.length, 
   ]);
 
   React.useEffect(() => {
     return () => {
-      // Clear all pending update timeouts
       Object.keys(window).forEach(key => {
         if (key.startsWith('updateTimeout_')) {
           clearTimeout((window as any)[key]);
@@ -1225,12 +1246,6 @@ const defaultColumn = useMemo(
     };
   }, []);
 
-  // All useEffect hooks at the end
-  // React.useEffect(() => {
-  //   if (currentTable?.id && (currentSort.length > 0 || currentFilters.length > 0)) {
-  //     refetch();
-  //   }
-  // }, [currentSort, currentFilters, currentTable?.id, refetch]);
 
   React.useEffect(() => {
     if (currentTable?.id && !tablesData[currentTable.id]) {

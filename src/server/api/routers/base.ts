@@ -496,7 +496,8 @@ export const baseRouter = createTRPCRouter({
         columnName: z.string(),
         columnType: z.string(),
         operator: z.string(),
-        value: z.string()
+        value: z.string(),
+        logicalOperator: z.enum(['AND', 'OR']).optional(),
       }))
     }))
     .mutation(async ({ ctx, input }) => {
@@ -524,7 +525,8 @@ getTableRecords: protectedProcedure
       columnName: z.string(),
       columnType: z.string(),
       operator: z.string(),
-      value: z.string()
+      value: z.string(),
+      logicalOperator: z.enum(['AND', 'OR']).optional(),
     })).optional(),
     cursor: z.string().optional(),
     limit: z.number().min(1).max(1000).default(100),
@@ -551,15 +553,12 @@ getTableRecords: protectedProcedure
       ? input.filterConfig
       : (table.filterConfig as Array<{ id: string; columnId: string; columnName: string; columnType: string; operator: string; value: string }>) ?? [];
 
-    // ✅ Log for debugging
     console.log('🔍 Filtering with config:', effectiveFilterConfig);
     console.log('📊 Sorting with config:', effectiveSortConfig);
 
-    // ✅ Check if we have filters or sorting
     const hasFiltersOrSort = effectiveSortConfig.length > 0 || effectiveFilterConfig.length > 0;
 
     if (hasFiltersOrSort) {
-      // ✅ Fetch ALL records for filtering/sorting
       const allRecords = await ctx.db.record.findMany({
         where: {
           tableId: input.tableId,
@@ -575,9 +574,14 @@ getTableRecords: protectedProcedure
         filteredRecords = allRecords.filter(record => {
           const data = record.data as Record<string, any>;
           
-          return effectiveFilterConfig.every(filter => {
+          // Process filters with AND/OR logic
+          let result = true;
+          
+          for (let i = 0; i < effectiveFilterConfig.length; i++) {
+            const filter = effectiveFilterConfig[i];
             const column = table.columns.find(col => col.id === filter.columnId);
-            if (!column) return true;
+            
+            if (!column) continue;
             
             const fieldKey = column.name.toLowerCase().replace(/\s+/g, '');
             const cellValue = data[fieldKey];
@@ -585,31 +589,62 @@ getTableRecords: protectedProcedure
             
             console.log(`🔎 Checking record ${record.id}, field ${fieldKey}, value:`, cellValue, 'against filter:', filterValue);
             
+            // Evaluate this filter condition
+            let conditionMet = false;
+            
             switch (filter.operator) {
               case 'contains':
-                return String(cellValue ?? '').toLowerCase().includes(String(filterValue).toLowerCase());
+                conditionMet = String(cellValue ?? '').toLowerCase().includes(String(filterValue).toLowerCase());
+                break;
               case 'not_contains':
-                return !String(cellValue ?? '').toLowerCase().includes(String(filterValue).toLowerCase());
+                conditionMet = !String(cellValue ?? '').toLowerCase().includes(String(filterValue).toLowerCase());
+                break;
               case 'eq':
-                return String(cellValue ?? '').toLowerCase() === String(filterValue).toLowerCase();
+                conditionMet = String(cellValue ?? '').toLowerCase() === String(filterValue).toLowerCase();
+                break;
               case 'not_eq':
-                return String(cellValue ?? '').toLowerCase() !== String(filterValue).toLowerCase();
+                conditionMet = String(cellValue ?? '').toLowerCase() !== String(filterValue).toLowerCase();
+                break;
               case 'is_empty':
-                return !cellValue || String(cellValue) === '';
+                conditionMet = !cellValue || String(cellValue) === '';
+                break;
               case 'is_not_empty':
-                return cellValue != null && String(cellValue) !== '';
+                conditionMet = cellValue != null && String(cellValue) !== '';
+                break;
               case 'gt':
-                return !isNaN(Number(cellValue)) && !isNaN(Number(filterValue)) && Number(cellValue) > Number(filterValue);
+                conditionMet = !isNaN(Number(cellValue)) && !isNaN(Number(filterValue)) && Number(cellValue) > Number(filterValue);
+                break;
               case 'lt':
-                return !isNaN(Number(cellValue)) && !isNaN(Number(filterValue)) && Number(cellValue) < Number(filterValue);
+                conditionMet = !isNaN(Number(cellValue)) && !isNaN(Number(filterValue)) && Number(cellValue) < Number(filterValue);
+                break;
               case 'gte':
-                return !isNaN(Number(cellValue)) && !isNaN(Number(filterValue)) && Number(cellValue) >= Number(filterValue);
+                conditionMet = !isNaN(Number(cellValue)) && !isNaN(Number(filterValue)) && Number(cellValue) >= Number(filterValue);
+                break;
               case 'lte':
-                return !isNaN(Number(cellValue)) && !isNaN(Number(filterValue)) && Number(cellValue) <= Number(filterValue);
+                conditionMet = !isNaN(Number(cellValue)) && !isNaN(Number(filterValue)) && Number(cellValue) <= Number(filterValue);
+                break;
               default:
-                return true;
+                conditionMet = true;
             }
-          });
+            
+            // Apply logical operator (AND/OR)
+            if (i === 0) {
+              // First filter sets the initial result
+              result = conditionMet;
+            } else {
+              // Apply AND or OR based on the filter's logical operator
+              const logicalOp = filter.logicalOperator ?? 'AND';
+              if (logicalOp === 'AND') {
+                result = result && conditionMet;
+              } else {
+                result = result || conditionMet;
+              }
+            }
+            
+            console.log(`Filter ${i}: ${conditionMet}, Logical: ${filter.logicalOperator ?? 'N/A'}, Result so far: ${result}`);
+          }
+          
+          return result;
         });
       }
 

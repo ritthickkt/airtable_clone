@@ -15,6 +15,7 @@ interface FilterCondition {
   columnType: string;
   operator: string;
   value: string;
+  logicalOperator?: 'AND' | 'OR';
 }
 
 interface FilterContextMenuProps {
@@ -99,26 +100,6 @@ export default function FilterContextMenu({
 
   if (!visible) return null;
 
-  const handleAddFilter = () => {
-    if (!newFilter.columnId || !newFilter.operator) return;
-
-    const column = allColumns.find(col => col.id === newFilter.columnId);
-    if (!column) return;
-
-    const filter: FilterCondition = {
-      id: `filter-${Date.now()}`,
-      columnId: newFilter.columnId,
-      columnName: column.name,
-      columnType: column.type,
-      operator: newFilter.operator,
-      value: newFilter.value,
-    };
-
-    onAddFilter(filter);
-    setNewFilter({ columnId: '', operator: '', value: '' });
-    setShowAddFilterRow(true); // Keep the add filter row visible for next filter
-  };
-
   const handleColumnChange = (columnId: string) => {
     const column = allColumns.find(col => col.id === columnId);
     const operators = column ? getOperatorOptions(column.type) : [];
@@ -130,7 +111,6 @@ export default function FilterContextMenu({
       value: '',
     });
     
-    // ✅ Auto-add filter immediately when column is selected
     if (column && newOperator) {
       const filter: FilterCondition = {
         id: `filter-${Date.now()}`,
@@ -139,40 +119,16 @@ export default function FilterContextMenu({
         columnType: column.type,
         operator: newOperator,
         value: '',
+        logicalOperator: currentFilters.length > 0 ? 'AND' : undefined, // Default to AND for subsequent filters
       };
       onAddFilter(filter);
-      setNewFilter({ columnId: '', operator: '', value: '' }); // Reset for next filter
+      setNewFilter({ columnId: '', operator: '', value: '' });
     }
   };
 
-  const handleOperatorChange = (operator: string, filterId?: string) => {
-    if (filterId) {
-      onUpdateFilter(filterId, { 
-        operator,
-        value: ['is_empty', 'is_not_empty'].includes(operator) ? '' : currentFilters.find(f => f.id === filterId)?.value ?? ''
-      });
-    } else {
-      setNewFilter(prev => ({ 
-        ...prev, 
-        operator,
-        value: ['is_empty', 'is_not_empty'].includes(operator) ? '' : prev.value
-      }));
-    }
+  const handleLogicalOperatorChange = (filterId: string, logicalOperator: 'AND' | 'OR') => {
+    onUpdateFilter(filterId, { logicalOperator });
   };
-
-  const handleValueChange = (value: string, filterId?: string) => {
-    if (filterId) {
-      // Update existing filter
-      onUpdateFilter(filterId, { value });
-    } else {
-      // Update new filter state
-      setNewFilter(prev => ({ ...prev, value }));
-    }
-  };
-
-  const selectedColumn = allColumns.find(col => col.id === newFilter.columnId);
-  const operatorOptions = selectedColumn ? getOperatorOptions(selectedColumn.type) : [];
-  const needsValue = newFilter.operator && !['is_empty', 'is_not_empty'].includes(newFilter.operator);
 
   return (
     <div
@@ -181,8 +137,7 @@ export default function FilterContextMenu({
       style={{
         position: 'fixed',
         top: y,
-        left: x - 220,
-        right: window.innerWidth - x,
+        right: (window.innerWidth - x) - 150,
         zIndex: 1000,
         background: 'white',
         border: '1px solid #e1e5e9',
@@ -202,7 +157,7 @@ export default function FilterContextMenu({
         </div>
       )}
 
-      {/* Empty state - show when no filters and add filter button not clicked */}
+      {/* Empty state */}
       {currentFilters.length === 0 && !showAddFilterRow && (
         <div style={{ 
           textAlign: 'center', 
@@ -217,162 +172,205 @@ export default function FilterContextMenu({
       {/* Current Filters */}
       {currentFilters.map((filter, index) => (
         <div key={filter.id} className="filter-condition" style={{
-          marginTop: '16px',
+          marginTop: index === 0 ? '0' : '16px',
           display: 'flex',
-          flexDirection: 'row', 
-          alignItems: 'center',
-          gap: '10px'
+          flexDirection: 'column',
+          gap: '8px'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '40px'}}>
-            {index === 0 && <span style={{ fontSize: '12px', color: '#666' }}>Where</span>}
-            {index > 0 && <span style={{ fontSize: '12px', color: '#666' }}>And</span>}
-          </div>
-          
-          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
-            <select
-              value={filter.columnId}
-              onChange={(e) => {
-                const column = allColumns.find(col => col.id === e.target.value);
-                if (column) {
-                  const operators = getOperatorOptions(column.type);
-                  onUpdateFilter(filter.id, {
-                    columnId: e.target.value,
-                    columnName: column.name,
-                    columnType: column.type,
-                    operator: operators[0]?.value ?? '',
-                    value: '',
-                  });
-                }
-              }}
-              style={{
-                padding: '6px 8px',
-                border: '1px solid #d1d5db',
-                fontSize: '13px',
-                minWidth: '120px',
-                height: '31px',
-              }}
-            >
-              {allColumns.map(column => (
-                <option key={column.id} value={column.id}>
-                  {column.name}
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={filter.operator}
-              onChange={(e) => onUpdateFilter(filter.id, { 
-                operator: e.target.value,
-                value: ['is_empty', 'is_not_empty'].includes(e.target.value) ? '' : filter.value
-              })}
-              style={{
-                padding: '6px 8px',
-                borderRight: '1px solid #d1d5db',
-                borderTop: '1px solid #d1d5db',
-                borderBottom: '1px solid #d1d5db',
-                fontSize: '13px',
-                minWidth: '120px',
-                height: '31px',
-              }}
-            >
-              {getOperatorOptions(filter.columnType).map(option => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-
-            {!['is_empty', 'is_not_empty'].includes(filter.operator) && (
-              <input
-                type={filter.columnType === 'number' ? 'number' : 'text'}
-                value={filter.value}
-                onChange={(e) => onUpdateFilter(filter.id, { value: e.target.value })}
-                placeholder="Enter a value"
+          {/* Logical Operator Selector (AND/OR) - Only show for filters after the first */}
+          {index > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <select
+                value={filter.logicalOperator ?? 'AND'}
+                onChange={(e) => handleLogicalOperatorChange(filter.id, e.target.value as 'AND' | 'OR')}
                 style={{
-                    padding: '6px 8px',
-                    borderRight: '1px solid #d1d5db',
-                    borderTop: '1px solid #d1d5db',
-                    borderBottom: '1px solid #d1d5db',
-                    fontSize: '13px',
-                    minWidth: '120px',
-                    height: '31px',
+                  padding: '4px 8px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '4px',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  backgroundColor: '#f9fafb',
+                  cursor: 'pointer',
+                  minWidth: '60px',
                 }}
-              />
-            )}
-            <button
-              onClick={() => onRemoveFilter(filter.id)}
-              style={{
-                padding: '6px 8px',
-                background: 'transparent',
-                borderRight: '1px solid #d1d5db',
-                borderTop: '1px solid #d1d5db',
-                borderBottom: '1px solid #d1d5db',
-                height: '31px',
-                cursor: 'pointer',
-                color: '#ef4444',
-                fontSize: '14px',
-              }}
-              title="Remove filter"
-            >
-              <Image src={Trash} alt='' width={15} height={15}/>
-            </button>
-            <button
-              style={{
-                padding: '6px 8px',
-                background: 'transparent',
-                borderRight: '1px solid #d1d5db',
-                borderTop: '1px solid #d1d5db',
-                borderBottom: '1px solid #d1d5db',
-                height: '31px',
-                cursor: 'pointer',
-                fontSize: '14px',
-              }}
-              title="Drag"
-            >
-              <Image src={Drag} alt='' width={15} height={15}/>
-            </button>
+              >
+                <option value="AND">And</option>
+                <option value="OR">Or</option>
+              </select>
+            </div>
+          )}
+          
+          {/* Filter Row */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', minWidth: '50px' }}>
+              {index === 0 && <span style={{ fontSize: '12px', color: '#666', fontWeight: '500' }}>Where</span>}
+            </div>
+            
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', flex: 1 }}>
+              <select
+                value={filter.columnId}
+                onChange={(e) => {
+                  const column = allColumns.find(col => col.id === e.target.value);
+                  if (column) {
+                    const operators = getOperatorOptions(column.type);
+                    onUpdateFilter(filter.id, {
+                      columnId: e.target.value,
+                      columnName: column.name,
+                      columnType: column.type,
+                      operator: operators[0]?.value ?? '',
+                      value: '',
+                    });
+                  }
+                }}
+                style={{
+                  padding: '6px 8px',
+                  border: '1px solid #d1d5db',
+                  fontSize: '13px',
+                  minWidth: '120px',
+                  height: '31px',
+                }}
+              >
+                {allColumns.map(column => (
+                  <option key={column.id} value={column.id}>
+                    {column.name}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={filter.operator}
+                onChange={(e) => onUpdateFilter(filter.id, { 
+                  operator: e.target.value,
+                  value: ['is_empty', 'is_not_empty'].includes(e.target.value) ? '' : filter.value
+                })}
+                style={{
+                  padding: '6px 8px',
+                  borderRight: '1px solid #d1d5db',
+                  borderTop: '1px solid #d1d5db',
+                  borderBottom: '1px solid #d1d5db',
+                  fontSize: '13px',
+                  minWidth: '120px',
+                  height: '31px',
+                }}
+              >
+                {getOperatorOptions(filter.columnType).map(option => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+
+              {!['is_empty', 'is_not_empty'].includes(filter.operator) && (
+                <input
+                  type={filter.columnType === 'number' ? 'number' : 'text'}
+                  value={filter.value}
+                  onChange={(e) => onUpdateFilter(filter.id, { value: e.target.value })}
+                  placeholder="Enter a value"
+                  style={{
+                      padding: '6px 8px',
+                      borderRight: '1px solid #d1d5db',
+                      borderTop: '1px solid #d1d5db',
+                      borderBottom: '1px solid #d1d5db',
+                      fontSize: '13px',
+                      minWidth: '120px',
+                      height: '31px',
+                  }}
+                />
+              )}
+              <button
+                onClick={() => onRemoveFilter(filter.id)}
+                style={{
+                  padding: '6px 8px',
+                  background: 'transparent',
+                  borderRight: '1px solid #d1d5db',
+                  borderTop: '1px solid #d1d5db',
+                  borderBottom: '1px solid #d1d5db',
+                  height: '31px',
+                  cursor: 'pointer',
+                  color: '#ef4444',
+                  fontSize: '14px',
+                }}
+                title="Remove filter"
+              >
+                <Image src={Trash} alt='' width={15} height={15}/>
+              </button>
+              <button
+                style={{
+                  padding: '6px 8px',
+                  background: 'transparent',
+                  borderRight: '1px solid #d1d5db',
+                  borderTop: '1px solid #d1d5db',
+                  borderBottom: '1px solid #d1d5db',
+                  height: '31px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                }}
+                title="Drag"
+              >
+                <Image src={Drag} alt='' width={15} height={15}/>
+              </button>
+            </div>
           </div>
         </div>
       ))}
 
-      {/* Add New Filter row - show when "Add filter" button is clicked OR when filters exist */}
+      {/* Add New Filter row */}
       {(showAddFilterRow || currentFilters.length > 0) && (
         <div className="add-filter-section" style={{
           marginTop: '16px',
           display: 'flex',
-          flexDirection: 'row', 
-          alignItems: 'center',
-          gap: '10px'
+          flexDirection: 'column',
+          gap: '8px'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center'}}>
-            <span style={{ fontSize: '12px', color: '#666', width: '40px' }}>
-              {currentFilters.length === 0 ? 'Where' : 'And'}
-            </span>
-          </div>
-          
-          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-            <select
-              value={newFilter.columnId}
-              onChange={(e) => handleColumnChange(e.target.value)}
-              style={{
-                padding: '6px 8px',
+          {/* Show AND/OR selector for new filter if filters exist */}
+          {currentFilters.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{
+                padding: '4px 8px',
                 border: '1px solid #d1d5db',
-                fontSize: '13px',
-                minWidth: '120px',
-              }}
-            >
-              <option value="">Select field</option>
-              {allColumns.map(column => (
-                <option key={column.id} value={column.id}>
-                  {column.name}
-                </option>
-              ))}
-            </select>
+                borderRadius: '4px',
+                fontSize: '12px',
+                fontWeight: '600',
+                backgroundColor: '#f9fafb',
+                minWidth: '60px',
+                textAlign: 'center',
+              }}>
+                And
+              </div>
+            </div>
+          )}
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', minWidth: '50px' }}>
+              <span style={{ fontSize: '12px', color: '#666', fontWeight: '500' }}>
+                {currentFilters.length === 0 ? 'Where' : ''}
+              </span>
+            </div>
+            
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', flex: 1 }}>
+              <select
+                value={newFilter.columnId}
+                onChange={(e) => handleColumnChange(e.target.value)}
+                style={{
+                  padding: '6px 8px',
+                  border: '1px solid #d1d5db',
+                  fontSize: '13px',
+                  minWidth: '120px',
+                }}
+              >
+                <option value="">Select field</option>
+                {allColumns.map(column => (
+                  <option key={column.id} value={column.id}>
+                    {column.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Action Buttons - Always at bottom */}
+      {/* Action Buttons */}
       <div style={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
@@ -386,8 +384,7 @@ export default function FilterContextMenu({
             onClick={() => {
               setShowAddFilterRow(true);
               setHeaderTrue(true);
-              // Auto-add first filter immediately
-              if (allColumns.length > 0) {
+              if (allColumns.length > 0 && currentFilters.length === 0) {
                 const firstColumn = allColumns[0];
                 if (firstColumn) {
                   const operators = getOperatorOptions(firstColumn.type);
@@ -398,6 +395,7 @@ export default function FilterContextMenu({
                     columnType: firstColumn.type,
                     operator: operators[0]?.value ?? '',
                     value: '',
+                    logicalOperator: undefined, // First filter has no logical operator
                   };
                   onAddFilter(filter);
                 }

@@ -22,6 +22,7 @@ export type FilterCondition = {
   columnType: string;
   operator: string;
   value: string;
+  logicalOperator?: 'AND' | 'OR';
 };
 
 export type FilterConfig = Array<FilterCondition>;

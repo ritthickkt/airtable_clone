@@ -174,24 +174,24 @@ export default function FilterContextMenu({
         <div key={filter.id} className="filter-condition" style={{
           marginTop: index === 0 ? '0' : '16px',
           display: 'flex',
-          flexDirection: 'column',
-          gap: '8px'
+          flexDirection: 'row',
         }}>
           {/* Logical Operator Selector (AND/OR) - Only show for filters after the first */}
           {index > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center'}}>
               <select
                 value={filter.logicalOperator ?? 'AND'}
                 onChange={(e) => handleLogicalOperatorChange(filter.id, e.target.value as 'AND' | 'OR')}
                 style={{
-                  padding: '4px 8px',
+                  paddingTop: '4px',
+                  paddingBottom: '4px',
                   border: '1px solid #d1d5db',
                   borderRadius: '4px',
                   fontSize: '12px',
                   fontWeight: '600',
-                  backgroundColor: '#f9fafb',
-                  cursor: 'pointer',
-                  minWidth: '60px',
+                  textAlign: 'center',
+                  marginRight: '10px',
+                  maxWidth: '70px',
                 }}
               >
                 <option value="AND">And</option>
@@ -202,9 +202,7 @@ export default function FilterContextMenu({
           
           {/* Filter Row */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', minWidth: '50px' }}>
-              {index === 0 && <span style={{ fontSize: '12px', color: '#666', fontWeight: '500' }}>Where</span>}
-            </div>
+            {index === 0 && <span style={{ fontSize: '12px', color: '#666', fontWeight: '500', marginRight: '11px'}}>Where</span>}
             
             <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', flex: 1 }}>
               <select
@@ -319,21 +317,21 @@ export default function FilterContextMenu({
         <div className="add-filter-section" style={{
           marginTop: '16px',
           display: 'flex',
-          flexDirection: 'column',
-          gap: '8px'
+          flexDirection: 'row',
         }}>
           {/* Show AND/OR selector for new filter if filters exist */}
           {currentFilters.length > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center'}}>
               <div style={{
                 padding: '4px 8px',
                 border: '1px solid #d1d5db',
                 borderRadius: '4px',
                 fontSize: '12px',
                 fontWeight: '600',
-                backgroundColor: '#f9fafb',
-                minWidth: '60px',
                 textAlign: 'center',
+                marginRight: '7px',
+                minWidth: '70xp',
+                maxWidth: '70px',
               }}>
                 And
               </div>
@@ -341,12 +339,10 @@ export default function FilterContextMenu({
           )}
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', minWidth: '50px' }}>
               <span style={{ fontSize: '12px', color: '#666', fontWeight: '500' }}>
                 {currentFilters.length === 0 ? 'Where' : ''}
               </span>
-            </div>
-            
+
             <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', flex: 1 }}>
               <select
                 value={newFilter.columnId}

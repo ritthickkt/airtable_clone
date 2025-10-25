@@ -63,8 +63,8 @@
   padding-left: 8px;
   padding-right: 8px;
   border-bottom: 1px solid #e9ecef;
-  border-left: 1px solid #e9ecef;
   gap: 12px;
+  height: 35px;
 }
 
 .search-extensions {

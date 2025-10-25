@@ -139,6 +139,10 @@ export default function TableTabs({
           >
             + Add or Import
           </button>
+          <div className='tools-button'>
+            Tools
+            <Image src={DownArrow} alt='' width={15} height={15}/>
+          </div>
         </div>
       </div>
 

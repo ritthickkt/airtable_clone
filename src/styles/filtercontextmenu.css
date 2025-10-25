@@ -1,0 +1,24 @@
+.add_condition_button {
+  padding:'6px 12px';
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.add_condition_button:hover {
+  color: black;
+  cursor: pointer;
+}
+
+.add_condition_group_button {
+  padding: '6px 12px';
+  background: 'transparent';
+  color: #6b7280;
+  font-weight: 500;
+  font-size: 12px;
+}
+
+.add_condition_group_button:hover {
+  cursor: pointer;
+  color: black;
+}

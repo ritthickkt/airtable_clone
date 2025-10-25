@@ -16,6 +16,19 @@ const config = {
       root: __dirname,
     },
   },
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate',
+          },
+        ],
+      },
+    ];
+  },
   regions: ['syd1'],
 };
 

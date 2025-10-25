@@ -237,30 +237,23 @@ export default function TableControls({
             onClick={handleFilterClick}
             disabled={sortingLoading || filteringLoading}
             style={{
-              border: currentFilters.length > 0 ? `2px solid ${baseColor ?? '#2563eb'}` : undefined,
-              backgroundColor: currentFilters.length > 0 ? `${baseColor ?? '#2563eb'}20` : undefined,
-              opacity: filteringLoading ? 0.6 : 1,
-              cursor: (sortingLoading || filteringLoading) ? 'not-allowed' : 'pointer'
+              cursor: (sortingLoading || filteringLoading) ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              backgroundColor: currentFilters.length > 0 ? '#CFF5D1' : undefined,
+              color: currentFilters.length > 0 ? 'black' : undefined,
             }}
           >
-            {filteringLoading ? (
+            {currentFilters.length > 0 ? (
               <>
-                <div style={{
-                  width: '14px',
-                  height: '14px',
-                  border: '2px solid #f3f3f3',
-                  borderTop: '2px solid #666',
-                  borderRadius: '50%',
-                  animation: 'spin 1s linear infinite',
-                  marginRight: '6px'
-                }} />
-                Filtering...
+                <Image className='table-control-icons' src={Filter} alt='Filter'/> 
+                Filtered by {currentFilters.map(f => f.columnName).join(', ')}
               </>
             ) : (
               <>
-                <Image className='table-control-icons' src={Filter} alt='Filter'/> Filter
+                <Image className='table-control-icons' src={Filter} alt='Filter'/> 
+                <span>Filter</span>
               </>
-            )}
+            )}          
           </button>
           <button type="button" className="control-btn">
             <Image className='table-control-icons' src={Group} alt='Group'/> Group

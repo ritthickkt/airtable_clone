@@ -69,6 +69,7 @@ export default function FilterContextMenu({
     value: '',
   });
   const [showAddFilterRow, setShowAddFilterRow] = useState(false);
+  const [headerTrue, setHeaderTrue] = useState(false);
 
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -92,6 +93,7 @@ export default function FilterContextMenu({
     if (!visible) {
       setNewFilter({ columnId: '', operator: '', value: '' });
       setShowAddFilterRow(false);
+      setHeaderTrue(false);
     }
   }, [visible]);
 
@@ -120,11 +122,52 @@ export default function FilterContextMenu({
   const handleColumnChange = (columnId: string) => {
     const column = allColumns.find(col => col.id === columnId);
     const operators = column ? getOperatorOptions(column.type) : [];
+    const newOperator = operators.length > 0 && operators[0] ? operators[0].value : '';
+    
     setNewFilter({
       columnId,
-      operator: operators.length > 0 && operators[0] ? operators[0].value : '',
+      operator: newOperator,
       value: '',
     });
+    
+    // ✅ Auto-add filter immediately when column is selected
+    if (column && newOperator) {
+      const filter: FilterCondition = {
+        id: `filter-${Date.now()}`,
+        columnId,
+        columnName: column.name,
+        columnType: column.type,
+        operator: newOperator,
+        value: '',
+      };
+      onAddFilter(filter);
+      setNewFilter({ columnId: '', operator: '', value: '' }); // Reset for next filter
+    }
+  };
+
+  const handleOperatorChange = (operator: string, filterId?: string) => {
+    if (filterId) {
+      onUpdateFilter(filterId, { 
+        operator,
+        value: ['is_empty', 'is_not_empty'].includes(operator) ? '' : currentFilters.find(f => f.id === filterId)?.value ?? ''
+      });
+    } else {
+      setNewFilter(prev => ({ 
+        ...prev, 
+        operator,
+        value: ['is_empty', 'is_not_empty'].includes(operator) ? '' : prev.value
+      }));
+    }
+  };
+
+  const handleValueChange = (value: string, filterId?: string) => {
+    if (filterId) {
+      // Update existing filter
+      onUpdateFilter(filterId, { value });
+    } else {
+      // Update new filter state
+      setNewFilter(prev => ({ ...prev, value }));
+    }
   };
 
   const selectedColumn = allColumns.find(col => col.id === newFilter.columnId);
@@ -138,7 +181,8 @@ export default function FilterContextMenu({
       style={{
         position: 'fixed',
         top: y,
-        left: x-540,
+        left: x - 220,
+        right: window.innerWidth - x,
         zIndex: 1000,
         background: 'white',
         border: '1px solid #e1e5e9',
@@ -150,8 +194,7 @@ export default function FilterContextMenu({
         overflowY: 'auto',
       }}
     >
-      {/* Header - only show when there are filters */}
-      {currentFilters.length > 0 && (
+      {headerTrue && (
         <div className="filter-header">
           <h3 style={{ margin: '0 0 16px 0', fontSize: '14px', fontWeight: '600' }}>
             In this view, show records
@@ -206,6 +249,7 @@ export default function FilterContextMenu({
                 border: '1px solid #d1d5db',
                 fontSize: '13px',
                 minWidth: '120px',
+                height: '31px',
               }}
             >
               {allColumns.map(column => (
@@ -293,101 +337,40 @@ export default function FilterContextMenu({
 
       {/* Add New Filter row - show when "Add filter" button is clicked OR when filters exist */}
       {(showAddFilterRow || currentFilters.length > 0) && (
-        <>
-          <div className="filter-header">
-          <h3 style={{ margin: '0 0 16px 0', fontSize: '14px', fontWeight: '600' }}>
-            In this view, show records
-          </h3>
+        <div className="add-filter-section" style={{
+          marginTop: '16px',
+          display: 'flex',
+          flexDirection: 'row', 
+          alignItems: 'center',
+          gap: '10px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center'}}>
+            <span style={{ fontSize: '12px', color: '#666', width: '40px' }}>
+              {currentFilters.length === 0 ? 'Where' : 'And'}
+            </span>
+          </div>
+          
+          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+            <select
+              value={newFilter.columnId}
+              onChange={(e) => handleColumnChange(e.target.value)}
+              style={{
+                padding: '6px 8px',
+                border: '1px solid #d1d5db',
+                fontSize: '13px',
+                minWidth: '120px',
+              }}
+            >
+              <option value="">Select field</option>
+              {allColumns.map(column => (
+                <option key={column.id} value={column.id}>
+                  {column.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
-            <div className="add-filter-section" style={{
-              marginTop: '16px',
-              display: 'flex',
-              flexDirection: 'row', 
-              alignItems: 'center',
-              gap: '10px'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center'}}>
-                <span style={{ fontSize: '12px', color: '#666', width: '40px' }}>
-                  {currentFilters.length === 0 ? 'Where' : 'And'}
-                </span>
-              </div>
-              
-              <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                <select
-                  value={newFilter.columnId}
-                  onChange={(e) => handleColumnChange(e.target.value)}
-                  style={{
-                    padding: '6px 8px',
-                    border: '1px solid #d1d5db',
-                    fontSize: '13px',
-                    minWidth: '120px',
-                  }}
-                >
-                  <option value="">Select field</option>
-                  {allColumns.map(column => (
-                    <option key={column.id} value={column.id}>
-                      {column.name}
-                    </option>
-                  ))}
-                </select>
-
-                {newFilter.columnId && (
-                  <select
-                    value={newFilter.operator}
-                    onChange={(e) => setNewFilter(prev => ({ 
-                      ...prev, 
-                      operator: e.target.value,
-                      value: ['is_empty', 'is_not_empty'].includes(e.target.value) ? '' : prev.value
-                    }))}
-                    style={{
-                      padding: '6px 8px',
-                      border: '1px solid #d1d5db',
-                      fontSize: '13px',
-                      minWidth: '120px',
-                    }}
-                  >
-                    {operatorOptions.map(option => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                )}
-
-                {needsValue && (
-                  <input
-                    type={selectedColumn?.type === 'number' ? 'number' : 'text'}
-                    value={newFilter.value}
-                    onChange={(e) => setNewFilter(prev => ({ ...prev, value: e.target.value }))}
-                    placeholder="Enter a value"
-                    style={{
-                      padding: '6px 8px',
-                      border: '1px solid #d1d5db',
-                      fontSize: '13px',
-                      minWidth: '120px',
-                    }}
-                  />
-                )}
-
-                <button
-                  onClick={handleAddFilter}
-                  disabled={!newFilter.columnId || !newFilter.operator}
-                  style={{
-                    padding: '6px 12px',
-                    background: newFilter.columnId && newFilter.operator ? '#3b82f6' : '#e5e7eb',
-                    color: newFilter.columnId && newFilter.operator ? 'white' : '#6b7280',
-                    border: 'none',
-                    borderRadius: '4px',
-                    fontSize: '12px',
-                    cursor: newFilter.columnId && newFilter.operator ? 'pointer' : 'not-allowed',
-                  }}
-                >
-                  Add
-                </button>
-              </div>
-            </div>
-        </>
-          )}
+      )}
 
       {/* Action Buttons - Always at bottom */}
       <div style={{ 
@@ -400,7 +383,26 @@ export default function FilterContextMenu({
       }}>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           <button
-            onClick={() => setShowAddFilterRow(true)}
+            onClick={() => {
+              setShowAddFilterRow(true);
+              setHeaderTrue(true);
+              // Auto-add first filter immediately
+              if (allColumns.length > 0) {
+                const firstColumn = allColumns[0];
+                if (firstColumn) {
+                  const operators = getOperatorOptions(firstColumn.type);
+                  const filter: FilterCondition = {
+                    id: `filter-${Date.now()}`,
+                    columnId: firstColumn.id,
+                    columnName: firstColumn.name,
+                    columnType: firstColumn.type,
+                    operator: operators[0]?.value ?? '',
+                    value: '',
+                  };
+                  onAddFilter(filter);
+                }
+              }
+            }}
             className='add_condition_button'
           >
             + Add filter
@@ -413,23 +415,6 @@ export default function FilterContextMenu({
           </button>
           <Image src={Help} alt='' width={20} height={15}/>
         </div>
-
-        {currentFilters.length > 0 && (
-          <button
-            onClick={onClearAllFilters}
-            style={{
-              padding: '6px 12px',
-              background: 'transparent',
-              color: '#ef4444',
-              border: 'none',
-              borderRadius: '4px',
-              fontSize: '12px',
-              cursor: 'pointer',
-            }}
-          >
-            Clear all
-          </button>
-        )}
       </div>
     </div>
   );

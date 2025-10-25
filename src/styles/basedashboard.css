@@ -505,6 +505,20 @@
   width: 19px;
   height: 19px;
   margin-right: 4px;
+  color: black;
+}
+
+.Filtered-more-than-0 {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  background-color: #CFF5D1;
+}
+
+.No-Filtered-Yet {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
 }
 
 .table-controls-left, .table-controls-right {

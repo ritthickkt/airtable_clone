@@ -1,6 +1,8 @@
 'use client';
 import '../../styles/customdropdown.css'
 import { useState, useRef, useEffect } from 'react';
+import Image from 'next/image';
+import DownArrow from '../assets/down-arrow.svg';
 
 interface DropdownOption {
   value: string;
@@ -78,7 +80,7 @@ export default function CustomDropdown({
           {selectedOption?.icon && <span className="custom-dropdown-icon">{selectedOption.icon}</span>}
           {selectedOption?.label || placeholder}
         </span>
-        <span className="custom-dropdown-arrow">▼</span>
+        <Image src={DownArrow} alt='' width={15} height={15}/>
       </button>
 
       {isOpen && (

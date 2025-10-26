@@ -637,7 +637,7 @@ export default function DataTable({
   const getColumnIcon = useCallback((type: string) => {
     switch (type) {
       case 'text': return <TextIcon/>;
-      case 'number': return <Image src={Number} alt='' width={15} height={15}/>;
+      case 'number': return <Image src={Number} alt='' width={15} height={15} style={{ marginRight: '8px'}}/>;
       default: return '📝';
     }
   }, []);

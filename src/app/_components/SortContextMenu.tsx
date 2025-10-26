@@ -6,6 +6,8 @@ import Search from '../assets/search.svg';
 import CustomDropdown from './CustomDropdown';
 import '../../styles/sortcontextmenu.css';
 import HelpIcon from '../assets/help-icon-grey.png';
+import Text from '../assets/text-type.png';
+import Number from '../assets/number.svg';
 
 interface SortDropdownProps {
   visible: boolean;
@@ -122,8 +124,8 @@ export default function SortDropdown({
 
   const getColumnIcon = (type: string) => {
     switch (type) {
-      case 'text': return 'A';
-      case 'number': return '#';
+      case 'text': return <Image src={Text} alt='' width={15} height={15}/>;
+      case 'number': return <Image src={Number} alt='' width={15} height={15}/>;
       default: return '📝';
     }
   };
@@ -201,7 +203,6 @@ export default function SortDropdown({
               const columnOptions = allColumns.map(column => ({
                 value: column.id,
                 label: column.name,
-                icon: getColumnIcon(column.type)
               }));
               
               return (

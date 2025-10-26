@@ -21,6 +21,9 @@ import TableLoading from './TableLoading';
 import React from 'react';
 import Expand from '../assets/expand.svg';
 import '../../styles/basedashboard.css';
+import Number from '../assets/number.svg';
+import AddIcon from '../assets/add.svg';
+import MagicButton from '../assets/magic.svg';
 
 const columnHelper = createColumnHelper<TableRow>();
 
@@ -196,36 +199,42 @@ export default function DataTable({
   }, []);
 
   const tableData = useMemo(() => {
-  if (currentFilters.length > 0 || currentSort.length > 0) {
-    const localData = tablesData[currentTable?.id ?? ''] ?? [];
-    
-    const paginatedRecords = paginatedData?.pages.flatMap(page => 
-      page.records.map((record) => {
-        const data = record.data as Record<string, unknown> || {};
-        const serverRecord = {
-          id: record.id,
-          ...data,
-        } as TableRow;
-        
-        const localVersion = localData.find(r => r.id === record.id);
-        return localVersion || serverRecord;
-      })
-    ) ?? [];
-  
-  
-    if (searchTerm.trim() && searchResults.length > 0) {
-      const rowResults = searchResults.filter(result => !result.isColumnHeader);
+    if (currentFilters.length > 0 || currentSort.length > 0) {
+      const localData = tablesData[currentTable?.id ?? ''] ?? [];
       
-      if (rowResults.length > 0) {
-        const recordIdsWithMatches = new Set(
-          rowResults.map(result => result.rowId)
-        );
-        
-        return paginatedRecords.filter(row => recordIdsWithMatches.has(row.id));
-      }
-    }
+      const paginatedRecords = paginatedData?.pages.flatMap(page => 
+        page.records.map((record) => {
+          const data = record.data as Record<string, unknown> || {};
+          const serverRecord = {
+            id: record.id,
+            ...data,
+          } as TableRow;
+          
+          const localVersion = localData.find(r => r.id === record.id);
+          return localVersion || serverRecord;
+        })
+      ) ?? [];
     
-    return paginatedRecords;
+      const optimisticRecords = localData.filter(row => 
+        row.id.startsWith('temp-') && !paginatedRecords.some(r => r.id === row.id)
+      );
+      
+      const allRecords = [...paginatedRecords, ...optimisticRecords];
+    
+      // Apply search filter if needed
+      if (searchTerm.trim() && searchResults.length > 0) {
+        const rowResults = searchResults.filter(result => !result.isColumnHeader);
+        
+        if (rowResults.length > 0) {
+          const recordIdsWithMatches = new Set(
+            rowResults.map(result => result.rowId)
+          );
+          
+          return allRecords.filter(row => recordIdsWithMatches.has(row.id));
+        }
+      }
+      
+      return allRecords;
   }
   
   // ✅ No filters/sort - use server data as source of truth but overlay local edits
@@ -635,7 +644,7 @@ export default function DataTable({
   const getColumnIcon = useCallback((type: string) => {
     switch (type) {
       case 'text': return <TextIcon/>;
-      case 'number': return <div>#</div>;
+      case 'number': return <Image src={Number} alt='' width={15} height={15}/>;
       default: return '📝';
     }
   }, []);
@@ -779,7 +788,11 @@ export default function DataTable({
               : row
           )
         }));
-      
+        
+        // ✅ Refetch to get the new row in the correct sorted position
+        if (currentSort.length > 0 || currentFilters.length > 0) {
+          refetch();
+        }
       },
       onError: () => {
         onTablesDataChange(prev => ({
@@ -789,7 +802,7 @@ export default function DataTable({
       },
       onSettled: () => setIsCreatingRecord(false),
     });
-  }, [currentTable, createRecordMutation, isCreatingRecord]);
+  }, [currentTable, createRecordMutation, isCreatingRecord, currentSort, currentFilters, refetch, onTablesDataChange]);
 
   const add100kRows = useCallback(async () => {
     if (!currentTable || isCreatingRecord) return;
@@ -1348,7 +1361,6 @@ return (
                   width: '100%',
                 }}
               >
-                {/* ✅ Removed the wrapper div, apply width directly to table */}
                 <table style={{
                   position: 'sticky',
                   top: 0,
@@ -1510,7 +1522,6 @@ return (
             </>
           )}
         </div>
-        {/* ✅ MOVED OUTSIDE table-wrapper but still inside parent div */}
         {isColumnModalOpen && colConfigPosition && (
           <div
             ref={colConfigRef}
@@ -1529,6 +1540,10 @@ return (
             />
           </div>
         )}
+        <div className='external-add-button'>
+          <div className='external-add-image' onClick={addNewRow}><Image src={AddIcon} alt='' width={15} height={15}/></div>
+          <div className='magic-add-image'><Image src={MagicButton} alt='' width={15} height={15}/>Add...</div>
+        </div>
         <div style={{
           position: 'relative',
           zIndex: 5,

@@ -1497,4 +1497,43 @@ td {
   cursor: text;
 }
 
-/* Cache bust 1761389906 */
+.external-add-button {
+  position: fixed;
+  z-index: 10000000;
+  bottom: 35px;
+  left: 350px;
+  display: flex;
+  flex-direction: row;
+  margin-left: 10px;
+  width: 140px;
+  height: 40px;
+  background-color: white; 
+  border: 1px solid #E5E5E5;
+  border-radius: 20px;
+}
+
+.external-add-image {
+  border-right: 1px solid #e5e5e5;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 40%;
+}
+
+.external-add-image:hover {
+  cursor: pointer;
+}
+
+.magic-add-image {
+  display: flex;
+  justify-content: left;
+  gap: 10px;
+  font-size: 14px;
+  padding: 5px;
+  align-items: center;
+  width: 60%;
+}
+
+.magic-add-image:hover {
+  cursor: pointer;
+}

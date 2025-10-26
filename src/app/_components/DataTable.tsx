@@ -241,8 +241,6 @@ export default function DataTable({
     })
   ) ?? [];
 
-  console.log('✅ Using unfiltered data:', paginatedRecords.length, 'records from server');
-
   const localData = tablesData[currentTable?.id ?? ''] ?? [];
   
   // ✅ Create a map of server records by ID for quick lookup
@@ -264,8 +262,6 @@ export default function DataTable({
   );
   
   const allRecords = [...mergedRecords, ...localOnlyRecords];
-  
-  console.log('📊 Final merged records:', allRecords.length);
   
   // Apply search filter if needed
   if (searchTerm.trim() && searchResults.length > 0) {
@@ -416,10 +412,10 @@ export default function DataTable({
       columnId: columnContextMenu.columnId,
     }, {
       onSuccess: () => {
-        console.log('Column deleted successfully');
+        <>
+        </>
       },
       onError: (error) => {
-        console.error('Failed to delete column:', error);
         onColumnUpdate(currentTable.id, columnToDelete);
         window.location.reload();
       }
@@ -502,8 +498,6 @@ export default function DataTable({
     return; // No change, skip update
   }
 
-  console.log('💾 Updating local state for record:', actualRow.id, 'field:', fieldKey, 'value:', value);
-
   // ✅ IMMEDIATELY update the tableData to show the change
   onTablesDataChange(prev => {
     const currentData = prev[currentTable.id] ?? [];
@@ -538,7 +532,6 @@ export default function DataTable({
 
   // Debounce the server update
   (window as any)[`updateTimeout_${updateKey}`] = setTimeout(() => {
-    console.log('🌐 Sending to server:', actualRow.id, fieldKey, value);
     
     updateCellMutation.mutate({
       recordId: actualRow.id,
@@ -546,12 +539,10 @@ export default function DataTable({
       value: value as string,
     }, {
       onSuccess: () => {
-        console.log('✅ Cell updated on server successfully');
         // ✅ After successful save, we can optionally clear the local state
         // But keeping it doesn't hurt - next refetch will sync it
       },
       onError: (error) => {
-        console.error('❌ Failed to update cell:', error);
         // Revert on error
         onTablesDataChange(prev => {
           const currentData = prev[currentTable.id] ?? [];
@@ -700,10 +691,8 @@ export default function DataTable({
           }, 50);
         }
         
-        console.log('Column created:', realColumn);
       },
       onError: () => {
-        console.error('Failed to create column');
         setIsColumnModalOpen(false);
         window.location.reload();
       }
@@ -888,9 +877,7 @@ export default function DataTable({
       // ✅ Only refetch once at the very end to replace temp IDs with real ones
       await refetch();
       
-      console.log('✅ All 100k rows created');
     } catch (error) {
-      console.error('Failed to add 100k rows:', error);
       // ✅ On error, clear optimistic records and refetch
       onTablesDataChange(prev => ({
         ...prev,
@@ -1492,19 +1479,15 @@ return (
                 columnName={columnContextMenu?.columnName ?? ''}
                 columnType={columnContextMenu?.columnType ?? 'text'}
                 onEdit={() => {
-                  console.log('Edit column');
                   setColumnContextMenu(null);
                 }}
                 onDuplicate={() => {
-                  console.log('Duplicate column');
                   setColumnContextMenu(null);
                 }}
                 onInsertLeft={() => {
-                  console.log('Insert left');
                   setColumnContextMenu(null);
                 }}
                 onInsertRight={() => {
-                  console.log('Insert right');
                   setColumnContextMenu(null);
                 }}
                 onHide={() => handleHideColumn(columnContextMenu?.columnId ?? '')}

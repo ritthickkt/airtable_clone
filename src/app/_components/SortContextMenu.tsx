@@ -97,7 +97,16 @@ export default function SortDropdown({
   };
 
   const handleRemoveSort = (columnId: string) => {
-    setPendingSort(prev => prev.filter(s => s.columnId !== columnId));
+    const newSort = pendingSort.filter(s => s.columnId !== columnId);
+    setPendingSort(newSort);
+    
+    // ✅ Apply the change immediately
+    onApplySort(newSort);
+    
+    // ✅ If no sorts left, close the menu
+    if (newSort.length === 0) {
+      onCancel();
+    }
   };
 
   const handleApplySort = () => {

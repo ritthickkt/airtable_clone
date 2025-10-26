@@ -215,13 +215,6 @@ export default function DataTable({
         })
       ) ?? [];
     
-      const optimisticRecords = localData.filter(row => 
-        row.id.startsWith('temp-') && !paginatedRecords.some(r => r.id === row.id)
-      );
-      
-      const allRecords = [...paginatedRecords, ...optimisticRecords];
-    
-      // Apply search filter if needed
       if (searchTerm.trim() && searchResults.length > 0) {
         const rowResults = searchResults.filter(result => !result.isColumnHeader);
         
@@ -230,11 +223,11 @@ export default function DataTable({
             rowResults.map(result => result.rowId)
           );
           
-          return allRecords.filter(row => recordIdsWithMatches.has(row.id));
+          return paginatedRecords.filter(row => recordIdsWithMatches.has(row.id));
         }
       }
       
-      return allRecords;
+      return paginatedRecords;
   }
   
   // ✅ No filters/sort - use server data as source of truth but overlay local edits

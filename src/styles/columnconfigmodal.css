@@ -31,6 +31,15 @@
   border-bottom: 1px solid #e1e5e9;
 }
 
+.button-for-selection-type {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 10px;
+  gap: 5px;
+  border-radius: 8px;
+}
+
 .modal-header h3 {
   margin: 0;
   font-size: 18px;

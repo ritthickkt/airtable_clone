@@ -3,6 +3,8 @@ import { useState } from 'react';
 import type { Session } from "next-auth";
 import logo from "../assets/airtable.svg";
 import backButton from "../assets/backButton.svg";
+import bellIcon from '../assets/bell-icon.svg';
+import help from '../assets/help.svg';
 
 interface test {
   session: Session | null;
@@ -47,8 +49,8 @@ export default function NavigateSidebar({
           </button>
         </div>
         <div className='left-most-bar-bottom'>
-          <div className='help-icon' title='help'></div>
-          <div className='bell-icon'></div>
+          <Image src={help} alt='' width={15} height={15}/>
+          <Image src={bellIcon} alt='' width={15} height={15}/>
           <div className="user-avatar">
             {session?.user?.name?.charAt(0).toUpperCase() ?? 'U'}
           </div>

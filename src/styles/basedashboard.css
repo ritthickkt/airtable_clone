@@ -118,7 +118,7 @@
   align-self: bottom;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 25px;
   align-items: center;
   justify-content: center;
 }

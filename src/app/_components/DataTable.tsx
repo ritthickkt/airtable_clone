@@ -19,7 +19,7 @@ import ColumnContextMenu from './ColumnContextMenu';
 import { faker } from '@faker-js/faker';
 import TableLoading from './TableLoading';
 import React from 'react';
-import Expand from '../assets/expand-icon.svg';
+import Expand from '../assets/expand.svg';
 import '../../styles/basedashboard.css';
 
 const columnHelper = createColumnHelper<TableRow>();

@@ -6,6 +6,15 @@ import '../../styles/columnconfigmodal.css'
 import Search from '../assets/search.svg';
 import Image from 'next/image';
 import Help from '../assets/help-icon-grey.png';
+import Text from '../assets/text-type.svg';
+import LongLine from '../assets/long-line.svg';
+import MultipleSelect from '../assets/multiple-select.svg';
+import LongText from '../assets/long-line.svg';
+import Number from '../assets/number.svg';
+import SingleSelect from '../assets/single-select.svg';
+import Attachment from '../assets/attachment.svg';
+import CheckBox from '../assets/checkbox.svg';
+
 
 interface ColumnConfigurationProps {
   isOpen: boolean;
@@ -67,14 +76,13 @@ export default function ColumnConfiguration({ isOpen, onClose, onCreateColumn }:
   if (!isOpen) return null;
 
   const fieldTypes = [
-    { icon: '≋', label: 'Single line text', type: 'text' as const },
-    { icon: '≡', label: 'Long text', type: 'text' as const },
-    { icon: '#', label: 'Number', type: 'number' as const },
-    { icon: '☑', label: 'Checkbox', type: 'text' as const },
-    { icon: '▼', label: 'Single select', type: 'text' as const },
-    { icon: '☰', label: 'Multiple select', type: 'text' as const },
-    { icon: '📎', label: 'Attachment', type: 'text' as const },
-    { icon: '🔗', label: 'Link to another record', type: 'text' as const },
+    { icon: <Image src={Text} alt='' width={15} height={15}/>, label: 'Single line text', type: 'text' as const },
+    { icon: <Image src={LongLine} alt='' width={15} height={15}/>, label: 'Long text', type: 'text' as const },
+    { icon: <Image src={Number} alt='' width={15} height={15}/>, label: 'Number', type: 'number' as const },
+    { icon: <Image src={CheckBox} alt='' width={15} height={15}/>, label: 'Checkbox', type: 'text' as const },
+    { icon: <Image src={SingleSelect} alt='' width={15} height={15}/>, label: 'Single select', type: 'text' as const },
+    { icon: <Image src={MultipleSelect} alt='' width={15} height={15}/>, label: 'Multiple select', type: 'text' as const },
+    { icon: <Image src={Attachment} alt='' width={15} height={15}/>, label: 'Attachment', type: 'text' as const },
   ];
 
   const filteredFieldTypes = fieldTypes.filter(field => 
@@ -127,10 +135,9 @@ export default function ColumnConfiguration({ isOpen, onClose, onCreateColumn }:
           {/* Standard fields section */}
           <div style={{ marginBottom: '8px' }}>
             <h3 style={{ 
-              fontSize: '12px', 
-              fontWeight: '600', 
+              fontSize: '12px',  
               color: '#6c757d',
-              marginLeft: '10px',
+              marginBottom: '5px',
             }}>
               Standard fields
             </h3>
@@ -140,19 +147,7 @@ export default function ColumnConfiguration({ isOpen, onClose, onCreateColumn }:
                 <button
                   key={index}
                   onClick={() => handleTypeSelect(field.type)}
-                  style={{
-                    backgroundColor: 'transparent',
-                    border: 'none',
-                    padding: '5px 12px',
-                    fontSize: '14px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    width: '100%',
-                    textAlign: 'left',
-                    borderRadius: '6px',
-                  }}
+                  className='button-for-selection-type'
                   onMouseEnter={(e) => {
                     e.currentTarget.style.backgroundColor = '#f8f9fa';
                   }}
@@ -161,14 +156,10 @@ export default function ColumnConfiguration({ isOpen, onClose, onCreateColumn }:
                   }}
                 >
                   <span style={{ 
-                    fontSize: '16px',
-                    width: '24px',
-                    display: 'flex',
-                    justifyContent: 'center',
                   }}>
                     {field.icon}
                   </span>
-                  <span>{field.label}</span>
+                  <span style={{ fontSize: '14px'}}>{field.label}</span>
                   {field.label === 'Link to another record' && (
                     <span style={{ marginLeft: 'auto', color: '#6c757d' }}>›</span>
                   )}

@@ -5,6 +5,13 @@ import '../../styles/SideBar.css'
 import { cursorTo } from 'readline';
 import ViewCreationModal from './ViewCreationMenu';
 import { MdGridView, MdCalendarToday, MdViewModule, MdViewKanban, MdTimeline, MdList } from 'react-icons/md';
+import GridView from '../assets/grid-grid-creation.svg';
+import Calendar from '../assets/calendar.svg';
+import Gallery from '../assets/gallery.svg';
+import Kanban from '../assets/kanban.svg';
+import CheckList from '../assets/checklist.svg';
+import Gantt from '../assets/Gantt.svg';
+import Timeline from '../assets/timeline.svg';
 import ViewDeleteConfirm from './ViewDeleteConfirm';
 
 interface View {
@@ -109,14 +116,14 @@ export default function Sidebar({
                   flexDirection: 'column',
                   alignItems: 'flex-start',
                   fontSize: '13px',
-                  top: viewMenuPosition.y,
-                  left: viewMenuPosition.x,
+                  top: viewMenuPosition.y + 10,
+                  left: viewMenuPosition.x - 1,
                   backgroundColor: 'white',
                   borderRadius: '8px',
                   boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
                   padding: '13px',
                   zIndex: 1000,
-                  minWidth: '300px',
+                  minWidth: '250px',
                 }}
               >
                 <button
@@ -146,8 +153,8 @@ export default function Sidebar({
                     e.currentTarget.style.backgroundColor = 'transparent';
                   }}
                 >
-                  <MdGridView style={{ marginRight: '8px' }} />
-                  Grid View
+                  <Image src={GridView} alt='' width={15} height={15} style={{ marginRight: '8px'}}/>
+                  Grid
                 </button>
                 <button
                   style={{
@@ -169,7 +176,7 @@ export default function Sidebar({
                     e.currentTarget.style.backgroundColor = 'transparent';
                   }}
                 >
-                  <MdCalendarToday style={{ marginRight: '8px' }}/>
+                  <Image src={Calendar} alt='' width={15} height={15} style={{ marginRight: '8px'}}/>
                   Calendar
                 </button>
                 <button
@@ -192,7 +199,7 @@ export default function Sidebar({
                     e.currentTarget.style.backgroundColor = 'transparent';
                   }}
                 >
-                  <MdViewModule style={{ marginRight: '8px' }}/>
+                  <Image src={Gallery} alt='' width={15} height={15} style={{ marginRight: '8px'}}/>
                   Gallery
                 </button>
                 <button
@@ -215,7 +222,7 @@ export default function Sidebar({
                     e.currentTarget.style.backgroundColor = 'transparent';
                   }}
                 >
-                  <MdViewKanban style={{ marginRight: '8px' }}/>
+                  <Image src={Kanban} alt='' width={15} height={15} style={{ marginRight: '8px'}}/>
                   Kanban
                 </button>
                 <button
@@ -238,7 +245,7 @@ export default function Sidebar({
                     e.currentTarget.style.backgroundColor = 'transparent';
                   }}
                 >
-                  <MdTimeline style={{ marginRight: '8px' }}/>
+                  <Image src={Timeline} alt='' width={15} height={15} style={{ marginRight: '8px'}}/>
                   Timeline
                 </button>
                 <button
@@ -261,7 +268,7 @@ export default function Sidebar({
                     e.currentTarget.style.backgroundColor = 'transparent';
                   }}
                 >
-                  <MdList style={{ marginRight: '8px'}}/>
+                  <Image src={CheckList} alt='' width={15} height={15} style={{ marginRight: '8px'}}/>
                   List
                 </button>
                 <button
@@ -284,7 +291,7 @@ export default function Sidebar({
                     e.currentTarget.style.backgroundColor = 'transparent';
                   }}
                 >
-                  <MdList style={{ marginRight: '8px' }}/>
+                  <Image src={Gantt} alt='' width={15} height={15} style={{ marginRight: '8px'}}/>
                   Gantt
                 </button>
               </div>

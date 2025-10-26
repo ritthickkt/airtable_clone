@@ -12,8 +12,16 @@ import Home from '../assets/home_icon.svg';
 import Starred from '../assets/starred.png';
 import Shared from '../assets/shared.svg';
 import Workspaces from '../assets/Workspaces.png';
-import Import from '../assets/import-icon.png';
+import Import from '../assets/import.svg';
 import Search from '../assets/search.svg';
+import Templates from '../assets/book.svg';
+import Marketplace from '../assets/marketplace.svg';
+import upArrow from '../assets/up-arrow.svg';
+import buildAnApp from '../assets/something.svg';
+import Grid from '../assets/grid.svg';
+import cancel from '../assets/cancel.svg';
+import buildWithOmni from '../assets/buildwithOmni.png';
+import buildFromScratch from '../assets/buildWithScratch.png';
 
 import type {
   CreateBaseResponse
@@ -93,19 +101,30 @@ export default function HomePageClient({ session }: { session: Session | null })
             {/* Action Cards */}
             <div className="action-cards">
               <div className="action-card">
-                <h3>Start with Omni</h3>
+                <div className='sub-action-card'>
+                  <span>Start with Omni</span>
+                </div>
                 <p>Use AI to build a custom app tailored to your workflow</p>
               </div>
               <div className="action-card">
-                <h3>Start with templates</h3>
+                <div className='sub-action-card'>
+                  <Image src={Grid} width={25} height={25} alt=''/>
+                  <span>Start with templates</span>
+                </div>
                 <p>Select a template to get started and customize as you go.</p>
               </div>
               <div className="action-card">
-                <h3>Quickly upload</h3>
+                <div className='sub-action-card'>
+                  <Image src={upArrow} width={25} height={25} alt=''/>
+                  <span>Quickly upload</span>
+                </div>
                 <p>Easily migrate your existing projects in just a few minutes.</p>
               </div>
               <div className="action-card">
-                <h3>Build an app on your own</h3>
+                <div className='sub-action-card'>
+                  <Image src={buildAnApp} width={25} height={25} alt=''/>
+                  <span>Build an app on your own</span>
+                </div>
                 <p>Start with a blank app and build your ideal workflow.</p>
               </div>
             </div>
@@ -227,9 +246,9 @@ export default function HomePageClient({ session }: { session: Session | null })
 
           {/* Bottom Section */}
           <div className="bottom-section">
-            <button className="bottom-item">Templates and apps</button>
-            <button className="bottom-item">Marketplace</button>
-            <button className="bottom-item"><Image src={Import} alt='' width={15} height={15}/>Import</button>
+            <button className="bottom-item"><Image src={Templates} alt='' width={20} height={20}/>Templates and apps</button>
+            <button className="bottom-item"><Image src={Marketplace} alt='' width={20} height={20}/>Marketplace</button>
+            <button className="bottom-item-import"><Image className='import-button' src={Import} alt='' width={15} height={15}/>Import</button>
             <button className="create-button" onClick={() => setShowCreateModal(true)}>+ Create</button>
           </div>
         </div>
@@ -244,18 +263,22 @@ export default function HomePageClient({ session }: { session: Session | null })
           <div className='modal-content' onClick={(e) => e.stopPropagation()}>
             <div className='modal-header'>
               <h2>How do you want to start?</h2>
-              <button className="cancel-button" onClick={() => setShowCreateModal(false)}>
-                  X
-              </button>
+              <div className='cancel-button-wrapper' onClick={() => setShowCreateModal(false)}><Image src={cancel} className="cancel-button" alt='' width={10} height={10}/></div>
             </div>
             <div className="modal-buttons">
               <button className="create-confirm-button">
-                <h3>Build an app with Omni</h3>
-                <p>Use AI to build a custom app tailored to your workflow</p>
+                <Image className="image" src={buildWithOmni} alt='' />
+                <div className='create-confirm-button-words'>
+                  <h3>Build an app with Omni</h3>
+                  <p>Use AI to build a custom app tailored to your workflow</p>
+                </div>
               </button>
               <button className="create-confirm-button" onClick={handleCreateDatabase} disabled={!newBaseName.trim() || isCreating}>
-                <h3>Build an app on your own</h3>
-                <p>Start with a blank app and build ideal workflow</p>
+                <Image className="image" src={buildFromScratch} alt='' />
+                <div className='create-confirm-button-words'>
+                  <h3>Build an app on your own</h3>
+                  <p>Start with a blank app and build ideal workflow</p>
+                </div>
               </button>
             </div>
           </div>

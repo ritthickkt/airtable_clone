@@ -49,7 +49,7 @@ Follow these instructions to get a local copy up and running for development and
 
 1.  **Clone the repository:**
     ```sh
-    git clone <your-repository-url>
+    git clone https://github.com/ritthickkt/airtable_clone.git
     cd airtable_clone
     ```
 

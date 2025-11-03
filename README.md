@@ -22,6 +22,7 @@ This project is a full-stack web application that replicates the core functional
     *   Advanced sorting and filtering capabilities.
     *   Show, hide, and reorder columns.
 *   **Type-Safe API**: End-to-end type safety with tRPC, ensuring consistency between the client and server.
+*   **Adding 100k Rows**: Ability to add 100,000 rows at once with optimistic UI updates and infinite scrolling for a smooth user experience.
 
 ## 🛠️ Tech Stack
 

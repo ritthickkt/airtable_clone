@@ -157,7 +157,6 @@ export default function FilterContextMenu({
         </div>
       )}
 
-      {/* Empty state */}
       {currentFilters.length === 0 && !showAddFilterRow && (
         <div className='no-filters-applied-and-help'>
           <div style={{ 
@@ -171,14 +170,12 @@ export default function FilterContextMenu({
         </div>
       )}
 
-      {/* Current Filters */}
       {currentFilters.map((filter, index) => (
         <div key={filter.id} className="filter-condition" style={{
           marginTop: index === 0 ? '0' : '16px',
           display: 'flex',
           flexDirection: 'row',
         }}>
-          {/* Logical Operator Selector (AND/OR) - Only show for filters after the first */}
           {index > 0 && (
             <div style={{ display: 'flex', alignItems: 'center'}}>
               <select
@@ -202,7 +199,6 @@ export default function FilterContextMenu({
             </div>
           )}
           
-          {/* Filter Row */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             {index === 0 && <span style={{ fontSize: '12px', color: '#666', fontWeight: '500', marginRight: '11px'}}>Where</span>}
             
@@ -314,14 +310,12 @@ export default function FilterContextMenu({
         </div>
       ))}
 
-      {/* Add New Filter row */}
       {(showAddFilterRow || currentFilters.length > 0) && (
         <div className="add-filter-section" style={{
           marginTop: '16px',
           display: 'flex',
           flexDirection: 'row',
         }}>
-          {/* Show AND/OR selector for new filter if filters exist */}
           {currentFilters.length > 0 && (
             <div style={{ display: 'flex', alignItems: 'center'}}>
               <div style={{
@@ -391,7 +385,7 @@ export default function FilterContextMenu({
                     columnType: firstColumn.type,
                     operator: operators[0]?.value ?? '',
                     value: '',
-                    logicalOperator: undefined, // First filter has no logical operator
+                    logicalOperator: undefined, 
                   };
                   onAddFilter(filter);
                 }
@@ -402,7 +396,7 @@ export default function FilterContextMenu({
             + Add filter
           </button>
           <button
-            onClick={() => {/* TODO: Add condition group */}}
+            onClick={() => {/* Add condition group */}}
             className='add_condition_group_button'
           >
             + Add condition group

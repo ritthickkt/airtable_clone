@@ -29,7 +29,6 @@ const config = {
       },
     ];
   },
-  regions: ['syd1'],
 };
 
 export default config;

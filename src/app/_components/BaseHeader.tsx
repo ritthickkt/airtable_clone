@@ -28,7 +28,6 @@ export default function BaseHeader({
 
   return (
     <>
-      {/* Main header */}
       <div className="base-header">
         <div className="base-header-left">
           <div className="base-icon-header">

@@ -22,7 +22,6 @@ export default function TableTabs({
   handleCreateTable, 
   createTableMutation = { isPending: false }
 }: TableTabsProps) {
-  // ✅ Local state for instant UI updates (no flicker)
   const [activeIndex, setActiveIndex] = useState(currentTableIndex);
   
   const [showMenu, setShowMenu] = useState(false);
@@ -35,17 +34,13 @@ export default function TableTabs({
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // ✅ Only sync from URL changes (browser back/forward)
   useEffect(() => {
     const urlTableIndex = parseInt(searchParams.get('tableIndex') ?? '0', 10);
     setActiveIndex(urlTableIndex);
   }, [searchParams]);
 
   const handleTableChange = (index: number) => {
-    // ✅ Update local state FIRST for instant visual feedback
     setActiveIndex(index);
-    
-    // ✅ Then update parent (triggers data loading)
     setCurrentTableIndex(index);
     
     const params = new URLSearchParams(searchParams.toString());
@@ -124,7 +119,6 @@ export default function TableTabs({
               onClick={() => handleTableChange(index)}
             >
               {table.name}
-              {/* ✅ Use activeIndex instead of currentTableIndex - no flicker! */}
               {index === activeIndex && (
                 <Image src={DownArrow} alt='' width={15} height={15}/>
               )}

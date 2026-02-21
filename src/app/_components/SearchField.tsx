@@ -49,7 +49,7 @@ export default function SearchOverlay({
       return;
     }
     setIsTyping(true);
-    const timeout = setTimeout(() => setIsTyping(false), 600); // 600ms after last keystroke
+    const timeout = setTimeout(() => setIsTyping(false), 600);
     return () => clearTimeout(timeout);
   }, [searchTerm]);
 

@@ -102,10 +102,8 @@ export default function SortDropdown({
     const newSort = pendingSort.filter(s => s.columnId !== columnId);
     setPendingSort(newSort);
     
-    // ✅ Apply the change immediately
     onApplySort(newSort);
     
-    // ✅ If no sorts left, close the menu
     if (newSort.length === 0) {
       onCancel();
     }
@@ -236,7 +234,6 @@ export default function SortDropdown({
               + <div></div>Add another sort
             </button>
 
-            {/* Sort Button */}
             <button
               className="sort-apply-btn"
               onClick={handleApplySort}

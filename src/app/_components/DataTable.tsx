@@ -230,7 +230,6 @@ export default function DataTable({
       return paginatedRecords;
   }
   
-  // ✅ No filters/sort - use server data as source of truth but overlay local edits
   const paginatedRecords = paginatedData?.pages.flatMap(page => 
     page.records.map((record) => {
       const data = record.data as Record<string, unknown> || {};
@@ -243,27 +242,21 @@ export default function DataTable({
 
   const localData = tablesData[currentTable?.id ?? ''] ?? [];
   
-  // ✅ Create a map of server records by ID for quick lookup
   const serverRecordsMap = new Map(
     paginatedRecords.map(record => [record.id, record])
   );
   
-  // ✅ Merge: Use server record order, but overlay local edits
   const mergedRecords = paginatedRecords.map(serverRecord => {
     const localVersion = localData.find(r => r.id === serverRecord.id);
-    // If there's a local version, use it (has unsaved edits)
-    // Otherwise use the server version
     return localVersion || serverRecord;
   });
   
-  // ✅ Add any local-only records (optimistic creates) at the end
   const localOnlyRecords = localData.filter(row => 
     !serverRecordsMap.has(row.id)
   );
   
   const allRecords = [...mergedRecords, ...localOnlyRecords];
   
-  // Apply search filter if needed
   if (searchTerm.trim() && searchResults.length > 0) {
     const rowResults = searchResults.filter(result => !result.isColumnHeader);
     
@@ -284,13 +277,11 @@ export default function DataTable({
       return searchResults;
     }
 
-    // Create a map of rowId to new index in filtered tableData
   const rowIdToNewIndex = new Map<string, number>();
     tableData.forEach((row, index) => {
       rowIdToNewIndex.set(row.id, index);
     });
 
-    // Update search results with new indices
     return searchResults.map(result => {
       if (result.isColumnHeader) {
         return result;
@@ -302,7 +293,6 @@ export default function DataTable({
         rowIndex: newIndex ?? result.rowIndex
       };
     }).filter(result => {
-      // Remove results for rows that are no longer visible
       if (result.isColumnHeader) return true;
       return rowIdToNewIndex.has(result.rowId);
     });
@@ -485,27 +475,23 @@ export default function DataTable({
   const actualRow = tableData[rowIndex];
   if (!actualRow) return;
 
-  // ✅ Don't update temp/bulk records OR if switching tables
   if (actualRow.id.startsWith('temp-bulk-') || 
       actualRow.id.startsWith('temp-') ||
       isTableSwitching) {
     return;
   }
 
-  // ✅ Check if value actually changed
   const currentValue = actualRow[fieldKey as keyof TableRow];
   if (currentValue === value) {
-    return; // No change, skip update
+    return;
   }
 
-  // ✅ IMMEDIATELY update the tableData to show the change
   onTablesDataChange(prev => {
     const currentData = prev[currentTable.id] ?? [];
     
     const existingIndex = currentData.findIndex(r => r.id === actualRow.id);
     
     if (existingIndex >= 0) {
-      // Update existing local record
       const updatedData = [...currentData];
       updatedData[existingIndex] = { 
         ...updatedData[existingIndex], 
@@ -516,7 +502,6 @@ export default function DataTable({
         [currentTable.id]: updatedData
       };
     } else {
-      // Create new local record with the update
       return {
         ...prev,
         [currentTable.id]: [...currentData, { ...actualRow, [fieldKey]: value }]
@@ -530,7 +515,6 @@ export default function DataTable({
     clearTimeout((window as any)[`updateTimeout_${updateKey}`]);
   }
 
-  // Debounce the server update
   (window as any)[`updateTimeout_${updateKey}`] = setTimeout(() => {
     
     updateCellMutation.mutate({
@@ -539,11 +523,10 @@ export default function DataTable({
       value: value as string,
     }, {
       onSuccess: () => {
-        // ✅ After successful save, we can optionally clear the local state
+        // After successful save, we can optionally clear the local state
         // But keeping it doesn't hurt - next refetch will sync it
       },
       onError: (error) => {
-        // Revert on error
         onTablesDataChange(prev => {
           const currentData = prev[currentTable.id] ?? [];
           const existingIndex = currentData.findIndex(r => r.id === actualRow.id);
@@ -636,7 +619,6 @@ export default function DataTable({
   const handleCreateColumn = useCallback((name: string, type: 'text' | 'number') => {
     if (!currentTable) return;
     
-    // ✅ Save current active element before mutation
     const activeElement = document.activeElement as HTMLInputElement;
     const wasEditing = activeElement && activeElement.tagName === 'INPUT';
     const editingValue = wasEditing ? activeElement.value : null;
@@ -675,7 +657,6 @@ export default function DataTable({
         };
         onColumnUpdate(currentTable.id, updatedColumn);
         
-        // ✅ Restore focus after column is added
         if (wasEditing && editingRowIndex && editingColIndex) {
           setTimeout(() => {
             const cell = document.querySelector(
@@ -700,29 +681,6 @@ export default function DataTable({
     
     setIsColumnModalOpen(false);
   }, [currentTable, createColumnMutation, onColumnUpdate]);
-
-  // const addNewCol = useCallback(() => {
-  //   if (addColBtnRef.current) {
-  //     const rect = addColBtnRef.current.getBoundingClientRect();
-  //     const popupWidth = 300;
-  //     const popupHeight = 200;
-
-  //     let top = rect.bottom + window.scrollY;
-  //     let left = rect.left + window.scrollX;
-
-  //     if (left + popupWidth > window.innerWidth) {
-  //       left = window.innerWidth - popupWidth - 16;
-  //     }
-  //     if (top + popupHeight > window.innerHeight + window.scrollY) {
-  //       top = rect.top + window.scrollY - popupHeight;
-  //       if (top < 0) top = 16;
-  //     }
-
-  //     setColConfigPosition({ top, left });
-  //   }
-  //   setIsColumnModalOpen(true);
-  // }, []);
-
   const addNewCol = useCallback(() => {
     if (addColBtnRef.current) {
       const rect = addColBtnRef.current.getBoundingClientRect();
@@ -751,7 +709,6 @@ export default function DataTable({
       ...emptyData,
     } as TableRow;
     
-    // Add to local state
     onTablesDataChange(prev => ({
       ...prev,
       [currentTable.id]: [...(prev[currentTable.id] ?? []), optimisticRecord]
@@ -771,7 +728,6 @@ export default function DataTable({
           )
         }));
         
-        // ✅ Refetch to get the new row in the correct sorted position
         if (currentSort.length > 0 || currentFilters.length > 0) {
           refetch();
         }
@@ -802,7 +758,7 @@ export default function DataTable({
 
       const dbBatchSize = 2000;
       const concurrency = 4;
-      const uiBatchSize = 5000; // Show progress every 5k records
+      const uiBatchSize = 5000;
 
       let nextStart = 0;
       let createdSoFar = 0;
@@ -835,7 +791,6 @@ export default function DataTable({
             return row;
           });
 
-          // ✅ Create optimistic records immediately
           const tempRecords = batchPayload.map((data, idx) => ({
             id: `temp-bulk-${start + idx}`,
             ...data,
@@ -843,7 +798,6 @@ export default function DataTable({
 
           optimisticRecords.push(...tempRecords);
 
-          // ✅ Update UI every uiBatchSize records
           if (optimisticRecords.length >= uiBatchSize || start + size >= totalRecords) {
             onTablesDataChange(prev => ({
               ...prev,
@@ -852,7 +806,6 @@ export default function DataTable({
             optimisticRecords = [];
           }
 
-          // ✅ Send to server in background (don't await)
           createBulkRecordsMutation.mutateAsync({
             tableId: currentTable.id,
             records: batchPayload,
@@ -871,14 +824,11 @@ export default function DataTable({
 
       await Promise.all(Array.from({ length: concurrency }, () => worker()));
       
-      // ✅ Final update
       setBulkProgress(prev => prev ? { ...prev, added: totalRecords } : prev);
       
-      // ✅ Only refetch once at the very end to replace temp IDs with real ones
       await refetch();
       
     } catch (error) {
-      // ✅ On error, clear optimistic records and refetch
       onTablesDataChange(prev => ({
         ...prev,
         [currentTable.id]: (prev[currentTable.id] ?? []).filter(row => 
@@ -928,9 +878,7 @@ export default function DataTable({
       setIsDirty(true);
     };
 
-    // ✅ Fixed: Properly handle initial mount and row changes
     React.useEffect(() => {
-      // On initial mount, just set the refs
       if (!isMountedRef.current) {
         isMountedRef.current = true;
         prevRowIdRef.current = rowId;
@@ -938,8 +886,7 @@ export default function DataTable({
         setValue(initialValue);
         return;
       }
-
-      // Row changed (table switch or data reload)
+      
       if (prevRowIdRef.current !== rowId) {
         setValue(initialValue);
         setIsDirty(false);
@@ -948,7 +895,6 @@ export default function DataTable({
         return;
       }
 
-      // Same row, not editing - update from props (e.g., server response)
       if (!isDirty && initialValue !== prevValueRef.current) {
         setValue(initialValue);
         prevValueRef.current = initialValue;
@@ -994,7 +940,6 @@ export default function DataTable({
       </div>
     );
   }, (prevProps, nextProps) => {
-    // ✅ More strict memo comparison
     return (
       prevProps.value === nextProps.value &&
       prevProps.rowId === nextProps.rowId &&
@@ -1202,7 +1147,6 @@ const defaultColumn = useMemo(
       : undefined, 
   });
 
-  // ✅ Auto-load more rows when scrolling near the bottom
   useEffect(() => {
       if (currentFilters.length > 0 || currentSort.length > 0) {
         return;
@@ -1214,10 +1158,10 @@ const defaultColumn = useMemo(
       const lastItem1 = virtualItems[virtualItems.length - 1];
       if (!lastItem1) return;
       
-      const nearBottom = lastItem1.index >= tableData.length - 10; // last ~10 rows
+      const nearBottom = lastItem1.index >= tableData.length - 10; 
 
       if (nearBottom && hasNextPage && !isFetchingNextPage) {
-        fetchNextPage(); // automatically fetch next batch
+        fetchNextPage();
       }
     }, [
       rowVirtualizer.getVirtualItems(),

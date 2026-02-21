@@ -112,7 +112,6 @@ export default function ColumnConfiguration({ isOpen, onClose, onCreateColumn }:
     >
       {step === 'select-type' ? (
         <>
-          {/* Search bar */}
           <div style={{ marginBottom: '16px', position: 'relative' }}>
             <input
               type="text"
@@ -131,8 +130,6 @@ export default function ColumnConfiguration({ isOpen, onClose, onCreateColumn }:
               <Image className='search-button-column-config' alt='' src={Search} width={15} height={15}/>
               <Image className='help-icon-for-column-config' src={Help} width={15} height={15} alt=''/>
           </div>
-
-          {/* Standard fields section */}
           <div style={{ marginBottom: '8px' }}>
             <h3 style={{ 
               fontSize: '12px',  
@@ -170,7 +167,6 @@ export default function ColumnConfiguration({ isOpen, onClose, onCreateColumn }:
         </>
       ) : (
         <>
-          {/* Configure field step */}
           <div style={{ marginBottom: '12px' }}>
             <input
               type="text"
@@ -190,7 +186,6 @@ export default function ColumnConfiguration({ isOpen, onClose, onCreateColumn }:
             />
           </div>
 
-          {/* Field type selector */}
           <div style={{ 
             marginBottom: '12px',
             padding: '6px 8px',
@@ -212,7 +207,6 @@ export default function ColumnConfiguration({ isOpen, onClose, onCreateColumn }:
             <span style={{ color: '#6c757d' }}>⌄</span>
           </div>
 
-          {/* Description */}
           <p style={{ 
             fontSize: '13px', 
             color: '#6c757d', 
@@ -222,7 +216,6 @@ export default function ColumnConfiguration({ isOpen, onClose, onCreateColumn }:
             Enter text, or prefill each new cell with a default value.
           </p>
 
-          {/* Default value section */}
           <div>
             <label style={{ 
               fontSize: '11px', 

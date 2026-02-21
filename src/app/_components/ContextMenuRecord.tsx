@@ -22,7 +22,7 @@ export default function ContextMenuRecord({
   if (!visible) return null;
 
   const handleMenuClick = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent event bubbling to overlay
+    e.stopPropagation(); 
   };
 
   const menuItems = [
@@ -70,7 +70,6 @@ export default function ContextMenuRecord({
       >
         {menuItems.map((item, index) => (
           <React.Fragment key={index}>
-            {/* Add separator before "Add comment" */}
             {index === 5 && (
               <div 
                 style={{
@@ -81,7 +80,6 @@ export default function ContextMenuRecord({
               />
             )}
             
-            {/* Add separator before "Delete record" */}
             {index === 8 && (
               <div 
                 style={{

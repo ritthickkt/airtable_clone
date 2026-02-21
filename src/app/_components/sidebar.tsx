@@ -49,7 +49,7 @@ export default function Sidebar({
     const rect = e.currentTarget.getBoundingClientRect();
     setViewMenuPosition({
       x: rect.left + window.scrollX,
-      y: rect.bottom + window.scrollY + 8, // 8px below the button
+      y: rect.bottom + window.scrollY + 8, 
     });
     setShowViewMenu(true);
   };
@@ -67,7 +67,7 @@ export default function Sidebar({
         dropdownRef.current &&
         !dropdownRef.current.contains(event.target as Node)
       ) {
-        console.log('👆 Clicked outside, closing menu'); // Add this
+        console.log('👆 Clicked outside, closing menu'); 
         setShowCreateMenu(false);
       }
     };
@@ -94,8 +94,8 @@ export default function Sidebar({
               if (sidebarRef.current) {
                 const rect = sidebarRef.current.getBoundingClientRect();
                 setViewMenuPosition({
-                  x: rect.right + window.scrollX, // right edge of sidebar
-                  y: rect.top + window.scrollY,   // top of sidebar
+                  x: rect.right + window.scrollX, 
+                  y: rect.top + window.scrollY,  
                 });
               }
               setShowCreateMenu(true);
@@ -128,7 +128,6 @@ export default function Sidebar({
               >
                 <button
                   onClick={(e) => {
-                    // Call the parent's handler instead of local state
                     if (onCreateView) {
                       onCreateView();
                     }

@@ -21,7 +21,6 @@ export default function TableLoading({ message }: { message?: string }) {
             fill="none"
             strokeLinecap="round"
           />
-          {/* Segment 2 */}
           <path
             d="M32.124 24.5
               A14 14 0 0 1 19 33"
@@ -30,7 +29,6 @@ export default function TableLoading({ message }: { message?: string }) {
             fill="none"
             strokeLinecap="round"
           />
-          {/* Segment 3 */}
           <path
             d="M5.876 24.5
               A14 14 0 0 1 5.876 13.5"

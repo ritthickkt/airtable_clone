@@ -1,7 +1,7 @@
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { type DefaultSession, type NextAuthConfig } from "next-auth";
 import DiscordProvider from "next-auth/providers/discord";
-import GoolgeProvider from "next-auth/providers/google";
+import GoogleProvider from "next-auth/providers/google";
 
 import { db } from "ritthickclone/server/db";
 
@@ -34,7 +34,7 @@ declare module "next-auth" {
 export const authConfig = {
   providers: [
     DiscordProvider,
-    GoolgeProvider,
+    GoogleProvider,
     /**
      * ...add more providers here.
      *

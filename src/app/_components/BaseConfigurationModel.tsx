@@ -76,14 +76,14 @@ export default function BaseConfigModal({
               setIsBaseNameEditing(false);
               if (isTempBaseName !== baseName) {
                 setBaseName(isTempBaseName);
-                handleNameSave(isTempBaseName); // Pass the new name directly
+                handleNameSave(isTempBaseName); 
               }
             }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 setIsBaseNameEditing(false);
                 setBaseName(isTempBaseName);
-                handleNameSave(isTempBaseName); // Pass the new name directly
+                handleNameSave(isTempBaseName);
               }
             }}
             autoFocus
@@ -99,7 +99,6 @@ export default function BaseConfigModal({
         )}
       </div>
 
-      {/* Appearance Section */}
       <div>
         <div
           className="baseEditBlock"
@@ -172,7 +171,6 @@ export default function BaseConfigModal({
                 )}
                 {colorTab === "Icon" && (
                   <div style={{ marginTop: 16, color: "#888" }}>
-                    {/* Placeholder for icon picker */}
                     <span>Icon picker coming soon...</span>
                   </div>
                 )}
@@ -182,7 +180,6 @@ export default function BaseConfigModal({
         )}
       </div>
 
-      {/* Base Guide Section */}
       <div>
         <div
           className="baseEditBlock"
